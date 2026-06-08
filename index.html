@@ -64,20 +64,27 @@
         </div>
       </section>
 
-      <section class="panel gemma-panel" aria-labelledby="gemma-title">
+      <section class="panel gemma-panel" aria-labelledby="engine-title">
         <div class="log-header">
           <div>
             <p class="eyebrow mini">Moteur optionnel</p>
-            <h2 id="gemma-title">Gemma local</h2>
+            <h2 id="engine-title">Réflexion étendue</h2>
           </div>
           <button id="gemmaClearBtn" class="small ghost">Mode local</button>
         </div>
+
+        <div class="engine-witness" id="engineWitness" data-mode="local">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="engineLabel">Mode local</span>
+          <small id="engineDetail">Clochette improvise avec son cerveau de poche.</small>
+        </div>
+
         <label>
-          Passerelle Gemma
-          <input id="gemmaEndpointInput" type="url" placeholder="URL de passerelle locale" autocomplete="off" />
+          Passerelle de réflexion
+          <input id="gemmaEndpointInput" type="url" placeholder="URL de passerelle locale ou proxy sécurisé" autocomplete="off" />
         </label>
         <div class="button-row voice-row">
-          <button id="gemmaSaveBtn" class="small secondary">Brancher Gemma</button>
+          <button id="gemmaSaveBtn" class="small secondary">Brancher</button>
           <button id="gemmaTestBtn" class="small ghost">Tester</button>
           <p class="microcopy" id="gemmaStatus">Sans passerelle, Clochette utilise son cerveau local. C'est déjà inquiétant.</p>
         </div>
@@ -128,5 +135,6 @@
     <script src="app.js"></script>
     <script src="listen.js"></script>
     <script src="gemma-settings.js"></script>
+    <script src="engine-status.js"></script>
   </body>
 </html>
