@@ -64,6 +64,25 @@
         </div>
       </section>
 
+      <section class="panel gemma-panel" aria-labelledby="gemma-title">
+        <div class="log-header">
+          <div>
+            <p class="eyebrow mini">Moteur optionnel</p>
+            <h2 id="gemma-title">Gemma local</h2>
+          </div>
+          <button id="gemmaClearBtn" class="small ghost">Mode local</button>
+        </div>
+        <label>
+          Passerelle Gemma
+          <input id="gemmaEndpointInput" type="url" placeholder="URL de passerelle locale" autocomplete="off" />
+        </label>
+        <div class="button-row voice-row">
+          <button id="gemmaSaveBtn" class="small secondary">Brancher Gemma</button>
+          <button id="gemmaTestBtn" class="small ghost">Tester</button>
+          <p class="microcopy" id="gemmaStatus">Sans passerelle, Clochette utilise son cerveau local. C'est déjà inquiétant.</p>
+        </div>
+      </section>
+
       <section class="panel timer-panel" aria-labelledby="timer-title">
         <div>
           <h2 id="timer-title">Défi adaptatif</h2>
@@ -108,5 +127,6 @@
 
     <script src="app.js"></script>
     <script src="listen.js"></script>
+    <script src="gemma-settings.js"></script>
   </body>
 </html>
