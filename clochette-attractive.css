@@ -1,4 +1,4 @@
-/* v1.2 DOCK IMAGE — dark stage + dock silhouette */
+/* v1.2 DOCK PHOTO — dark stage + photo silhouette */
 body {
   background:
     radial-gradient(circle at 8% 8%, rgba(68, 20, 88, 0.38), transparent 22rem),
@@ -92,16 +92,16 @@ body.squat-mode::before {
 .squat-mode .clochette::before {
   content: "";
   position: fixed;
-  right: -6vw;
-  bottom: -4vh;
-  width: min(48vw, 340px);
+  right: -3vw;
+  bottom: -3vh;
+  width: min(40vw, 300px);
   height: min(74vh, 560px);
   z-index: 2;
-  background: url("assets/clochette-dock.svg") right bottom / contain no-repeat;
+  background: url("assets/clochette-photo.svg") right bottom / contain no-repeat;
   filter:
-    drop-shadow(0 20px 42px rgba(0,0,0,0.82))
-    drop-shadow(0 0 24px rgba(143,247,255,0.22));
-  transform-origin: 72% 100%;
+    drop-shadow(0 22px 46px rgba(0,0,0,0.86))
+    drop-shadow(0 0 18px rgba(143,247,255,0.16));
+  transform-origin: 74% 100%;
   animation: dockBreath 5.8s ease-in-out infinite;
   pointer-events: auto;
 }
@@ -111,12 +111,12 @@ body.squat-mode::before {
   position: fixed;
   right: 0;
   bottom: 0;
-  width: min(52vw, 390px);
+  width: min(48vw, 360px);
   height: 42vh;
   z-index: 1;
   background:
-    radial-gradient(circle at 70% 100%, rgba(255, 214, 107, 0.16), transparent 42%),
-    radial-gradient(circle at 90% 80%, rgba(143, 247, 255, 0.14), transparent 36%);
+    radial-gradient(circle at 70% 100%, rgba(255, 214, 107, 0.13), transparent 42%),
+    radial-gradient(circle at 90% 80%, rgba(143, 247, 255, 0.12), transparent 36%);
   filter: blur(2px);
   pointer-events: none;
 }
@@ -128,7 +128,7 @@ body.squat-mode::before {
 .squat-mode .bubble {
   position: fixed;
   left: 18px;
-  right: min(34vw, 270px);
+  right: min(30vw, 235px);
   bottom: 26px;
   z-index: 4;
   max-width: 560px;
@@ -171,33 +171,33 @@ body.squat-mode::before {
   0%, 100% {
     transform: translate3d(0, 0, 0) scale(1);
     filter:
-      drop-shadow(0 20px 42px rgba(0,0,0,0.82))
-      drop-shadow(0 0 22px rgba(143,247,255,0.18));
+      drop-shadow(0 22px 46px rgba(0,0,0,0.86))
+      drop-shadow(0 0 18px rgba(143,247,255,0.16));
   }
   50% {
     transform: translate3d(0, -4px, 0) scale(1.012);
     filter:
-      drop-shadow(0 24px 48px rgba(0,0,0,0.86))
-      drop-shadow(0 0 30px rgba(255,214,107,0.20));
+      drop-shadow(0 26px 52px rgba(0,0,0,0.90))
+      drop-shadow(0 0 24px rgba(255,214,107,0.16));
   }
 }
 
 @media (max-width: 760px) {
   .squat-mode .clochette::before {
-    right: -22vw;
+    right: -16vw;
     bottom: -5vh;
-    width: min(86vw, 360px);
+    width: min(72vw, 330px);
     height: min(70vh, 560px);
   }
 
   .squat-mode .clochette::after {
-    width: 88vw;
+    width: 78vw;
     height: 45vh;
   }
 
   .squat-mode .bubble {
     left: 12px;
-    right: 108px;
+    right: 132px;
     bottom: 28px;
     min-height: 98px;
     padding: 15px 16px 14px;
@@ -212,14 +212,14 @@ body.squat-mode::before {
 
 @media (max-width: 420px) {
   .squat-mode .clochette::before {
-    right: -34vw;
+    right: -28vw;
     bottom: -8vh;
-    width: 102vw;
+    width: 88vw;
     height: 72vh;
   }
 
   .squat-mode .bubble {
-    right: 88px;
+    right: 108px;
     bottom: 22px;
     min-height: 86px;
     font-size: 0.92rem;
