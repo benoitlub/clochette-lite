@@ -1,5 +1,7 @@
 const squatBtn = document.getElementById("squatBtn");
 const squatHint = document.getElementById("squatHint");
+const spriteBtnForSquat = document.getElementById("spriteBtn");
+const bubbleForSquat = document.getElementById("bubble");
 const SQUAT_KEY = "clochette-lite-squat-mode";
 
 function ensureSquatExitButton() {
@@ -9,8 +11,8 @@ function ensureSquatExitButton() {
   exitBtn = document.createElement("button");
   exitBtn.id = "squatExitBtn";
   exitBtn.type = "button";
-  exitBtn.textContent = "Quitter Squat";
-  exitBtn.setAttribute("aria-label", "Quitter le mode Squat");
+  exitBtn.textContent = "Réglages";
+  exitBtn.setAttribute("aria-label", "Accéder aux réglages de Clochette");
   exitBtn.addEventListener("click", () => setSquatMode(false, true));
   document.body.appendChild(exitBtn);
   return exitBtn;
@@ -24,20 +26,20 @@ function setSquatMode(enabled, announce = false) {
   exitBtn.hidden = !enabled;
 
   if (squatBtn) {
-    squatBtn.textContent = enabled ? "Quitter Squat" : "Mode Squat";
+    squatBtn.textContent = enabled ? "Réglages" : "Mode Squat";
   }
 
   if (squatHint) {
     squatHint.textContent = enabled
-      ? "Mode Squat actif. Clochette squatte le bord de l’écran comme une locataire lumineuse."
-      : "Mode normal : réglages. Mode Squat : Clochette habite le bord.";
+      ? "Accueil Squat actif. Clochette habite le bord. Réglages disponibles en haut."
+      : "Mode réglages. Mode Squat : Clochette habite le bord.";
   }
 
   if (announce && typeof setBubble === "function") {
     setBubble(
       enabled
         ? "Je m’installe au bord. Fais comme si c’était ton idée."
-        : "Très bien. Je retourne dans l’application comme une fée administrative.",
+        : "Très bien. J’ouvre les coulisses. Ne touche pas aux câbles avec les dents.",
       "squat"
     );
   }
@@ -48,6 +50,24 @@ function toggleSquatMode() {
   setSquatMode(enabled, true);
 }
 
+function triggerNextDialogue() {
+  if (typeof intervene === "function") {
+    intervene("manual");
+    return;
+  }
+  if (typeof setBubble === "function") {
+    const lines = [
+      "Je suis déjà là. C’est toi qui arrives en retard dans ton propre téléphone.",
+      "Clique encore. J’adore quand on confond dialogue et bouton d’ascenseur.",
+      "Hypothèse : tu testes ma patience. Bonne nouvelle, elle est décorative.",
+      "Je peux continuer. C’est mon talent et ton problème."
+    ];
+    setBubble(lines[Math.floor(Math.random() * lines.length)], "squat-dialogue");
+  }
+}
+
 squatBtn?.addEventListener("click", toggleSquatMode);
+spriteBtnForSquat?.addEventListener("click", triggerNextDialogue);
+bubbleForSquat?.addEventListener("click", triggerNextDialogue);
 ensureSquatExitButton();
-setSquatMode(localStorage.getItem(SQUAT_KEY) === "on", false);
+setSquatMode(localStorage.getItem(SQUAT_KEY) !== "off", false);
