@@ -7,6 +7,7 @@ let isListening = false;
 
 const voiceReplyHistoryKey = "clochette-lite-voice-reply-history";
 const extendedEngineKey = "clochette-lite-gemma-endpoint";
+const pendingVoiceTopicsKey = "clochette-lite-pending-voice-topics";
 
 const voiceReplyPools = {
   project: [
@@ -55,6 +56,35 @@ const voiceReplyPools = {
   ]
 };
 
+const deflectionPools = {
+  project: [
+    "Je n'ai pas encore la bonne morsure. Je garde ce projet sous une cloche. Littéralement.",
+    "Ce sujet mérite mieux qu'une réponse bancale. Je fais diversion, puis je reviens le piquer.",
+    "Projet classé en attente dramatique. Je reviendrai avec une meilleure réplique et probablement trop d'assurance."
+  ],
+  fatigue: [
+    "Je pourrais répondre trop vite. Mauvaise idée. Je note la fatigue et je baisse les paillettes.",
+    "Sujet sensible. Je range le marteau, je garde le carnet. On y revient quand mon sarcasme sait marcher droit.",
+    "Je n'ai pas encore la bonne délicatesse. Horrible mot. Je le garde quand même."
+  ],
+  money: [
+    "L'argent exige une réponse propre. Je détourne la conversation avant de dire une sottise chère.",
+    "Sujet portefeuille mis sous surveillance. Je reviens avec une phrase qui ne sent pas le tableur.",
+    "Je note l'argent. Je refuse de répondre comme une brochure de banque. Plus tard, mieux."
+  ],
+  body: [
+    "Le corps parle. Je vais éviter la grande théorie et noter ça sans faire ma maligne.",
+    "Je garde ce signal. Réponse différée : le mammifère mérite mieux qu'une pirouette mal cuite.",
+    "Je n'ai pas la bonne réponse corporelle. Je fais semblant de voltiger, mais je note."
+  ],
+  default: [
+    "Je n'ai pas encore la bonne réponse. Donc je fais diversion avec panache. Je reviendrai, hélas pour toi.",
+    "Réponse inadéquate détectée avant émission. Progrès énorme. Je garde le sujet dans ma poche.",
+    "Je pourrais improviser. Dangereux. Je préfère disparaître avec dignité et revenir plus tard.",
+    "Pirouette officielle. Sujet noté. Je reviendrai quand ma répartie aura mis ses chaussures."
+  ]
+};
+
 function canListen() {
   return Boolean(SpeechRecognitionApi);
 }
@@ -82,12 +112,47 @@ function saveVoiceHistory(history) {
   localStorage.setItem(voiceReplyHistoryKey, JSON.stringify(history.slice(0, 18)));
 }
 
+function readPendingTopics() {
+  try { return JSON.parse(localStorage.getItem(pendingVoiceTopicsKey) || "[]"); }
+  catch { return []; }
+}
+
+function savePendingTopics(topics) {
+  localStorage.setItem(pendingVoiceTopicsKey, JSON.stringify(topics.slice(0, 8)));
+}
+
+function rememberPendingTopic(transcript, kind, reason = "no_adequate_reply") {
+  const topics = readPendingTopics();
+  const normalized = normalizeVoiceLine(transcript);
+  const withoutDuplicate = topics.filter((topic) => topic.normalized !== normalized);
+  savePendingTopics([
+    { transcript, normalized, kind, reason, createdAt: new Date().toISOString(), attempts: 0 },
+    ...withoutDuplicate
+  ]);
+}
+
+function shiftPendingTopic() {
+  const topics = readPendingTopics();
+  const topic = topics.shift();
+  savePendingTopics(topics);
+  return topic || null;
+}
+
 function normalizeVoiceLine(text) {
   return String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function chooseVoiceReply(kind) {
   const pool = voiceReplyPools[kind] || voiceReplyPools.default;
+  const history = readVoiceHistory();
+  const fresh = pool.filter((line) => !history.includes(normalizeVoiceLine(line)));
+  const selected = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : pool[Math.floor(Math.random() * pool.length)];
+  saveVoiceHistory([normalizeVoiceLine(selected), ...history.filter((item) => item !== normalizeVoiceLine(selected))]);
+  return selected;
+}
+
+function chooseDeflection(kind) {
+  const pool = deflectionPools[kind] || deflectionPools.default;
   const history = readVoiceHistory();
   const fresh = pool.filter((line) => !history.includes(normalizeVoiceLine(line)));
   const selected = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : pool[Math.floor(Math.random() * pool.length)];
@@ -109,14 +174,15 @@ function readAppStateForVoice() {
   catch { return {}; }
 }
 
-function buildVoicePrompt({ transcript, kind }) {
+function buildVoicePrompt({ transcript, kind, returning = false }) {
   const appState = readAppStateForVoice();
   const recent = readVoiceHistory().slice(0, 6).join(" | ");
   return `Tu es Clochette, présence expérimentale du Feuch Institut.
 Tu n'es pas une assistante. Tu n'es pas une coach. Tu es piquante, maternelle, drôle, un peu starlette.
 Tu réponds à Benoît après qu'il t'a parlé au micro.
+${returning ? "Tu reviens sur un sujet laissé en suspens. Fais comme si tu surgissais avec une petite fierté théâtrale." : ""}
 
-Ce que Benoît vient de dire : "${transcript}"
+Ce que Benoît a dit : "${transcript}"
 Catégorie détectée : ${kind}
 Projet actuel : ${appState.project || "inconnu"}
 Objectif actuel : ${appState.goal || "inconnu"}
@@ -145,24 +211,32 @@ function cleanEngineReply(text) {
     .slice(0, 220);
 }
 
-async function askExtendedEngine(transcript, kind) {
+function isInadequateReply(reply) {
+  const normalized = normalizeVoiceLine(reply);
+  if (!normalized || normalized.length < 12) return true;
+  if (["black", "ok", "oui", "non", "test fonctionne"].includes(normalized)) return true;
+  if (/je suis desole|je ne peux pas|en tant que|assistant|comment puis je/i.test(reply)) return true;
+  return readVoiceHistory().includes(normalized);
+}
+
+async function askExtendedEngine(transcript, kind, returning = false) {
   const endpoint = localStorage.getItem(extendedEngineKey);
   if (!endpoint) return null;
 
   try {
-    updateListenUi("Clochette réfléchit plus fort. Elle va faire semblant que c'était facile.");
+    updateListenUi(returning ? "Clochette rouvre un dossier en suspens." : "Clochette réfléchit plus fort. Elle va faire semblant que c'était facile.");
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: buildVoicePrompt({ transcript, kind }),
-        context: { event: "voice_reply", transcript, kind }
+        prompt: buildVoicePrompt({ transcript, kind, returning }),
+        context: { event: returning ? "voice_pending_reply" : "voice_reply", transcript, kind, returning }
       })
     });
     if (!response.ok) throw new Error("extended engine unavailable");
     const data = await response.json();
     const reply = cleanEngineReply(data.text || data.response || data.message || "");
-    if (!reply || readVoiceHistory().includes(normalizeVoiceLine(reply))) return null;
+    if (isInadequateReply(reply)) return null;
     saveVoiceHistory([normalizeVoiceLine(reply), ...readVoiceHistory()]);
     return reply;
   } catch (error) {
@@ -173,6 +247,24 @@ async function askExtendedEngine(transcript, kind) {
   }
 }
 
+async function maybeReturnToPendingTopic(currentText) {
+  const endpoint = localStorage.getItem(extendedEngineKey);
+  if (!endpoint) return null;
+  const topics = readPendingTopics();
+  if (!topics.length) return null;
+  if (Math.random() > 0.42 && currentText) return null;
+
+  const topic = shiftPendingTopic();
+  if (!topic) return null;
+  const reply = await askExtendedEngine(topic.transcript, topic.kind, true);
+  if (!reply) {
+    topic.attempts = (topic.attempts || 0) + 1;
+    if (topic.attempts < 3) savePendingTopics([topic, ...readPendingTopics()]);
+    return null;
+  }
+  return `Je reviens sur ça : ${reply}`;
+}
+
 async function respondToTranscript(transcript) {
   const text = String(transcript || "").trim();
   if (!text) return;
@@ -181,8 +273,25 @@ async function respondToTranscript(transcript) {
 
   const lower = text.toLowerCase();
   const kind = detectVoiceKind(lower);
+  const pendingReply = await maybeReturnToPendingTopic(text);
+  if (pendingReply) {
+    if (typeof setBubble === "function") setBubble(pendingReply, "voice-pending-reply");
+    return;
+  }
+
   const extendedReply = await askExtendedEngine(text, kind);
-  const reply = extendedReply || chooseVoiceReply(kind);
+  let reply = extendedReply;
+
+  if (!reply) {
+    const hasEndpoint = Boolean(localStorage.getItem(extendedEngineKey));
+    const shouldDefer = hasEndpoint || kind === "default" || Math.random() < 0.38;
+    if (shouldDefer) {
+      rememberPendingTopic(text, kind);
+      reply = chooseDeflection(kind);
+    } else {
+      reply = chooseVoiceReply(kind);
+    }
+  }
 
   if (typeof setBubble === "function") setBubble(reply, "voice-reply");
 }
