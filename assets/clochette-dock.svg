@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 620" role="img" aria-label="Clochette dock silhouette">
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe2c5"/>
+      <stop offset="0.55" stop-color="#d08b9b"/>
+      <stop offset="1" stop-color="#7b4b68"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="0.5" stop-color="#063d68"/>
+      <stop offset="1" stop-color="#1b102d"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0712"/>
+      <stop offset="0.55" stop-color="#120918"/>
+      <stop offset="1" stop-color="#28133a"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.56 0 0 0 0 0.92 0 0 0 0 1 0 0 0 .55 0" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="214" cy="594" rx="138" ry="22" fill="#05030a" opacity=".45"/>
+  <path d="M123 95c-58 41-68 127-38 180 18 32 13 66-6 108-18 38-10 95 42 132 56 40 147 43 193-15 37-46 28-103 6-146-20-39-18-70-7-105 28-89-27-172-101-181-35-4-62 7-89 27z" fill="url(#hair)" opacity=".96"/>
+  <path d="M92 202c-28 55-30 121-4 158 20 28 45 42 72 47 54 10 111-7 142-44 35-43 36-107 14-161-33 74-179 82-224 0z" fill="#061827" opacity=".7"/>
+  <path d="M139 269c-27 44-50 112-62 193-10 68 32 116 101 127 77 12 153-25 153-87-1-86-38-177-72-230-28 24-83 25-120-3z" fill="url(#dress)"/>
+  <path d="M114 377c37 21 111 25 166 0 16 38 33 88 36 125 5 62-49 89-132 78-68-9-102-47-93-104 5-33 13-67 23-99z" fill="#0a0710" opacity=".88"/>
+  <path d="M70 372c-28 44-52 92-63 143-5 25 18 43 40 29 42-27 70-68 94-119 15-31-52-80-71-53z" fill="url(#skin)"/>
+  <path d="M305 348c18 28 29 69 33 121 2 26-26 43-45 25-31-29-52-70-65-119-7-28 57-51 77-27z" fill="url(#skin)"/>
+  <path d="M34 537c35-10 64-37 91-80" fill="none" stroke="#ffe2c5" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+  <path d="M290 488c-35 30-84 58-145 73" fill="none" stroke="#ffe2c5" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+  <path d="M139 257c-18 26 4 73 57 75 50 2 83-41 63-76-33 26-82 28-120 1z" fill="url(#skin)" opacity=".95"/>
+  <path d="M123 136c-4 67 21 124 78 130 57 6 91-45 91-113 0-62-33-104-83-108-50-4-82 29-86 91z" fill="url(#skin)"/>
+  <path d="M127 123c38-51 135-51 163 4-13-68-58-101-115-90-46 9-72 43-48 86z" fill="url(#hair)"/>
+  <path d="M119 150c21-29 64-43 115-36 31 4 52 16 63 33-10-68-59-96-112-90-45 5-73 36-66 93z" fill="url(#hair)" opacity=".92"/>
+  <path d="M148 161c15-9 32-10 47-3" fill="none" stroke="#1b1020" stroke-width="5" stroke-linecap="round"/>
+  <path d="M223 160c15-8 31-7 45 3" fill="none" stroke="#1b1020" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="172" cy="181" rx="8" ry="6" fill="#06131f"/>
+  <ellipse cx="245" cy="182" rx="8" ry="6" fill="#06131f"/>
+  <circle cx="175" cy="179" r="2" fill="#8ff7ff"/>
+  <circle cx="248" cy="180" r="2" fill="#8ff7ff"/>
+  <path d="M202 187c-5 15-7 24-1 29" fill="none" stroke="#9a5f70" stroke-width="4" stroke-linecap="round"/>
+  <path d="M181 231c25 13 51 10 67-5" fill="none" stroke="#5b1735" stroke-width="6" stroke-linecap="round"/>
+  <path d="M141 270c41 31 86 31 119 0" fill="none" stroke="#06040b" stroke-width="16" stroke-linecap="round"/>
+  <path d="M139 91c-6 36 29 78 83 84 44 5 68 19 78 47 13-52-1-102-42-132-39-28-83-32-119 1z" fill="url(#hair)" opacity=".98"/>
+  <path d="M75 535c60 30 164 34 248-1" fill="none" stroke="#ffd66b" stroke-width="7" stroke-linecap="round" filter="url(#glow)" opacity=".82"/>
+  <path d="M118 546c62 15 131 13 188-3" fill="none" stroke="#8ff7ff" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+</svg>
