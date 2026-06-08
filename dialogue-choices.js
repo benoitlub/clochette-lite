@@ -1,6 +1,9 @@
 const dialogueChoicesKey = "clochette-lite-dialogue-choices-v1";
 const dialogueStateKey = "clochette-lite-dialogue-state-v1";
 
+const playfulReactions = ["✨", "🫢", "😏", "🪄", "🙃", "👀"];
+const mockGifLabels = ["[gif mental : Clochette lève un sourcil]", "[gif mental : petite révérence insolente]", "[gif mental : elle tapote le bord de l’écran]", "[gif mental : fumée dramatique inutile]"];
+
 const dialogueTrees = {
   opening: {
     question: "Je te cerne comment aujourd’hui ?",
@@ -96,6 +99,46 @@ function ensureChoicePanel() {
   return panel;
 }
 
+function ensureStatsPanel() {
+  let panel = document.getElementById("dialogueStats");
+  if (panel) return panel;
+  panel = document.createElement("div");
+  panel.id = "dialogueStats";
+  panel.className = "dialogue-stats";
+  panel.hidden = true;
+  document.body.appendChild(panel);
+  return panel;
+}
+
+function buildDialogueStats() {
+  const memory = readDialogueMemory();
+  const counts = { A: 0, B: 0, C: 0, D: 0 };
+  memory.forEach((item) => { if (counts[item.choice] !== undefined) counts[item.choice] += 1; });
+  return { memory, counts, total: memory.length };
+}
+
+function maybeShowStats() {
+  const { counts, total } = buildDialogueStats();
+  const panel = ensureStatsPanel();
+  if (total < 4 || Math.random() > 0.28) {
+    panel.hidden = true;
+    return;
+  }
+  const max = Math.max(1, ...Object.values(counts));
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="stats-title">Mini-diagnostic féerique</div>
+    ${["A", "B", "C", "D"].map((key) => `<div class="stat-row"><span>${key}</span><div class="stat-track"><i style="width:${Math.round((counts[key] / max) * 100)}%"></i></div><b>${counts[key]}</b></div>`).join("")}
+    <small>${total} réponses observées. Je ne conclus rien. Je fronce juste un sourcil.</small>
+  `;
+}
+
+function playfulSuffix() {
+  if (Math.random() < 0.28) return ` ${playfulReactions[Math.floor(Math.random() * playfulReactions.length)]}`;
+  if (Math.random() < 0.18) return `\n${mockGifLabels[Math.floor(Math.random() * mockGifLabels.length)]}`;
+  return "";
+}
+
 function renderDialogueNode(nodeId = "opening") {
   const node = dialogueTrees[nodeId] || dialogueTrees.opening;
   const panel = ensureChoicePanel();
@@ -113,6 +156,7 @@ function renderDialogueNode(nodeId = "opening") {
   });
 
   setDialogueState({ node: nodeId, updatedAt: new Date().toISOString() });
+  maybeShowStats();
 }
 
 function chooseDialogueOption(nodeId, choice) {
@@ -127,10 +171,10 @@ function chooseDialogueOption(nodeId, choice) {
   }
 
   if (typeof setBubble === "function") {
-    setBubble(choice.response || `Option ${choice.id}. Je note.`, "dialogue-response");
+    setBubble(`${choice.response || `Option ${choice.id}. Je note.`}${playfulSuffix()}`, "dialogue-response");
   }
 
-  window.setTimeout(() => renderDialogueNode(choice.next || "opening"), 1900);
+  window.setTimeout(() => renderDialogueNode(choice.next || "opening"), 2200);
 }
 
 function startClochetteDialogue() {
@@ -139,7 +183,8 @@ function startClochetteDialogue() {
 }
 
 window.startClochetteDialogue = startClochetteDialogue;
-window.clochetteDialogueMemory = { read: readDialogueMemory };
+window.clochetteDialogueMemory = { read: readDialogueMemory, stats: buildDialogueStats };
 
 ensureChoicePanel();
+ensureStatsPanel();
 window.setTimeout(startClochetteDialogue, 900);
