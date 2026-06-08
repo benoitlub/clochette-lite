@@ -26,13 +26,13 @@ function setSquatMode(enabled, announce = false) {
   exitBtn.hidden = !enabled;
 
   if (squatBtn) {
-    squatBtn.textContent = enabled ? "Réglages" : "Mode Squat";
+    squatBtn.textContent = enabled ? "Réglages" : "Retour Squat";
   }
 
   if (squatHint) {
     squatHint.textContent = enabled
       ? "Accueil Squat actif. Clochette habite le bord. Réglages disponibles en haut."
-      : "Mode réglages. Mode Squat : Clochette habite le bord.";
+      : "Réglages ouverts pour cette session. Retour Squat remet Clochette devant.";
   }
 
   if (announce && typeof setBubble === "function") {
@@ -70,4 +70,4 @@ squatBtn?.addEventListener("click", toggleSquatMode);
 spriteBtnForSquat?.addEventListener("click", triggerNextDialogue);
 bubbleForSquat?.addEventListener("click", triggerNextDialogue);
 ensureSquatExitButton();
-setSquatMode(localStorage.getItem(SQUAT_KEY) !== "off", false);
+setSquatMode(true, false);
