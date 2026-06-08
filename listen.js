@@ -6,6 +6,7 @@ let recognizer = null;
 let isListening = false;
 
 const voiceReplyHistoryKey = "clochette-lite-voice-reply-history";
+const extendedEngineKey = "clochette-lite-gemma-endpoint";
 
 const voiceReplyPools = {
   project: [
@@ -103,7 +104,76 @@ function detectVoiceKind(lower) {
   return "default";
 }
 
-function respondToTranscript(transcript) {
+function readAppStateForVoice() {
+  try { return JSON.parse(localStorage.getItem("clochette-lite-state-v2") || "{}"); }
+  catch { return {}; }
+}
+
+function buildVoicePrompt({ transcript, kind }) {
+  const appState = readAppStateForVoice();
+  const recent = readVoiceHistory().slice(0, 6).join(" | ");
+  return `Tu es Clochette, présence expérimentale du Feuch Institut.
+Tu n'es pas une assistante. Tu n'es pas une coach. Tu es piquante, maternelle, drôle, un peu starlette.
+Tu réponds à Benoît après qu'il t'a parlé au micro.
+
+Ce que Benoît vient de dire : "${transcript}"
+Catégorie détectée : ${kind}
+Projet actuel : ${appState.project || "inconnu"}
+Objectif actuel : ${appState.goal || "inconnu"}
+Énergie déclarée : ${appState.energy || "inconnue"}
+Répliques récentes normalisées à ne pas répéter : ${recent || "aucune"}
+
+Règles absolues :
+- réponds en français ;
+- maximum 24 mots ;
+- pas d'emoji ;
+- pas de diagnostic ;
+- pas de morale ;
+- pas de conseil banal ;
+- pas de phrase de chatbot ;
+- une seule réplique ;
+- si tu déduis, dis "hypothèse" ou "je suppose" ;
+- garde le style Clochette : vif, personnel, drôle, un peu insolent, jamais méchant.
+`;
+}
+
+function cleanEngineReply(text) {
+  return String(text || "")
+    .replace(/^Clochette\s*:\s*/i, "")
+    .replace(/["“”]+/g, "")
+    .trim()
+    .slice(0, 220);
+}
+
+async function askExtendedEngine(transcript, kind) {
+  const endpoint = localStorage.getItem(extendedEngineKey);
+  if (!endpoint) return null;
+
+  try {
+    updateListenUi("Clochette réfléchit plus fort. Elle va faire semblant que c'était facile.");
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: buildVoicePrompt({ transcript, kind }),
+        context: { event: "voice_reply", transcript, kind }
+      })
+    });
+    if (!response.ok) throw new Error("extended engine unavailable");
+    const data = await response.json();
+    const reply = cleanEngineReply(data.text || data.response || data.message || "");
+    if (!reply || readVoiceHistory().includes(normalizeVoiceLine(reply))) return null;
+    saveVoiceHistory([normalizeVoiceLine(reply), ...readVoiceHistory()]);
+    return reply;
+  } catch (error) {
+    console.warn("Extended voice fallback:", error);
+    return null;
+  } finally {
+    updateListenUi();
+  }
+}
+
+async function respondToTranscript(transcript) {
   const text = String(transcript || "").trim();
   if (!text) return;
 
@@ -111,7 +181,8 @@ function respondToTranscript(transcript) {
 
   const lower = text.toLowerCase();
   const kind = detectVoiceKind(lower);
-  const reply = chooseVoiceReply(kind);
+  const extendedReply = await askExtendedEngine(text, kind);
+  const reply = extendedReply || chooseVoiceReply(kind);
 
   if (typeof setBubble === "function") setBubble(reply, "voice-reply");
 }
