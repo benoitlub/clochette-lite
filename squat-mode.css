@@ -3,6 +3,26 @@
   overflow: hidden;
 }
 
+#squatExitBtn {
+  position: fixed;
+  right: 18px;
+  top: 18px;
+  z-index: 3000;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 214, 107, 0.42);
+  border-radius: 999px;
+  color: #180d23;
+  background: linear-gradient(135deg, var(--accent), #fff0a2);
+  box-shadow: 0 12px 42px rgba(0, 0, 0, 0.42), 0 0 28px rgba(255, 214, 107, 0.32);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+#squatExitBtn[hidden] {
+  display: none;
+}
+
 .squat-mode .app-shell {
   transform: scale(0.92);
   transform-origin: top center;
@@ -28,9 +48,10 @@
 .squat-mode .setup-panel {
   position: fixed;
   left: 12px;
-  right: 12px;
+  right: auto;
   top: 12px;
   z-index: 1100;
+  max-width: calc(100vw - 170px);
   margin: 0;
   padding: 10px;
   border-radius: 24px;
@@ -136,11 +157,19 @@
 }
 
 @media (max-width: 420px) {
-  .squat-mode .setup-panel {
-    left: 8px;
+  #squatExitBtn {
     right: 8px;
     top: 8px;
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 0.74rem;
+  }
+
+  .squat-mode .setup-panel {
+    left: 8px;
+    top: 8px;
     padding: 8px;
+    max-width: calc(100vw - 132px);
   }
 
   .squat-mode .setup-panel button.small {
