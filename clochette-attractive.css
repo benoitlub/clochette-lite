@@ -1,0 +1,303 @@
+/* v1.1 ATTRACTIVE — compact cyber-cabaret Clochette */
+body {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(255, 131, 216, 0.32), transparent 24rem),
+    radial-gradient(circle at 88% 14%, rgba(143, 247, 255, 0.22), transparent 24rem),
+    radial-gradient(circle at 52% 96%, rgba(255, 214, 107, 0.16), transparent 20rem),
+    linear-gradient(145deg, #0d0719, #21113b 55%, #070410);
+}
+
+.version-badge {
+  display: inline-flex;
+  margin: 0 0 12px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 214, 107, 0.32);
+  border-radius: 999px;
+  color: #ffe7a3;
+  background: rgba(255, 214, 107, 0.08);
+  box-shadow: 0 0 28px rgba(255, 214, 107, 0.12);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.clochette {
+  perspective: 900px;
+}
+
+.sprite {
+  overflow: visible;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 239, 194, 0.96) 0 18%, transparent 19%),
+    linear-gradient(160deg, rgba(31, 12, 51, 0.88), rgba(4, 14, 31, 0.92));
+  border: 1px solid rgba(255, 214, 107, 0.4);
+  box-shadow:
+    0 0 24px rgba(255, 214, 107, 0.42),
+    0 0 80px rgba(143, 247, 255, 0.2),
+    inset 0 -14px 28px rgba(255, 131, 216, 0.16);
+}
+
+.sprite::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  z-index: -2;
+  border-radius: 42% 58% 47% 53%;
+  background:
+    radial-gradient(circle at 36% 30%, rgba(255, 214, 107, 0.32), transparent 30%),
+    radial-gradient(circle at 70% 72%, rgba(143, 247, 255, 0.3), transparent 40%),
+    rgba(255, 255, 255, 0.04);
+  filter: blur(1px);
+  animation: glamourAura 5s ease-in-out infinite;
+}
+
+.sprite::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 38px;
+  z-index: 4;
+  width: 23px;
+  height: 10px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(180deg, #22102b, #ff78bd 46%, #3b132e 56%);
+  box-shadow: 0 2px 12px rgba(255, 131, 216, 0.42);
+  transform: scaleY(0.7);
+  transform-origin: center;
+  animation: clochetteMouth 2.8s ease-in-out infinite;
+}
+
+.face {
+  position: absolute;
+  left: 18px;
+  top: 15px;
+  z-index: 3;
+  width: 32px;
+  height: 41px;
+  border-radius: 48% 48% 46% 46%;
+  background:
+    radial-gradient(circle at 34% 36%, rgba(255,255,255,0.75) 0 3px, transparent 4px),
+    linear-gradient(145deg, #ffe2c8, #d496b0 70%, #8a577d);
+  box-shadow: inset 0 -8px 12px rgba(80, 23, 54, 0.25), 0 0 16px rgba(255, 226, 200, 0.28);
+}
+
+.hair,
+.hair-left,
+.hair-top {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.hair-top {
+  left: 12px;
+  top: 3px;
+  width: 44px;
+  height: 28px;
+  border-radius: 70% 45% 50% 35%;
+  background:
+    linear-gradient(135deg, #7de8ff 0%, #3b78ff 34%, #8f58ff 68%, #361a62 100%);
+  box-shadow: inset 8px -4px 12px rgba(255,255,255,0.18), 0 0 18px rgba(143,247,255,0.32);
+  transform: rotate(-8deg);
+}
+
+.hair-left {
+  left: 6px;
+  top: 18px;
+  width: 25px;
+  height: 46px;
+  border-radius: 70% 20% 80% 25%;
+  background: linear-gradient(180deg, #8f58ff, #14377d 58%, rgba(20,10,38,0.2));
+  transform: rotate(16deg);
+  opacity: 0.86;
+}
+
+.eye {
+  position: absolute;
+  z-index: 6;
+  top: 30px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #041320;
+  box-shadow: 0 0 8px rgba(143,247,255,0.8), inset 1px 0 #8ff7ff;
+}
+
+.eye-left { left: 27px; }
+.eye-right { left: 39px; }
+
+.mouth {
+  position: absolute;
+  left: 32px;
+  top: 45px;
+  z-index: 7;
+  width: 11px;
+  height: 4px;
+  border-radius: 999px;
+  background: #5e1432;
+  box-shadow: 0 0 8px rgba(255, 131, 216, 0.55);
+}
+
+.collar {
+  position: absolute;
+  left: 23px;
+  top: 55px;
+  z-index: 4;
+  width: 26px;
+  height: 14px;
+  border-radius: 6px 6px 12px 12px;
+  background: linear-gradient(135deg, #08050e, #251240 60%, #0a2037);
+  border-top: 1px solid rgba(255,214,107,0.4);
+}
+
+.body {
+  position: absolute;
+  left: 21px;
+  top: 63px;
+  z-index: 2;
+  width: 30px;
+  height: 24px;
+  border-radius: 12px 12px 50% 50%;
+  background: linear-gradient(135deg, #061522, #0b4260 35%, #2d1844 72%, #ffcf6a 120%);
+  box-shadow: inset 0 3px 8px rgba(143,247,255,0.14);
+}
+
+.wing {
+  z-index: 1;
+  top: 19px;
+  width: 30px;
+  height: 50px;
+  background: linear-gradient(150deg, rgba(143,247,255,0.72), rgba(255,255,255,0.1));
+  border: 1px solid rgba(143,247,255,0.22);
+  mix-blend-mode: screen;
+}
+
+.wing-left { left: -11px; }
+.wing-right { right: -11px; }
+
+.bubble {
+  border-color: rgba(255, 214, 107, 0.32);
+  background:
+    linear-gradient(145deg, rgba(39, 16, 62, 0.94), rgba(13, 7, 28, 0.92)),
+    radial-gradient(circle at 10% 12%, rgba(255, 131, 216, 0.18), transparent 40%);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.48),
+    0 0 34px rgba(255, 131, 216, 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.bubble::before {
+  content: "Clochette";
+  display: block;
+  margin-bottom: 6px;
+  color: #ffd66b;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.feedback-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.feedback-btn {
+  min-height: 34px;
+  padding: 0 10px;
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: none;
+}
+
+.squat-mode .clochette {
+  grid-template-columns: 100px 1fr;
+  min-height: 154px;
+  border-color: rgba(255, 214, 107, 0.36);
+  background:
+    radial-gradient(circle at 18% 28%, rgba(255, 214, 107, 0.25), transparent 22%),
+    radial-gradient(circle at 42% 18%, rgba(255, 131, 216, 0.18), transparent 30%),
+    radial-gradient(circle at 75% 100%, rgba(143, 247, 255, 0.24), transparent 42%),
+    linear-gradient(155deg, rgba(22, 8, 39, 0.92), rgba(8, 15, 28, 0.94));
+}
+
+.squat-mode .clochette::before {
+  content: "FEUCH CABARET · DOCK PERFORMER";
+  position: absolute;
+  left: 18px;
+  top: 10px;
+  color: rgba(255, 214, 107, 0.72);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  font-weight: 900;
+}
+
+.squat-mode .sprite {
+  width: 92px;
+  height: 116px;
+  min-height: 116px;
+  align-self: center;
+  border-radius: 38px 38px 44px 44px;
+  transform: translateY(6px);
+}
+
+.squat-mode .face { left: 28px; top: 24px; width: 38px; height: 48px; }
+.squat-mode .hair-top { left: 20px; top: 9px; width: 54px; height: 34px; }
+.squat-mode .hair-left { left: 13px; top: 31px; height: 58px; }
+.squat-mode .eye { top: 42px; width: 6px; height: 6px; }
+.squat-mode .eye-left { left: 40px; }
+.squat-mode .eye-right { left: 55px; }
+.squat-mode .mouth { left: 47px; top: 61px; width: 14px; }
+.squat-mode .collar { left: 31px; top: 70px; width: 38px; height: 18px; }
+.squat-mode .body { left: 28px; top: 84px; width: 42px; height: 34px; }
+.squat-mode .wing { top: 33px; height: 62px; }
+.squat-mode .wing-left { left: -13px; }
+.squat-mode .wing-right { right: -13px; }
+
+.squat-mode .bubble {
+  padding: 18px 18px 16px;
+  border-radius: 24px 24px 24px 8px;
+  font-size: 1.08rem;
+}
+
+@keyframes glamourAura {
+  0%, 100% { transform: rotate(-4deg) scale(1); opacity: 0.78; }
+  50% { transform: rotate(4deg) scale(1.08); opacity: 1; }
+}
+
+@keyframes clochetteMouth {
+  0%, 78%, 100% { transform: scaleY(0.45); opacity: 0.8; }
+  84% { transform: scaleY(1.1); opacity: 1; }
+  90% { transform: scaleY(0.62); }
+}
+
+@media (max-width: 420px) {
+  .squat-mode .clochette {
+    grid-template-columns: 78px 1fr;
+    min-height: 132px;
+  }
+
+  .squat-mode .sprite {
+    width: 72px;
+    height: 96px;
+    min-height: 96px;
+  }
+
+  .squat-mode .face { left: 22px; top: 20px; width: 31px; height: 40px; }
+  .squat-mode .hair-top { left: 15px; top: 7px; width: 45px; height: 29px; }
+  .squat-mode .hair-left { left: 10px; top: 25px; height: 48px; }
+  .squat-mode .eye { top: 35px; }
+  .squat-mode .eye-left { left: 32px; }
+  .squat-mode .eye-right { left: 44px; }
+  .squat-mode .mouth { left: 37px; top: 52px; }
+  .squat-mode .collar { left: 24px; top: 60px; width: 32px; }
+  .squat-mode .body { left: 22px; top: 72px; width: 34px; height: 28px; }
+  .squat-mode .wing { top: 28px; height: 52px; }
+
+  .squat-mode .bubble {
+    min-height: 78px;
+    font-size: 0.98rem;
+  }
+}
