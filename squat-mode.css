@@ -12,16 +12,61 @@
   transition: transform 260ms ease, opacity 260ms ease, filter 260ms ease;
 }
 
-.squat-mode .setup-panel,
 .squat-mode .gemma-panel,
 .squat-mode .timer-panel,
 .squat-mode .notebook-panel,
-.squat-mode .log-panel {
+.squat-mode .log-panel,
+.squat-mode .form-grid,
+.squat-mode .setup-panel h2 {
   display: none;
 }
 
 .squat-mode .hero {
   opacity: 0.55;
+}
+
+.squat-mode .setup-panel {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  z-index: 1100;
+  margin: 0;
+  padding: 10px;
+  border-radius: 24px;
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+  background: rgba(18, 8, 35, 0.78);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42), 0 0 28px rgba(143, 247, 255, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.squat-mode .setup-panel .voice-row {
+  margin-top: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.squat-mode .setup-panel .microcopy {
+  display: none;
+}
+
+.squat-mode .setup-panel button.small {
+  min-width: max-content;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
+.squat-mode #squatBtn {
+  color: #180d23;
+  background: linear-gradient(135deg, var(--accent), #fff0a2);
+  box-shadow: 0 0 22px rgba(255, 214, 107, 0.34);
 }
 
 .squat-mode .clochette {
@@ -91,6 +136,19 @@
 }
 
 @media (max-width: 420px) {
+  .squat-mode .setup-panel {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    padding: 8px;
+  }
+
+  .squat-mode .setup-panel button.small {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 0.72rem;
+  }
+
   .squat-mode .clochette {
     grid-template-columns: 64px 1fr;
     gap: 10px;
