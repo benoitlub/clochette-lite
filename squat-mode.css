@@ -1,0 +1,113 @@
+.squat-mode {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.squat-mode .app-shell {
+  transform: scale(0.92);
+  transform-origin: top center;
+  opacity: 0.28;
+  filter: blur(1.5px) saturate(0.8);
+  pointer-events: none;
+  transition: transform 260ms ease, opacity 260ms ease, filter 260ms ease;
+}
+
+.squat-mode .setup-panel,
+.squat-mode .gemma-panel,
+.squat-mode .timer-panel,
+.squat-mode .notebook-panel,
+.squat-mode .log-panel {
+  display: none;
+}
+
+.squat-mode .hero {
+  opacity: 0.55;
+}
+
+.squat-mode .clochette {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 18px;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 12px;
+  align-items: end;
+  justify-items: stretch;
+  max-width: none;
+  padding: 12px;
+  border: 1px solid rgba(255, 214, 125, 0.26);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 18% 40%, rgba(255, 212, 106, 0.24), transparent 30%),
+    radial-gradient(circle at 70% 120%, rgba(99, 211, 255, 0.22), transparent 45%),
+    rgba(18, 8, 35, 0.86);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 0 42px rgba(182, 86, 255, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.squat-mode .sprite {
+  width: 70px;
+  height: 70px;
+  min-height: 70px;
+  animation: squatPulse 2.4s ease-in-out infinite;
+}
+
+.squat-mode .bubble {
+  position: static;
+  max-width: none;
+  min-height: 86px;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  border-radius: 22px;
+  opacity: 1;
+  transform: none;
+}
+
+.squat-mode .feedback-row {
+  grid-column: 2;
+  justify-content: flex-start;
+  margin-top: -4px;
+}
+
+.squat-mode .bubble.hidden {
+  opacity: 0.42;
+  transform: none;
+  pointer-events: auto;
+}
+
+@keyframes squatPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(255, 214, 125, 0.45));
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(122, 220, 255, 0.6));
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
+@media (max-width: 420px) {
+  .squat-mode .clochette {
+    grid-template-columns: 64px 1fr;
+    gap: 10px;
+    left: 8px;
+    right: 8px;
+    bottom: 10px;
+    padding: 10px;
+  }
+
+  .squat-mode .sprite {
+    width: 58px;
+    height: 58px;
+    min-height: 58px;
+  }
+
+  .squat-mode .bubble {
+    min-height: 74px;
+    font-size: 0.96rem;
+  }
+}
