@@ -1,4 +1,4 @@
-/* v1.2 DOCK PHOTO — dark stage + photo silhouette */
+/* v1.2 DOCK PNG — dark stage + real photo silhouette */
 body {
   background:
     radial-gradient(circle at 8% 8%, rgba(68, 20, 88, 0.38), transparent 22rem),
@@ -97,7 +97,7 @@ body.squat-mode::before {
   width: min(40vw, 300px);
   height: min(74vh, 560px);
   z-index: 2;
-  background: url("assets/clochette-photo.svg") right bottom / contain no-repeat;
+  background: url("assets/clochette-photo.png") right bottom / contain no-repeat;
   filter:
     drop-shadow(0 22px 46px rgba(0,0,0,0.86))
     drop-shadow(0 0 18px rgba(143,247,255,0.16));
