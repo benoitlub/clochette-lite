@@ -1,8 +1,11 @@
-const CACHE_NAME = "clochette-lite-v1";
-const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./manifest.webmanifest"];
+const CACHE_NAME = "clochette-lite-v8-cachefix";
+const STATIC_ASSETS = [
+  "./style.css",
+  "./manifest.webmanifest"
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
   self.skipWaiting();
 });
 
@@ -13,8 +16,31 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+function isFreshFile(request) {
+  const url = new URL(request.url);
+  return url.pathname.endsWith("/")
+    || url.pathname.endsWith("/index.html")
+    || url.pathname.endsWith("/app.js")
+    || url.pathname.endsWith("/listen.js")
+    || url.pathname.endsWith("/gemma-settings.js")
+    || url.pathname.endsWith("/engine-status.js")
+    || url.pathname.endsWith("/phrase-bank.js")
+    || url.pathname.endsWith("/feedback.js")
+    || url.pathname.endsWith("/sw.js");
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  if (isFreshFile(event.request)) {
+    event.respondWith(
+      fetch(event.request, { cache: "no-store" })
+        .then((response) => response)
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
