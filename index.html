@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#170f2f" />
+    <title>Clochette Lite</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">Neverland Cognitive Companion</p>
+        <h1>Clochette Lite</h1>
+        <p class="subtitle">
+          Une présence piquante, maternelle et utile pour protéger ton élan sans transformer ta journée en tableur gris.
+        </p>
+      </section>
+
+      <section class="panel setup-panel" aria-labelledby="setup-title">
+        <h2 id="setup-title">Boussole du moment</h2>
+        <div class="form-grid">
+          <label>
+            Objectif à protéger
+            <select id="goalSelect">
+              <option value="creation">Création</option>
+              <option value="argent">Argent</option>
+              <option value="admin">Admin</option>
+              <option value="sante">Santé</option>
+              <option value="repos">Repos</option>
+            </select>
+          </label>
+
+          <label>
+            Projet actuel
+            <select id="projectSelect">
+              <option>Blacklace Island</option>
+              <option>Pro.Hibited Online</option>
+              <option>Terra</option>
+              <option>Neverland Ltd</option>
+              <option>Creature-sync</option>
+              <option>SpecTRL</option>
+              <option>Blacklace Dice</option>
+              <option>Prospection IA</option>
+              <option>Ateliers IA</option>
+            </select>
+          </label>
+
+          <label>
+            Énergie
+            <select id="energySelect">
+              <option value="basse">Basse</option>
+              <option value="moyenne" selected>Moyenne</option>
+              <option value="haute">Haute</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel timer-panel" aria-labelledby="timer-title">
+        <div>
+          <h2 id="timer-title">Défi adaptatif</h2>
+          <p id="timerHint">Clochette proposera un rythme selon ton énergie.</p>
+        </div>
+        <div class="timer-display" id="timerDisplay">12:00</div>
+        <div class="button-row">
+          <button id="startBtn">Démarrer</button>
+          <button id="pauseBtn" class="secondary">Pause</button>
+          <button id="resetBtn" class="ghost">Reset</button>
+        </div>
+      </section>
+
+      <section class="panel log-panel" aria-labelledby="log-title">
+        <div class="log-header">
+          <h2 id="log-title">Journal</h2>
+          <button id="manualPingBtn" class="small ghost">Faire apparaître Clochette</button>
+        </div>
+        <ul id="activityLog" class="activity-log"></ul>
+      </section>
+    </main>
+
+    <aside class="clochette" id="clochette" aria-live="polite">
+      <button class="sprite" id="spriteBtn" aria-label="Clochette">
+        <span class="wing wing-left"></span>
+        <span class="body"></span>
+        <span class="wing wing-right"></span>
+      </button>
+      <div class="bubble" id="bubble">Psst. On choisit une vraie direction ou on collectionne les cailloux brillants ?</div>
+    </aside>
+
+    <script src="app.js"></script>
+  </body>
+</html>
