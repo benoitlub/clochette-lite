@@ -26,7 +26,7 @@ function currentBubbleText() {
 
 function currentFeedbackEvent() {
   const latest = window.clochetteLastEvent || "manual";
-  if (["fatigue", "money", "drift", "win", "idle", "start", "manual", "gemma", "gemma-test", "voice-reply"].includes(latest)) return latest;
+  if (["fatigue", "money", "drift", "win", "idle", "start", "manual", "gemma", "gemma-test", "voice-reply", "voice-pending-reply"].includes(latest)) return latest;
   return "manual";
 }
 
@@ -42,6 +42,12 @@ function getStubbornness(event, text) {
   return Math.max(0.05, Math.min(0.92, score));
 }
 
+function sendFeedbackToPhraseBank(text, feedback, event) {
+  if (window.clochettePhraseBank?.feedback) {
+    window.clochettePhraseBank.feedback(text, feedback, event);
+  }
+}
+
 function adoptLine() {
   const text = currentBubbleText();
   if (!text) return;
@@ -50,10 +56,12 @@ function adoptLine() {
   const learned = readJsonStore(LEARNED_LINES_KEY, {});
   learned[event] = learned[event] || [];
 
+  sendFeedbackToPhraseBank(text, "up", event);
+
   if (!learned[event].includes(text)) {
     learned[event] = [text, ...learned[event]].slice(0, 80);
     writeJsonStore(LEARNED_LINES_KEY, learned);
-    flashFeedback("Réplique adoptée. Je vais prétendre que c'était mon idée depuis le début.");
+    flashFeedback("Réplique adoptée. Elle entre dans la cave à réparties. Millésime discutable.");
   } else {
     flashFeedback("Déjà homologuée. Je suis constante. C'est rare.");
   }
@@ -77,13 +85,14 @@ function rejectLine() {
     decision: shouldInsist ? "insist" : "revise"
   };
   writeJsonStore(CLOCHETTE_TENSION_KEY, tension);
+  sendFeedbackToPhraseBank(text, shouldInsist ? "tension" : "down", event);
 
   if (!shouldInsist && !rejected.includes(text)) {
     writeJsonStore(REJECTED_LINES_KEY, [text, ...rejected].slice(0, 120));
   }
 
   if (shouldInsist) {
-    flashFeedback("Refus noté. Je n'abandonne pas encore cette hypothèse. C'est pénible, donc possiblement utile.");
+    flashFeedback("Refus noté. Je classe ça en tension utile. Très désagréable, donc suspect.");
   } else if (rejected.includes(text)) {
     flashFeedback("Oui, oui. Celle-là est déjà au placard. Je révise mon numéro.");
   } else {
