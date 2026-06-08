@@ -22,6 +22,7 @@ const defaultState = {
   lastProject: "Blacklace Island",
   projectSwitches: 0,
   notebookIndex: 184,
+  voiceEnabled: false,
   memory: {
     favoriteProjects: ["Blacklace Island", "Terra"],
     avoidedProjects: ["Prospection IA", "Trailer Blacklace"],
@@ -152,6 +153,8 @@ const pauseBtn = $("pauseBtn");
 const resetBtn = $("resetBtn");
 const manualPingBtn = $("manualPingBtn");
 const noteBtn = $("noteBtn");
+const voiceBtn = $("voiceBtn");
+const voiceHint = $("voiceHint");
 const privateNote = $("privateNote");
 const bubble = $("bubble");
 const clochette = $("clochette");
@@ -162,6 +165,7 @@ let state = loadState();
 let interval = null;
 let lastTick = Date.now();
 let hiddenBubbleTimer = null;
+let availableVoices = [];
 
 function loadState() {
   try { return mergeState(defaultState, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")); }
@@ -172,6 +176,7 @@ function mergeState(base, saved) {
   return {
     ...structuredClone(base),
     ...saved,
+    voiceEnabled: Boolean(saved.voiceEnabled),
     memory: { ...base.memory, ...(saved.memory || {}) },
     notebook: saved.notebook || [],
     log: saved.log || []
@@ -179,6 +184,68 @@ function mergeState(base, saved) {
 }
 
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+function canSpeak() {
+  return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+}
+
+function loadVoices() {
+  if (!canSpeak()) return;
+  availableVoices = window.speechSynthesis.getVoices();
+}
+
+function pickFrenchVoice() {
+  if (!availableVoices.length) loadVoices();
+  return availableVoices.find((voice) => voice.lang && voice.lang.toLowerCase().startsWith("fr")) || availableVoices[0] || null;
+}
+
+function cleanTextForSpeech(text) {
+  return String(text || "")
+    .replace(/Feuch Institut\s*:/gi, "Feuch Institut.")
+    .replace(/Observation n°/gi, "Observation numéro ")
+    .replace(/Hypothèse n°/gi, "Hypothèse numéro ")
+    .replace(/%/g, " pour cent ")
+    .trim();
+}
+
+function speakLine(text) {
+  if (!state.voiceEnabled || !canSpeak() || !text) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(cleanTextForSpeech(text));
+  utterance.lang = "fr-FR";
+  utterance.rate = 1.03;
+  utterance.pitch = 1.16;
+  utterance.volume = 0.92;
+  const voice = pickFrenchVoice();
+  if (voice) utterance.voice = voice;
+  window.speechSynthesis.speak(utterance);
+}
+
+function updateVoiceUi() {
+  if (!voiceBtn || !voiceHint) return;
+  if (!canSpeak()) {
+    voiceBtn.textContent = "Voix indisponible";
+    voiceBtn.disabled = true;
+    voiceHint.textContent = "Synthèse vocale non disponible dans ce navigateur. Clochette reste silencieuse.";
+    return;
+  }
+  voiceBtn.textContent = state.voiceEnabled ? "Couper la voix" : "Activer la voix";
+  voiceHint.textContent = state.voiceEnabled
+    ? "Voix active. Clochette parle avec la synthèse vocale du téléphone."
+    : "La voix utilise la synthèse vocale du téléphone. Clochette ne parle qu'après ton accord.";
+}
+
+function toggleVoice() {
+  if (!canSpeak()) return;
+  state.voiceEnabled = !state.voiceEnabled;
+  saveState();
+  updateVoiceUi();
+  if (state.voiceEnabled) {
+    speakLine("Enfin. Je peux parler. Je vais essayer de rester presque raisonnable.");
+  } else {
+    window.speechSynthesis.cancel();
+  }
+}
 
 function adaptiveSeconds(energy) {
   if (energy === "basse") return 8 * 60;
@@ -207,6 +274,7 @@ function syncInputsFromState() {
   energySelect.value = state.energy;
   timerDisplay.textContent = formatTime(state.secondsLeft);
   timerHint.textContent = `Rythme ${state.energy} : ${Math.round(adaptiveSeconds(state.energy) / 60)} minutes. Pas une prison à tomates.`;
+  updateVoiceUi();
   renderNotebook();
   renderLog();
 }
@@ -262,6 +330,7 @@ function setBubble(text, event = "manual") {
   clearTimeout(hiddenBubbleTimer);
   hiddenBubbleTimer = setTimeout(() => bubble.classList.add("hidden"), 9000);
   setTimeout(() => clochette.classList.remove("alert"), 1700);
+  speakLine(text);
   addLog(text, event);
 }
 
@@ -394,12 +463,18 @@ pauseBtn.addEventListener("click", pauseTimer);
 resetBtn.addEventListener("click", resetTimer);
 manualPingBtn.addEventListener("click", () => intervene("manual"));
 noteBtn?.addEventListener("click", () => makeNotebookNote());
+voiceBtn?.addEventListener("click", toggleVoice);
 spriteBtn.addEventListener("click", () => {
   if (state.memory.consentGranted) intervene("manual");
   else toggleConsent();
 });
 [goalSelect, projectSelect, energySelect].forEach((input) => input.addEventListener("change", updateFromInputs));
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") intervene("idle"); });
+
+if (canSpeak()) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
 
 state.secondsLeft = state.secondsLeft || adaptiveSeconds(state.energy);
 if (!state.notebook.length) makeNotebookNote();
