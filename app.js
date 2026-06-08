@@ -23,6 +23,7 @@ const defaultState = {
   projectSwitches: 0,
   notebookIndex: 184,
   voiceEnabled: false,
+  recentLines: [],
   memory: {
     favoriteProjects: ["Blacklace Island", "Terra"],
     avoidedProjects: ["Prospection IA", "Trailer Blacklace"],
@@ -102,6 +103,72 @@ const lines = {
   ]
 };
 
+const variationBits = {
+  openers: ["Hypothèse", "Observation", "Théorie provisoire", "Note rapide", "Je suppose", "Diagnostic non officiel"],
+  caution: ["Confiance", "Niveau de certitude", "Probabilité feuchienne", "Mesure douteuse"],
+  tinyJudgement: ["Nuance agaçante", "Je note", "Charmant problème", "L'affaire se complique", "Très humain", "Évidemment"],
+  projectNouns: ["le projet principal", "le chantier prioritaire", "la chose importante", "le dossier qui tousse", "le placard à responsabilités"],
+  moneyNouns: ["le portefeuille", "le frigo", "le loyer imaginaire", "la partie argent", "le futur toi qui paie"],
+  fatigueNouns: ["ton cerveau", "la machine humaine", "le mammifère créatif", "le comité interne", "la centrale à idées"],
+  softVerbs: ["tourne autour", "négocie", "fait semblant", "papillonne", "regarde ailleurs", "déplace les cailloux"],
+  endings: ["Je prends des notes.", "Je reste polie. Difficilement.", "Je ne dramatise pas. Je documente.", "C'est intéressant. Pénible, mais intéressant.", "Je peux me tromper. Rarement avec élégance."]
+};
+
+const lineFactories = {
+  start: [
+    () => `${pick(["Ah", "Bon", "Tiens", "Enfin"])}. ${pick(["Te voilà", "le sujet réapparaît", "la pièce se rallume", "je reprends mon poste"])}.`,
+    ({ project }) => `Clochette en place. ${project} est officiellement sous observation consentie.`,
+    () => `Je suis là. ${pick(["Discrète", "Présente", "Presque raisonnable", "Déjà sceptique"])}.`
+  ],
+  drift: [
+    ({ project }) => `${pick(variationBits.openers)} : ${project} brille beaucoup. ${pick(variationBits.projectNouns)} tousse quand même.`,
+    () => `Je vois une bifurcation. ${pick(variationBits.tinyJudgement)}.`,
+    () => `${pick(variationBits.projectNouns)} attend. Toi, tu ${pick(variationBits.softVerbs)}. ${pick(variationBits.endings)}`,
+    ({ project }) => `Question sèche : ${project} sert l'objectif, ou il porte juste une jolie cape ?`,
+    () => `Ce détour a l'air utile. C'est exactement ce qui m'inquiète.`
+  ],
+  fatigue: [
+    () => `${pick(variationBits.openers)} : ${pick(variationBits.fatigueNouns)} demande une pause sans savoir remplir le formulaire.`,
+    () => `Je baisse le sarcasme de 12 %. Pas plus. Tu as l'air cuit.`,
+    () => `La fatigue vient de déposer un petit dossier. Je le trouve convaincant.`,
+    () => `Si tu continues comme ça, tu vas renommer un bouton par vengeance.`,
+    () => `Le mammifère créatif semble manquer de carburant. ${pick(variationBits.tinyJudgement)}.`
+  ],
+  win: [
+    ({ project }) => `${project} a avancé. Je vais fanfaronner sobrement. Enfin, essayer.`,
+    () => `Victoire détectée. Je suis fière, ce qui est très agaçant pour mon image.`,
+    () => `Tu vois ? Faire une chose produit des résultats. Science brutale.`,
+    () => `Micro-victoire enregistrée. Le carnet applaudit avec ses petites mains imaginaires.`,
+    () => `Ça compte. Ne minimise pas, je m'en charge déjà très bien.`
+  ],
+  money: [
+    () => `${pick(variationBits.moneyNouns)} vient de lever un sourcil. Moi aussi.`,
+    ({ project }) => `${project} est séduisant. L'argent, lui, manque de sens du spectacle mais insiste.`,
+    () => `Je ne veux pas casser l'ambiance. Je veux juste inviter les factures à la réunion.`,
+    () => `${pick(variationBits.openers)} : la liberté aime beaucoup les revenus. Déplaisant, mais vérifié.`,
+    () => `Question vulgaire : est-ce que ce geste rapproche quelque chose qui paie ?`
+  ],
+  idle: [
+    () => `Silence détecté. Contemplation ou disparition du pilote ?`,
+    () => `Tu es là sans être là. Très humain. Très peu pratique.`,
+    () => `Je ne juge pas l'absence. Je la regarde d'un air supérieur.`,
+    () => `${pick(variationBits.openers)} : pause floue. ${pick(variationBits.caution)} : ${randomPercent(31, 72)} %.`,
+    () => `Le marécage entre travail et repos vient d'ouvrir une boutique.`
+  ],
+  manual: [
+    () => `${pick(["Question", "Observation", "Petit point"])} : tu veux une vraie remarque ou une jolie diversion ?`,
+    () => `Je suis disponible. Ce n'est pas une bonne nouvelle pour toutes tes excuses.`,
+    () => `Je peux rester silencieuse. Je choisis de ne pas gâcher mon talent.`,
+    () => `Tu m'as appelée. J'espère que tu as préparé une défense.`,
+    () => `Je regarde la scène. Plusieurs onglets ont l'air coupables.`
+  ],
+  consent: [
+    () => `Consentement noté. Je garde mes ailes hors des tiroirs non autorisés.`,
+    () => `Accès accordé. Je vais observer, pas fouiller. Différence importante, même pour moi.`,
+    () => `Très bien. Je peux déduire un peu plus. Pas devenir Oracle Premium.`
+  ]
+};
+
 const notebookTemplates = [
   ({ n }) => `Observation n°${n}. Les humains disent souvent « cinq minutes ». Les instruments restent sceptiques.`,
   ({ n }) => `Observation n°${n}. Benoît possède plusieurs projets. Aucun ne possède de laisse.`,
@@ -140,6 +207,7 @@ Contexte donné volontairement par Benoît:
 Écris UNE remarque de Clochette.
 Français. Maximum 22 mots. Pas d'emoji. Pas de conseil générique. Pas de thérapie.
 Tu peux dire « je suppose » ou « hypothèse » si tu déduis quelque chose.
+Évite de répéter exactement une réplique précédente.
 `;
 
 const $ = (id) => document.getElementById(id);
@@ -177,6 +245,7 @@ function mergeState(base, saved) {
     ...structuredClone(base),
     ...saved,
     voiceEnabled: Boolean(saved.voiceEnabled),
+    recentLines: saved.recentLines || [],
     memory: { ...base.memory, ...(saved.memory || {}) },
     notebook: saved.notebook || [],
     log: saved.log || []
@@ -184,6 +253,33 @@ function mergeState(base, saved) {
 }
 
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+function randomPercent(min = 24, max = 86) { return Math.floor(min + Math.random() * (max - min + 1)); }
+
+function readLocalJson(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+  catch { return fallback; }
+}
+
+function normalizeLine(text) {
+  return String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isRejectedLine(text) {
+  const rejected = readLocalJson("clochette-lite-rejected-lines", []);
+  const normalized = normalizeLine(text);
+  return rejected.some((line) => normalizeLine(line) === normalized);
+}
+
+function isRecentlyUsed(text) {
+  const normalized = normalizeLine(text);
+  return state.recentLines.some((line) => normalizeLine(line) === normalized);
+}
+
+function rememberLine(text) {
+  state.recentLines = [text, ...(state.recentLines || []).filter((line) => normalizeLine(line) !== normalizeLine(text))].slice(0, 24);
+}
 
 function canSpeak() {
   return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
@@ -279,9 +375,26 @@ function syncInputsFromState() {
   renderLog();
 }
 
+function buildGeneratedCandidates(event) {
+  const factories = lineFactories[event] || lineFactories.manual;
+  return Array.from({ length: 8 }, () => pick(factories)({ project: state.project, goal: labelForGoal(state.goal), energy: state.energy }));
+}
+
+function learnedCandidates(event) {
+  const learned = readLocalJson("clochette-lite-learned-lines", {});
+  return [...(learned[event] || []), ...(event !== "manual" ? (learned.manual || []) : [])];
+}
+
 function chooseLocalLine(event) {
-  const pool = lines[event] || lines.manual;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const base = lines[event] || lines.manual;
+  const candidates = [...learnedCandidates(event), ...buildGeneratedCandidates(event), ...base]
+    .map((line) => String(line || "").trim())
+    .filter(Boolean)
+    .filter((line) => !isRejectedLine(line));
+
+  const fresh = candidates.filter((line) => !isRecentlyUsed(line));
+  const pool = fresh.length ? fresh : buildGeneratedCandidates(event).filter((line) => !isRejectedLine(line));
+  return pick(pool.length ? pool : candidates.length ? candidates : lines.manual);
 }
 
 async function generateLine(event) {
@@ -297,7 +410,9 @@ async function generateLine(event) {
     });
     if (!response.ok) throw new Error("Gemma endpoint unavailable");
     const data = await response.json();
-    return sanitizeLine(String(data.text || data.response || data.message || chooseLocalLine(event)).trim(), event);
+    const line = sanitizeLine(String(data.text || data.response || data.message || chooseLocalLine(event)).trim(), event);
+    if (isRecentlyUsed(line) || isRejectedLine(line)) return chooseLocalLine(event);
+    return line;
   } catch (error) {
     console.warn("Gemma fallback:", error);
     return chooseLocalLine(event);
@@ -330,6 +445,7 @@ function setBubble(text, event = "manual") {
   clearTimeout(hiddenBubbleTimer);
   hiddenBubbleTimer = setTimeout(() => bubble.classList.add("hidden"), 9000);
   setTimeout(() => clochette.classList.remove("alert"), 1700);
+  rememberLine(text);
   speakLine(text);
   addLog(text, event);
 }
