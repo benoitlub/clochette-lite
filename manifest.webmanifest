@@ -10,7 +10,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%23170f2f'/%3E%3Ccircle cx='256' cy='256' r='88' fill='%23ffd66b'/%3E%3Cellipse cx='188' cy='232' rx='74' ry='124' fill='%238ff7ff' opacity='.75' transform='rotate(-24 188 232)'/%3E%3Cellipse cx='324' cy='232' rx='74' ry='124' fill='%23ff83d8' opacity='.72' transform='rotate(24 324 232)'/%3E%3Ccircle cx='226' cy='248' r='12' fill='%2310091f'/%3E%3Ccircle cx='286' cy='248' r='12' fill='%2310091f'/%3E%3Cpath d='M228 306c26 22 52 22 78 0' stroke='%2310091f' stroke-width='16' stroke-linecap='round' fill='none'/%3E%3C/svg%3E",
+      "src": "./icon.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
