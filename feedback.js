@@ -1,9 +1,12 @@
 const LEARNED_LINES_KEY = "clochette-lite-learned-lines";
 const REJECTED_LINES_KEY = "clochette-lite-rejected-lines";
+const CLOCHETTE_TENSION_KEY = "clochette-lite-feedback-tension";
 
 const thumbUpBtn = document.getElementById("thumbUpBtn");
 const thumbDownBtn = document.getElementById("thumbDownBtn");
 const feedbackRow = document.querySelector(".feedback-row");
+
+const insistEvents = ["money", "drift", "fatigue"];
 
 function readJsonStore(key, fallback) {
   try {
@@ -23,12 +26,20 @@ function currentBubbleText() {
 
 function currentFeedbackEvent() {
   const latest = window.clochetteLastEvent || "manual";
-  if (["fatigue", "money", "drift", "win", "idle", "start", "manual"].includes(latest)) return latest;
+  if (["fatigue", "money", "drift", "win", "idle", "start", "manual", "gemma", "gemma-test", "voice-reply"].includes(latest)) return latest;
   return "manual";
 }
 
 function flashFeedback(message) {
   if (typeof setBubble === "function") setBubble(message, "feedback");
+}
+
+function getStubbornness(event, text) {
+  let score = 0.28;
+  if (insistEvents.includes(event)) score += 0.28;
+  if (/argent|client|facture|projet principal|fatigu|évite|recommences/i.test(text)) score += 0.2;
+  if (/je mérite|j'avais préparé|j'adore|public/i.test(text)) score -= 0.12;
+  return Math.max(0.05, Math.min(0.92, score));
 }
 
 function adoptLine() {
@@ -52,12 +63,31 @@ function rejectLine() {
   const text = currentBubbleText();
   if (!text) return;
 
+  const event = currentFeedbackEvent();
   const rejected = readJsonStore(REJECTED_LINES_KEY, []);
-  if (!rejected.includes(text)) {
+  const tension = readJsonStore(CLOCHETTE_TENSION_KEY, {});
+  const stubbornness = getStubbornness(event, text);
+  const shouldInsist = Math.random() < stubbornness;
+
+  tension[text] = {
+    event,
+    count: (tension[text]?.count || 0) + 1,
+    lastRejectedAt: new Date().toISOString(),
+    stubbornness,
+    decision: shouldInsist ? "insist" : "revise"
+  };
+  writeJsonStore(CLOCHETTE_TENSION_KEY, tension);
+
+  if (!shouldInsist && !rejected.includes(text)) {
     writeJsonStore(REJECTED_LINES_KEY, [text, ...rejected].slice(0, 120));
-    flashFeedback("Ton refus est noté. Je vais bouder professionnellement.");
+  }
+
+  if (shouldInsist) {
+    flashFeedback("Refus noté. Je n'abandonne pas encore cette hypothèse. C'est pénible, donc possiblement utile.");
+  } else if (rejected.includes(text)) {
+    flashFeedback("Oui, oui. Celle-là est déjà au placard. Je révise mon numéro.");
   } else {
-    flashFeedback("Oui, oui. Celle-là est déjà au placard.");
+    flashFeedback("D'accord. Ton refus devient une donnée, pas un ordre. Je corrige la trajectoire.");
   }
 }
 
