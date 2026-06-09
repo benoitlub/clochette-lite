@@ -1,7 +1,7 @@
-const CACHE_NAME = "clochette-lite-v18-homologation";
+const CACHE_NAME = "clochette-lite-v19-presence";
 const STATIC_ASSETS = [
-  "./style.css?v=1.8",
-  "./manifest.webmanifest?v=1.8"
+  "./style.css?v=1.9",
+  "./manifest.webmanifest?v=1.9"
 ];
 
 self.addEventListener("install", (event) => {
