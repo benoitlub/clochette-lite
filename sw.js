@@ -1,7 +1,7 @@
-const CACHE_NAME = "clochette-lite-v8-cachefix";
+const CACHE_NAME = "clochette-lite-v18-homologation";
 const STATIC_ASSETS = [
-  "./style.css",
-  "./manifest.webmanifest"
+  "./style.css?v=1.8",
+  "./manifest.webmanifest?v=1.8"
 ];
 
 self.addEventListener("install", (event) => {
@@ -25,7 +25,13 @@ function isFreshFile(request) {
     || url.pathname.endsWith("/gemma-settings.js")
     || url.pathname.endsWith("/engine-status.js")
     || url.pathname.endsWith("/phrase-bank.js")
+    || url.pathname.endsWith("/project-knowledge.js")
+    || url.pathname.endsWith("/relance-engine.js")
+    || url.pathname.endsWith("/relance-bridge.js")
+    || url.pathname.endsWith("/answer-engine.js")
+    || url.pathname.endsWith("/presence-engine.js")
     || url.pathname.endsWith("/feedback.js")
+    || url.pathname.endsWith("/squat-mode.js")
     || url.pathname.endsWith("/sw.js");
 }
 
