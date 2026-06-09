@@ -4,107 +4,72 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#170f2f" />
-    <title>Clochette Lite — v1.7 PRESENCE</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.7" />
-    <link rel="stylesheet" href="style.css?v=1.7" />
-    <link rel="stylesheet" href="squat-mode.css?v=1.7" />
-    <link rel="stylesheet" href="clochette-attractive.css?v=1.7" />
+    <title>Clochette Lite — v1.8 HOMOLOGATION</title>
+    <link rel="manifest" href="manifest.webmanifest?v=1.8" />
+    <link rel="stylesheet" href="style.css?v=1.8" />
+    <link rel="stylesheet" href="squat-mode.css?v=1.8" />
+    <link rel="stylesheet" href="clochette-attractive.css?v=1.8" />
   </head>
   <body>
-    <div id="squatControls" class="squat-controls" hidden>
-      <button id="squatReactBtn" type="button">Réagir</button>
-      <button id="squatListenBtn" type="button">Écouter</button>
-      <button id="squatVoiceBtn" type="button">Voix</button>
-      <button id="squatCadenceBtn" type="button">Cadence</button>
-    </div>
-
     <main class="app-shell">
       <section class="hero">
         <p class="eyebrow">Feuch Institut — Neverland Cognitive Companion</p>
         <h1>Clochette Lite</h1>
-        <p class="version-badge">v1.7 PRESENCE — apparition autonome, règles d’indices, cooldown anti-harcèlement</p>
-        <p class="subtitle">
-          Une présence piquante, maternelle et utile pour protéger ton élan sans transformer ta journée en tableur gris.
-        </p>
+        <p class="version-badge">v1.8 HOMOLOGATION — boutons A/B/C/D, fiche Pro.Hibited, cache forcé</p>
+        <p class="subtitle">Une présence piquante, maternelle et utile pour protéger ton élan sans transformer ta journée en tableur gris.</p>
       </section>
 
       <section class="panel setup-panel" aria-labelledby="setup-title">
-        <h2 id="setup-title">Boussole du moment</h2>
+        <h2 id="setup-title">Réglages utiles</h2>
         <div class="form-grid">
-          <label>
-            Objectif à protéger
-            <select id="goalSelect">
-              <option value="creation">Création</option>
-              <option value="argent">Argent</option>
-              <option value="admin">Admin</option>
-              <option value="sante">Santé</option>
-              <option value="repos">Repos</option>
-            </select>
-          </label>
-          <label>
-            Projet actuel
-            <select id="projectSelect">
-              <option>Blacklace Island</option>
-              <option>Pro.Hibited Online</option>
-              <option>Terra</option>
-              <option>Neverland Ltd</option>
-              <option>Creature-sync</option>
-              <option>SpecTRL</option>
-              <option>Blacklace Dice</option>
-              <option>Prospection IA</option>
-              <option>Ateliers IA</option>
-            </select>
-          </label>
-          <label>
-            Énergie
-            <select id="energySelect">
-              <option value="basse">Basse</option>
-              <option value="moyenne" selected>Moyenne</option>
-              <option value="haute">Haute</option>
-            </select>
-          </label>
+          <label>Objectif à protéger<select id="goalSelect"><option value="creation">Création</option><option value="argent">Argent</option><option value="admin">Admin</option><option value="sante">Santé</option><option value="repos">Repos</option></select></label>
+          <label>Projet actuel<select id="projectSelect"><option>Blacklace Island</option><option>Pro.Hibited Online</option><option>Terra</option><option>Neverland Ltd</option><option>Creature-sync</option><option>SpecTRL</option><option>Blacklace Dice</option><option>Prospection IA</option><option>Ateliers IA</option></select></label>
+          <label>Énergie<select id="energySelect"><option value="basse">Basse</option><option value="moyenne" selected>Moyenne</option><option value="haute">Haute</option></select></label>
         </div>
         <div class="button-row voice-row">
-          <button id="voiceBtn" class="small secondary">Activer la voix</button>
+          <button id="voiceBtn" class="small secondary">Voix</button>
           <button id="listenBtn" class="small ghost">Écouter</button>
-          <button id="cadenceBtn" class="small ghost">Test cadence</button>
           <button id="squatBtn" class="small ghost">Mode Squat</button>
-          <p class="microcopy" id="voiceHint">La voix utilise la synthèse vocale du téléphone. Clochette ne parle qu'après ton accord.</p>
-          <p class="microcopy" id="listenHint">Micro sur demande uniquement. Pas d'écoute permanente façon majordome inquiet.</p>
-          <p class="microcopy" id="cadenceHint">Mode normal. Le test cadence sert à voir si Opera endort Clochette en arrière-plan.</p>
-          <p class="microcopy" id="squatHint">Mode normal : réglages. Mode Squat : Clochette habite le bord.</p>
+          <p class="microcopy" id="voiceHint">Voix du téléphone. Clochette ne parle qu'après ton accord.</p>
+          <p class="microcopy" id="listenHint">Micro sur demande uniquement. Pas d'écoute permanente.</p>
+          <p class="microcopy" id="squatHint">Mode Squat : Clochette habite le bord et laisse la page respirer.</p>
         </div>
       </section>
 
       <section class="panel gemma-panel" aria-labelledby="engine-title">
         <div class="log-header"><div><p class="eyebrow mini">Moteur optionnel</p><h2 id="engine-title">Réflexion étendue</h2></div><button id="gemmaClearBtn" class="small ghost">Mode local</button></div>
         <div class="engine-witness" id="engineWitness" data-mode="local"><span class="status-dot" aria-hidden="true"></span><span id="engineLabel">Mode local</span><small id="engineDetail">Clochette improvise avec son cerveau de poche.</small></div>
-        <label>Passerelle de réflexion<input id="gemmaEndpointInput" type="url" placeholder="URL de passerelle locale ou proxy sécurisé" autocomplete="off" /></label>
-        <div class="button-row voice-row"><button id="gemmaSaveBtn" class="small secondary">Brancher</button><button id="gemmaTestBtn" class="small ghost">Tester</button><p class="microcopy" id="gemmaStatus">Sans passerelle, Clochette utilise son cerveau local. C'est déjà inquiétant.</p></div>
+        <label>Passerelle de réflexion<input id="gemmaEndpointInput" type="url" placeholder="URL locale ou proxy sécurisé" autocomplete="off" /></label>
+        <div class="button-row voice-row"><button id="gemmaSaveBtn" class="small secondary">Brancher</button><button id="gemmaTestBtn" class="small ghost">Tester</button><p class="microcopy" id="gemmaStatus">Sans passerelle, Clochette utilise son cerveau local.</p></div>
       </section>
 
       <section class="panel timer-panel" aria-labelledby="timer-title"><div><h2 id="timer-title">Défi adaptatif</h2><p id="timerHint">Clochette proposera un rythme selon ton énergie.</p></div><div class="timer-display" id="timerDisplay">12:00</div><div class="button-row"><button id="startBtn">Démarrer</button><button id="pauseBtn" class="secondary">Pause</button><button id="resetBtn" class="ghost">Reset</button></div></section>
       <section class="panel notebook-panel" aria-labelledby="notebook-title"><div class="log-header"><div><p class="eyebrow mini">Carnet privé</p><h2 id="notebook-title">Notes de Clochette</h2></div><button id="noteBtn" class="small secondary">Nouvelle note</button></div><div id="privateNote" class="private-note">Observation en attente. Elle fait semblant de ne pas te surveiller.</div></section>
-      <section class="panel log-panel" aria-labelledby="log-title"><div class="log-header"><h2 id="log-title">Journal</h2><button id="manualPingBtn" class="small ghost">Faire apparaître Clochette</button></div><ul id="activityLog" class="activity-log"></ul></section>
+      <section class="panel log-panel" aria-labelledby="log-title"><div class="log-header"><h2 id="log-title">Discussion</h2><button id="manualPingBtn" class="small ghost">Faire apparaître Clochette</button></div><ul id="activityLog" class="activity-log"></ul></section>
     </main>
 
     <aside class="clochette" id="clochette" aria-live="polite">
       <button class="sprite" id="spriteBtn" aria-label="Clochette"><span class="hair hair-left"></span><span class="hair hair-top"></span><span class="face"></span><span class="eye eye-left"></span><span class="eye eye-right"></span><span class="mouth"></span><span class="collar"></span><span class="wing wing-left"></span><span class="body"></span><span class="wing wing-right"></span></button>
-      <div class="bubble" id="bubble">Psst. On choisit une vraie direction ou on collectionne les cailloux brillants ?</div>
-      <div class="feedback-row" aria-label="Évaluer la réplique de Clochette"><button id="thumbUpBtn" class="feedback-btn" title="Adopter cette réplique">👍</button><button id="thumbDownBtn" class="feedback-btn" title="Refuser ce ton">👎</button></div>
+      <div class="bubble" id="bubble">v1.8. Je suis revenue avec des boutons utiles. Essaie de ne pas applaudir trop fort.</div>
+      <div class="feedback-row abcd-row" aria-label="Évaluer la réplique de Clochette">
+        <button id="adoptBtn" class="feedback-btn" title="A — Adopter">A 👍</button>
+        <button id="rejectBtn" class="feedback-btn" title="B — Rejeter">B 👎</button>
+        <button id="moreClochetteBtn" class="feedback-btn" title="C — Plus Clochette">C 🧚</button>
+        <button id="tooCoachBtn" class="feedback-btn" title="D — Trop coach">D 🧯</button>
+      </div>
     </aside>
 
-    <script src="app.js?v=1.7"></script>
-    <script src="listen.js?v=1.7"></script>
-    <script src="gemma-settings.js?v=1.7"></script>
-    <script src="engine-status.js?v=1.7"></script>
-    <script src="phrase-bank.js?v=1.7"></script>
-    <script src="relance-engine.js?v=1.7"></script>
-    <script src="relance-bridge.js?v=1.7"></script>
-    <script src="answer-engine.js?v=1.7"></script>
-    <script src="presence-engine.js?v=1.7"></script>
-    <script src="feedback.js?v=1.7"></script>
-    <script src="cadence-test.js?v=1.7"></script>
-    <script src="squat-mode.js?v=1.7"></script>
+    <script src="app.js?v=1.8"></script>
+    <script src="listen.js?v=1.8"></script>
+    <script src="gemma-settings.js?v=1.8"></script>
+    <script src="engine-status.js?v=1.8"></script>
+    <script src="phrase-bank.js?v=1.8"></script>
+    <script src="project-knowledge.js?v=1.8"></script>
+    <script src="relance-engine.js?v=1.8"></script>
+    <script src="relance-bridge.js?v=1.8"></script>
+    <script src="answer-engine.js?v=1.8"></script>
+    <script src="presence-engine.js?v=1.8"></script>
+    <script src="feedback.js?v=1.8"></script>
+    <script src="squat-mode.js?v=1.8"></script>
   </body>
 </html>
