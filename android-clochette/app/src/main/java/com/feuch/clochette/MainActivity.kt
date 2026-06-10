@@ -17,10 +17,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -67,6 +65,30 @@ private fun ClochetteApp() {
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
 
+    fun generateLine(): String {
+        val line = ClochetteEngine.remark(
+            activity = UsageObserver(context).snapshot(),
+            sensors = SensorSnapshot(),
+            energy = energy,
+            project = project,
+            memory = memory.recent(),
+        )
+        currentLine = line
+        memory.add(
+            ClochetteMemoryEntry(
+                context = "main_activity",
+                observedSignal = "manual_line",
+                project = project,
+                energy = energy,
+                clochetteLine = line,
+                userReaction = null,
+                result = "shown",
+            ),
+        )
+        ClochetteWidget.updateAll(context, line)
+        return line
+    }
+
     MaterialTheme {
         Surface(
             modifier = Modifier
@@ -83,7 +105,7 @@ private fun ClochetteApp() {
             ) {
                 Text("Clochette native", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Presence visible, stoppable, locale. Elle observe des signaux simples et ne lit pas les contenus prives par defaut.",
+                    "Phase 1 : Clochette habite l'ecran d'accueil. Widget local, remarque courte, voix Android.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
@@ -100,9 +122,6 @@ private fun ClochetteApp() {
                             context,
                             Intent(context, ClochettePresenceService::class.java),
                         )
-                        if (Settings.canDrawOverlays(context)) {
-                            context.startService(Intent(context, ClochetteOverlayService::class.java))
-                        }
                         refresh++
                     }) {
                         Text("Observer")
@@ -113,9 +132,10 @@ private fun ClochetteApp() {
                                 .setAction(ClochettePresenceService.ACTION_PAUSE),
                         )
                         context.stopService(Intent(context, ClochetteOverlayService::class.java))
+                        ClochetteVoice.stop()
                         refresh++
                     }) {
-                        Text("Pause Clochette")
+                        Text("Pause")
                     }
                 }
 
@@ -124,39 +144,39 @@ private fun ClochetteApp() {
                     energy = energy,
                     onProject = { project = it },
                     onEnergy = { energy = it },
-                    onLine = {
-                        val line = ClochetteEngine.remark(
-                            activity = UsageObserver(context).snapshot(),
-                            sensors = SensorSnapshot(),
-                            energy = energy,
-                            project = project,
-                            memory = memory.recent(),
-                        )
-                        currentLine = line
-                        memory.add(
-                            ClochetteMemoryEntry(
-                                context = "main_activity",
-                                observedSignal = "manual_line",
-                                project = project,
-                                energy = energy,
-                                clochetteLine = line,
-                                userReaction = null,
-                                result = "shown",
-                            ),
-                        )
+                    onLine = { generateLine() },
+                    onSpeak = {
+                        val line = currentLine ?: generateLine()
+                        ClochetteVoice.speak(context, line)
                     },
                 )
 
                 currentLine?.let {
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6))) {
-                        Text(it, modifier = Modifier.padding(14.dp), style = MaterialTheme.typography.titleMedium)
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(it, style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(onClick = { ClochetteVoice.speak(context, it) }) { Text("Parler") }
+                                OutlinedButton(onClick = { ClochetteWidget.updateAll(context, it) }) { Text("Envoyer au widget") }
+                            }
+                        }
                     }
                 }
 
                 Text("Permissions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 PermissionCard(
+                    title = "Widget ecran d'accueil",
+                    explanation = "Ajoute Clochette depuis les widgets Android. Le widget affiche une remarque et peut parler quand tu le touches.",
+                    enabled = true,
+                    onEnable = {
+                        val line = currentLine ?: generateLine()
+                        ClochetteWidget.updateAll(context, line)
+                    },
+                    onDecline = { memory.decline("home_widget") },
+                )
+                PermissionCard(
                     title = "Surimpression",
-                    explanation = "Affiche la petite bulle Clochette au-dessus des autres apps. La bulle reste deplacable et ne bloque pas l'ecran.",
+                    explanation = "Plus tard. Pour l'instant on privilegie l'ecran d'accueil, plus stable et moins envahissant.",
                     enabled = Settings.canDrawOverlays(context),
                     onEnable = {
                         context.startActivity(
@@ -216,6 +236,7 @@ private fun SelectorPanel(
     onProject: (String) -> Unit,
     onEnergy: (String) -> Unit,
     onLine: () -> Unit,
+    onSpeak: () -> Unit,
 ) {
     var projectOpen by remember { mutableStateOf(false) }
     var energyOpen by remember { mutableStateOf(false) }
@@ -257,7 +278,10 @@ private fun SelectorPanel(
                     }
                 }
             }
-            Button(onClick = onLine) { Text("Remarque courte") }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onLine) { Text("Remarque") }
+                OutlinedButton(onClick = onSpeak) { Text("Voix") }
+            }
         }
     }
 }
