@@ -24,6 +24,18 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".ClochetteWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.feuch.clochette.ACTION_WIDGET_REMARK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/clochette_widget_info" />
+        </receiver>
+
         <service
             android:name=".ClochettePresenceService"
             android:exported="false"
