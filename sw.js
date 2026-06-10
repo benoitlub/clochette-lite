@@ -1,7 +1,7 @@
-const CACHE_NAME = "clochette-lite-v191-voicefix";
+const CACHE_NAME = "clochette-lite-v19-presence";
 const STATIC_ASSETS = [
-  "./style.css?v=1.9.1",
-  "./manifest.webmanifest?v=1.9.1"
+  "./style.css?v=1.9",
+  "./manifest.webmanifest?v=1.9"
 ];
 
 self.addEventListener("install", (event) => {
@@ -20,7 +20,6 @@ function isFreshFile(request) {
   const url = new URL(request.url);
   return url.pathname.endsWith("/")
     || url.pathname.endsWith("/index.html")
-    || url.pathname.endsWith("/clochette-compat.js")
     || url.pathname.endsWith("/app.js")
     || url.pathname.endsWith("/listen.js")
     || url.pathname.endsWith("/gemma-settings.js")

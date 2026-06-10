@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Clochette" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#F7F3EA</item>
+        <item name="android:statusBarColor">#F7F3EA</item>
+    </style>
+</resources>
