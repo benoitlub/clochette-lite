@@ -8,13 +8,12 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
@@ -30,7 +29,6 @@ class ClochetteOverlayService : Service() {
     private var overlay: View? = null
     private var lineView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
-    private val handler = Handler(Looper.getMainLooper())
 
     private val lineReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -84,7 +82,8 @@ class ClochetteOverlayService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.END
@@ -179,9 +178,9 @@ class ClochetteOverlayService : Service() {
         var startY = 0
         var touchX = 0f
         var touchY = 0f
+        var downAt = 0L
         var moved = false
-
-        val longPress = Runnable { pauseOverlay() }
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
 
         view.setOnTouchListener { touched, event ->
             when (event.action) {
@@ -190,24 +189,29 @@ class ClochetteOverlayService : Service() {
                     startY = params.y
                     touchX = event.rawX
                     touchY = event.rawY
+                    downAt = System.currentTimeMillis()
                     moved = false
-                    handler.postDelayed(longPress, 900)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - touchX).toInt()
                     val dy = (event.rawY - touchY).toInt()
-                    if (abs(dx) > 8 || abs(dy) > 8) {
+                    if (abs(dx) > touchSlop || abs(dy) > touchSlop) {
                         moved = true
-                        handler.removeCallbacks(longPress)
                         params.x = (startX - dx).coerceAtLeast(0)
                         params.y = (startY - dy).coerceAtLeast(0)
                         windowManager.updateViewLayout(touched, params)
                     }
                     true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    handler.removeCallbacks(longPress)
+                MotionEvent.ACTION_UP -> {
+                    val pressDuration = System.currentTimeMillis() - downAt
+                    if (!moved && pressDuration >= 2_500L) {
+                        pauseOverlay()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
                     true
                 }
                 else -> false
