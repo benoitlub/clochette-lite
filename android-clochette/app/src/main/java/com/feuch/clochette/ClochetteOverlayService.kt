@@ -17,7 +17,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -126,10 +125,11 @@ class ClochetteOverlayService : Service() {
         bubble.addView(lineView)
         bubble.addView(buttonRow)
 
-        val sprite = ImageView(this).apply {
-            setImageResource(R.drawable.clochette_overlay_sprite)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            adjustViewBounds = true
+        val sprite = TextView(this).apply {
+            text = "🧚‍♀️"
+            textSize = 72f
+            gravity = Gravity.CENTER
+            background = roundedBackground(Color.rgb(233, 213, 255), Color.rgb(109, 58, 161), 70.dp())
             setPadding(0, 0, 0, 0)
             elevation = 14f
             setOnClickListener { speakNextLine() }
@@ -147,7 +147,7 @@ class ClochetteOverlayService : Service() {
             rightMargin = 6.dp()
             bottomMargin = 20.dp()
         }
-        val spriteParams = LinearLayout.LayoutParams(112.dp(), 132.dp()).apply {
+        val spriteParams = LinearLayout.LayoutParams(140.dp(), 160.dp()).apply {
             gravity = Gravity.BOTTOM
         }
 
