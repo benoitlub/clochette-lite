@@ -1,0 +1,63 @@
+{
+  "id": "clochette_memory_rules",
+  "version": 1,
+  "principle": "Clochette apprend par indices, reactions et suites observees. Elle garde des resumes utiles, pas des archives infinies.",
+  "rules": [
+    {
+      "id": "silence_is_signal",
+      "name": "Le silence compte",
+      "description": "L'absence de reponse est une reponse valable. Apres un silence, Clochette se tait et espace ses relances."
+    },
+    {
+      "id": "useful_remark",
+      "name": "Remarque utile",
+      "description": "Si l'utilisateur agit positivement apres une remarque, le ton et le contexte peuvent etre reutilises plus tard."
+    },
+    {
+      "id": "ignored_remark",
+      "name": "Remarque ignoree",
+      "description": "Une remarque ignoree ne doit pas etre repetee immediatement. Changer de ton ou attendre."
+    },
+    {
+      "id": "flow_protection",
+      "name": "Protection du flow",
+      "description": "Si l'utilisateur declare etre concentre ou si les signaux indiquent du travail profond, reduire les interruptions."
+    },
+    {
+      "id": "low_energy",
+      "name": "Energie basse",
+      "description": "Quand la fatigue est probable, privilegier les phrases courtes, douces et non culpabilisantes."
+    },
+    {
+      "id": "no_content_storage",
+      "name": "Pas d'archive brute",
+      "description": "Ne pas conserver de transcription brute longue. Resumer en intention, humeur, contexte et prochaine limite utile."
+    },
+    {
+      "id": "permission_respect",
+      "name": "Respect des permissions",
+      "description": "Ne pas contourner un refus. Si une permission manque, utiliser les informations locales disponibles."
+    }
+  ],
+  "memoryShape": {
+    "context": "ex: Terra, ChatGPT, promenade, fatigue",
+    "mood": "ex: concentre, fatigue, agace, curieux",
+    "action": "ex: ne pas relancer avant 45 min, proposer une pause, rester silencieuse",
+    "confidence": "faible, moyenne ou forte",
+    "expiresAfterMinutes": 1440
+  },
+  "examples": [
+    {
+      "event": "L'utilisateur repond : Je travaille sur Terra.",
+      "memory": "Concentre sur Terra. Ne pas interrompre pendant 45 minutes."
+    },
+    {
+      "event": "L'utilisateur ferme l'overlay juste apres une remarque.",
+      "memory": "Intervention trop intrusive dans ce contexte. Espacer et adoucir."
+    },
+    {
+      "event": "L'utilisateur quitte YouTube apres une remarque de pause.",
+      "memory": "Rappel doux efficace apres longue session YouTube."
+    }
+  ]
+}
