@@ -1,0 +1,71 @@
+{
+  "id": "clochette_ai_gateway",
+  "version": 1,
+  "principle": "Android ne doit pas appeler directement les fournisseurs IA en production. L'app parle a une gateway qui choisit le meilleur fournisseur disponible.",
+  "endpointContract": {
+    "path": "/generate-remark",
+    "method": "POST",
+    "androidSends": [
+      "personaId",
+      "relationshipMode",
+      "contextProfile",
+      "foregroundApp",
+      "durationMinutes",
+      "appSwitchCount",
+      "sensorSummary",
+      "energy",
+      "recentMemorySummary",
+      "userLastReply",
+      "language"
+    ],
+    "gatewayReturns": [
+      "line",
+      "shouldSpeak",
+      "shouldOpenMic",
+      "listenSeconds",
+      "memorySummary",
+      "cooldownMinutes",
+      "providerUsed"
+    ]
+  },
+  "providerPriority": [
+    {
+      "id": "mistral",
+      "name": "Mistral",
+      "role": "default",
+      "reason": "Cout bas, bon francais, API simple, bon choix pour Clochette Lite."
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "role": "fallback",
+      "reason": "Bonne option de secours, quota gratuit ou peu couteux selon l'usage."
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "role": "premium",
+      "reason": "Qualite forte pour versions payantes ou generation plus fine."
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "role": "local_or_private",
+      "reason": "Mode local, prive, utile pour utilisateurs avances ou serveur personnel."
+    }
+  ],
+  "productionRules": [
+    "Ne jamais mettre les cles API dans l'APK ou dans GitHub.",
+    "Le backend protege les cles, limite les abus et choisit le fournisseur.",
+    "Android doit avoir un fallback local si la gateway est indisponible.",
+    "Les prompts doivent rester courts et contextualises.",
+    "Les donnees envoyees doivent etre minimales et ne jamais contenir le contenu des conversations d'autres apps.",
+    "La gateway doit pouvoir changer de fournisseur sans mise a jour Android."
+  ],
+  "commercialNotes": [
+    "Prevoir quotas par utilisateur.",
+    "Prevoir version gratuite avec generation limitee et fallback local.",
+    "Prevoir version premium pour plus de generation IA et memoire distante.",
+    "Prevoir logs techniques anonymises pour surveiller couts et erreurs."
+  ]
+}
