@@ -1,0 +1,48 @@
+{
+  "id": "clochette_interaction",
+  "version": 1,
+  "principle": "Clochette n'ecoute jamais en permanence. Elle demande parfois, ecoute un instant, puis laisse son humain tranquille.",
+  "microphoneModes": [
+    {
+      "id": "manual",
+      "name": "Manuel",
+      "description": "Le micro s'ouvre uniquement quand l'utilisateur appuie sur Repondre."
+    },
+    {
+      "id": "companion",
+      "name": "Compagne",
+      "description": "Clochette propose un bouton micro apres une question."
+    },
+    {
+      "id": "alive",
+      "name": "Vivante",
+      "description": "Clochette peut ouvrir automatiquement le micro apres une question pendant une duree limitee."
+    }
+  ],
+  "defaultListenSeconds": 15,
+  "listenBubbleText": "Je t'ecoute pendant 15 secondes...",
+  "timeoutText": "Je te laisse tranquille.",
+  "unclearAudioText": "Je crois que tu es occupe. On reparlera plus tard.",
+  "rules": [
+    "Le micro ne s'ouvre automatiquement qu'apres une question claire de Clochette.",
+    "La duree d'ecoute est limitee.",
+    "Si aucune reponse n'arrive, le micro se coupe automatiquement.",
+    "L'absence de reponse est une reponse valable.",
+    "Clochette ne relance pas immediatement apres un silence.",
+    "Clochette memorise les reponses utiles sous forme de contexte, pas comme une transcription brute permanente."
+  ],
+  "learningExamples": [
+    {
+      "heard": "Je travaille sur Terra.",
+      "memory": "L'utilisateur est concentre sur Terra. Eviter les interruptions pendant 45 minutes."
+    },
+    {
+      "heard": "Laisse-moi finir.",
+      "memory": "Mode flow probable. Reduire les remarques temporaires."
+    },
+    {
+      "heard": "Tu as raison, j'arrete.",
+      "memory": "La remarque a aide. Ton taquin leger efficace dans ce contexte."
+    }
+  ]
+}
