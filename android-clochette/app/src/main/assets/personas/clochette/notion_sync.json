@@ -1,0 +1,56 @@
+{
+  "id": "clochette_notion_sync",
+  "version": 1,
+  "status": "planning",
+  "notion": {
+    "workspaceRole": "development_carnet_and_optional_remote_memory",
+    "carnet": {
+      "title": "Clochette — carnet de bord",
+      "pageId": "37c39119-7253-817a-a62d-cf95386acf52",
+      "url": "https://app.notion.com/p/37c391197253817aa62dcf95386acf52"
+    },
+    "plannedDatabases": [
+      {
+        "id": "memories",
+        "title": "Clochette Memories",
+        "purpose": "Resumes utiles : contexte, humeur, action, confiance, expiration."
+      },
+      {
+        "id": "events",
+        "title": "Clochette Events",
+        "purpose": "Observations sobres : app, duree, contexte deduit, capteurs resumes."
+      },
+      {
+        "id": "personas",
+        "title": "Clochette Personas",
+        "purpose": "Suivre les personas disponibles : Clochette, Natasha, Pattou, Aloisia."
+      },
+      {
+        "id": "prompts_providers",
+        "title": "Clochette Prompts / Providers",
+        "purpose": "Suivre les prompts et fournisseurs IA : Mistral, Gemini, OpenAI, Ollama."
+      }
+    ]
+  },
+  "androidPolicy": {
+    "defaultMode": "local_first",
+    "productionMode": "backend_gateway_only",
+    "doNotCallNotionDirectlyFromAndroidInProduction": true,
+    "reason": "Les tokens Notion ne doivent pas etre embarques dans l'APK. Android doit passer par une gateway ou rester en local.",
+    "offlineFallback": true
+  },
+  "syncFlowDraft": [
+    "Android garde la memoire locale.",
+    "La gateway recoit un resume minimal si la synchro est activee.",
+    "La gateway ecrit dans Notion ou dans une base durable selon le mode.",
+    "Notion sert au developpement, a la supervision et aux tests de memoire distante.",
+    "Pour une version commerciale, preferer Supabase ou une base controlee."
+  ],
+  "linkedPersonaModules": [
+    "clochette.json",
+    "clochette/interaction.json",
+    "clochette/sensor_profiles.json",
+    "clochette/memory_rules.json",
+    "clochette/ai_gateway.json"
+  ]
+}
