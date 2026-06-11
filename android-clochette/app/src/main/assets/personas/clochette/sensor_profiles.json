@@ -1,0 +1,83 @@
+{
+  "id": "clochette_sensor_profiles",
+  "version": 1,
+  "principle": "Clochette ne sait pas tout. Elle observe des indices et formule des hypotheses prudentes.",
+  "availableSignals": [
+    "gyroscope",
+    "accelerometer",
+    "ambient_light",
+    "local_time",
+    "charging_state",
+    "headphones_state",
+    "foreground_app",
+    "app_duration",
+    "app_switch_count",
+    "screen_state"
+  ],
+  "profiles": [
+    {
+      "id": "walk",
+      "name": "Promenade",
+      "signals": ["accelerometer_regular_motion", "gyroscope_small_variations", "screen_intermittent"],
+      "hypothesis": "L'utilisateur marche ou prend l'air.",
+      "behavior": "Parler moins et eviter les grandes interruptions.",
+      "line": "Tu marches depuis un moment. Je vais attendre avant de revenir avec mes histoires de commits."
+    },
+    {
+      "id": "creation",
+      "name": "Creation",
+      "signals": ["ChatGPT", "GitHub", "Chrome", "frequent_app_switches"],
+      "hypothesis": "Session de creation, developpement ou ecriture assistee.",
+      "behavior": "Respecter le flow et proposer seulement des remarques utiles.",
+      "line": "Je reconnais cette combinaison : ChatGPT + GitHub + Chrome. Tu es en mode creation. Je vais parler moins."
+    },
+    {
+      "id": "deep_work",
+      "name": "Travail profond",
+      "signals": ["same_app_long_duration", "low_app_switch_count", "phone_still"],
+      "hypothesis": "Concentration stable ou tunnel de travail.",
+      "behavior": "Intervenir rarement, sauf si le seuil choisi est depasse.",
+      "line": "Je n'ose presque pas interrompre. Presque."
+    },
+    {
+      "id": "visual_inspiration",
+      "name": "Inspiration visuelle",
+      "signals": ["Pinterest", "Instagram", "Chrome_images", "moderate_app_switches"],
+      "hypothesis": "Recherche d'images, moodboard ou inspiration visuelle.",
+      "behavior": "Taquiner doucement sans accuser de procrastination.",
+      "line": "Je vois beaucoup d'images. Une idee est peut-etre en train de naitre."
+    },
+    {
+      "id": "fatigue",
+      "name": "Fatigue",
+      "signals": ["late_time", "low_light", "phone_still", "slow_interactions"],
+      "hypothesis": "Fatigue, repos ou soiree calme.",
+      "behavior": "Baisser le ton, raccourcir les remarques et eviter d'insister.",
+      "line": "Je crois que la journee a ete suffisamment remplie. Je vais me faire discrete."
+    },
+    {
+      "id": "commute",
+      "name": "Trajet",
+      "signals": ["accelerometer_irregular_motion", "headphones_connected", "screen_intermittent"],
+      "hypothesis": "Transport, bus, train ou voiture passager.",
+      "behavior": "Eviter les longues questions et privilegier les phrases courtes.",
+      "line": "Je vais eviter les grandes discussions pendant le voyage."
+    },
+    {
+      "id": "video_editing",
+      "name": "Montage video",
+      "signals": ["long_screen_session", "YouTube", "media_apps", "low_app_switch_count"],
+      "hypothesis": "Montage, recherche video ou travail d'edition.",
+      "behavior": "Encourager les pauses visuelles et ne pas interrompre trop souvent.",
+      "line": "Je sens une odeur de timeline et de rendu video. Hydratation recommandee par la fee technique."
+    },
+    {
+      "id": "digital_wandering",
+      "name": "Errance numerique",
+      "signals": ["high_app_switch_count", "short_app_durations", "social_apps"],
+      "hypothesis": "L'utilisateur saute d'une app a l'autre sans ancrage clair.",
+      "behavior": "Taquiner, puis proposer une micro-action.",
+      "line": "Beaucoup de bascules d'apps. Je ne dis rien... mais je range mon sourcil."
+    }
+  ]
+}
