@@ -17,12 +17,14 @@ class ClochetteWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         if (intent.action == ACTION_REMARK) {
             val memory = ClochetteMemory(context)
+            val voiceConfig = ClochetteVoiceSettings.read(context)
             val line = ClochetteEngine.remark(
                 activity = UsageObserver(context).snapshot(),
                 sensors = SensorSnapshot(),
                 energy = null,
                 project = ProjectKnowledge.projects.firstOrNull()?.name,
                 memory = memory.recent(24),
+                phraseLength = voiceConfig.phraseLength,
             )
             memory.add(
                 ClochetteMemoryEntry(
@@ -35,8 +37,8 @@ class ClochetteWidget : AppWidgetProvider() {
                     result = "spoken_from_widget",
                 ),
             )
-            ClochetteVoice.speak(context, line)
             updateAll(context, line)
+            ClochetteVoice.speakAfterRemark(context, line)
         }
     }
 

@@ -30,7 +30,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,17 +69,24 @@ private fun ClochetteApp(startSection: String?) {
     var energy by remember { mutableStateOf("moyenne") }
     var currentLine by remember { mutableStateOf<String?>(null) }
     var responseText by remember { mutableStateOf("") }
+    var voiceConfig by remember { mutableStateOf(ClochetteVoiceSettings.read(context)) }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
 
-    fun generateLine(): String {
+    fun updateVoiceConfig(config: ClochetteVoiceConfig) {
+        voiceConfig = config
+        ClochetteVoiceSettings.save(context, config)
+    }
+
+    fun generateLine(autoSpeak: Boolean = true): String {
         val line = ClochetteEngine.remark(
             activity = UsageObserver(context).snapshot(),
                 sensors = SensorSnapshot(),
                 energy = energy,
                 project = project,
                 memory = memory.recent(24),
+                phraseLength = voiceConfig.phraseLength,
             )
             currentLine = line
             memory.add(
@@ -92,6 +101,7 @@ private fun ClochetteApp(startSection: String?) {
                 ),
             )
             ClochetteWidget.updateAll(context, line)
+            if (autoSpeak) ClochetteVoice.speakAfterRemark(context, line)
             return line
         }
 
@@ -152,7 +162,11 @@ private fun ClochetteApp(startSection: String?) {
                     }
                 }
 
-                Text("Voix", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                VoiceSettingsPanel(
+                    config = voiceConfig,
+                    onConfig = { updateVoiceConfig(it) },
+                )
+
                 SelectorPanel(
                     project = project,
                     energy = energy,
@@ -160,7 +174,7 @@ private fun ClochetteApp(startSection: String?) {
                     onEnergy = { energy = it },
                     onLine = { generateLine() },
                     onSpeak = {
-                        val line = currentLine ?: generateLine()
+                        val line = currentLine ?: generateLine(autoSpeak = false)
                         ClochetteVoice.speak(context, line)
                     },
                 )
@@ -320,6 +334,108 @@ private fun ResponsePanel(
 }
 
 @Composable
+private fun VoiceSettingsPanel(
+    config: ClochetteVoiceConfig,
+    onConfig: (ClochetteVoiceConfig) -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Voix de Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Voix activee")
+                Switch(
+                    checked = config.enabled,
+                    onCheckedChange = { onConfig(config.copy(enabled = it)) },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Parler apres chaque remarque")
+                Switch(
+                    checked = config.autoSpeak,
+                    onCheckedChange = { onConfig(config.copy(autoSpeak = it)) },
+                )
+            }
+            Text("Vitesse de parole : ${config.speechRate.formatOneDecimal()}")
+            Slider(
+                value = config.speechRate,
+                onValueChange = { onConfig(config.copy(speechRate = it.coerceIn(0.7f, 1.4f))) },
+                valueRange = 0.7f..1.4f,
+            )
+            Text("Hauteur / pitch : ${config.pitch.formatOneDecimal()}")
+            Slider(
+                value = config.pitch,
+                onValueChange = { onConfig(config.copy(pitch = it.coerceIn(0.8f, 1.7f))) },
+                valueRange = 0.8f..1.7f,
+            )
+            VoiceChoice(
+                title = "Mode vocal",
+                value = config.mode,
+                options = listOf(
+                    ClochetteVoiceSettings.MODE_DOUCE,
+                    ClochetteVoiceSettings.MODE_ESPIEGLE,
+                    ClochetteVoiceSettings.MODE_COACH,
+                    ClochetteVoiceSettings.MODE_FEUCHIENNE,
+                ),
+                onValue = { onConfig(config.copy(mode = it)) },
+            )
+            VoiceChoice(
+                title = "Effet sonore avant parole",
+                value = config.soundEffect,
+                options = listOf(
+                    ClochetteVoiceSettings.EFFECT_NONE,
+                    ClochetteVoiceSettings.EFFECT_BELL,
+                    ClochetteVoiceSettings.EFFECT_POF,
+                ),
+                onValue = { onConfig(config.copy(soundEffect = it)) },
+            )
+            VoiceChoice(
+                title = "Longueur des phrases",
+                value = config.phraseLength,
+                options = listOf(
+                    ClochetteVoiceSettings.LENGTH_SHORT,
+                    ClochetteVoiceSettings.LENGTH_NORMAL,
+                    ClochetteVoiceSettings.LENGTH_CHATTY,
+                ),
+                onValue = { onConfig(config.copy(phraseLength = it)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceChoice(
+    title: String,
+    value: String,
+    options: List<String>,
+    onValue: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, fontWeight = FontWeight.SemiBold)
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { open = true }) {
+            Text(value)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach {
+                DropdownMenuItem(
+                    text = { Text(it) },
+                    onClick = {
+                        onValue(it)
+                        open = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun SelectorPanel(
     project: String,
     energy: String,
@@ -375,6 +491,8 @@ private fun SelectorPanel(
         }
     }
 }
+
+private fun Float.formatOneDecimal(): String = ((this * 10).toInt() / 10f).toString()
 
 @Composable
 private fun PermissionCard(

@@ -17,6 +17,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -28,6 +29,7 @@ class ClochetteOverlayService : Service() {
     private lateinit var memory: ClochetteMemory
     private var overlay: View? = null
     private var lineView: TextView? = null
+    private var muteButton: Button? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private val handler = Handler(Looper.getMainLooper())
 
@@ -91,29 +93,46 @@ class ClochetteOverlayService : Service() {
         }
 
         val root = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.BOTTOM or Gravity.END
+            setPadding(6.dp(), 6.dp(), 6.dp(), 6.dp())
+        }
+
+        val bubble = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.END
-            setPadding(8.dp(), 8.dp(), 8.dp(), 8.dp())
+            setPadding(12.dp(), 10.dp(), 12.dp(), 10.dp())
+            background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), 20.dp())
+            elevation = 10f
         }
 
         lineView = TextView(this).apply {
             text = ClochetteRemarkStore.latest(this@ClochetteOverlayService)
-            textSize = 14f
+            textSize = 13f
             setTextColor(Color.rgb(44, 24, 63))
-            maxWidth = 292.dp()
+            maxWidth = 214.dp()
             maxLines = 4
-            setPadding(14.dp(), 10.dp(), 14.dp(), 10.dp())
-            background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), 18.dp())
-            elevation = 10f
+            setPadding(0, 0, 0, 6.dp())
         }
 
-        val sprite = TextView(this).apply {
-            text = "C"
-            textSize = 42f
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(44, 24, 63))
-            background = roundedBackground(Color.rgb(233, 213, 255), Color.rgb(109, 58, 161), 52.dp())
-            elevation = 12f
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+        }
+        buttonRow.addView(actionButton("Reglages") { openMainActivity("settings") })
+        muteButton = actionButton(muteLabel()) { toggleMute() }
+        buttonRow.addView(muteButton)
+        buttonRow.addView(actionButton("Micro") { openMainActivity("response") })
+
+        bubble.addView(lineView)
+        bubble.addView(buttonRow)
+
+        val sprite = ImageView(this).apply {
+            setImageResource(R.drawable.clochette_overlay_sprite)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            setPadding(0, 0, 0, 0)
+            elevation = 14f
             setOnClickListener { speakNextLine() }
             setOnLongClickListener {
                 pauseOverlay()
@@ -121,23 +140,20 @@ class ClochetteOverlayService : Service() {
             }
         }
 
-        val spriteParams = LinearLayout.LayoutParams(104.dp(), 104.dp()).apply {
-            gravity = Gravity.END
-            topMargin = 6.dp()
-            bottomMargin = 6.dp()
+        val bubbleParams = LinearLayout.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            gravity = Gravity.BOTTOM
+            rightMargin = 6.dp()
+            bottomMargin = 20.dp()
+        }
+        val spriteParams = LinearLayout.LayoutParams(116.dp(), 136.dp()).apply {
+            gravity = Gravity.BOTTOM
         }
 
-        val buttonRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-        }
-        buttonRow.addView(actionButton("Parler") { speakNextLine() })
-        buttonRow.addView(actionButton("Repondre") { openMainActivity("response") })
-        buttonRow.addView(actionButton("Reglages") { openMainActivity("settings") })
-
-        root.addView(lineView)
+        root.addView(bubble, bubbleParams)
         root.addView(sprite, spriteParams)
-        root.addView(buttonRow)
 
         installDragBehavior(root, params)
         windowManager.addView(root, params)
@@ -152,7 +168,8 @@ class ClochetteOverlayService : Service() {
         minWidth = 0
         minimumHeight = 0
         minimumWidth = 0
-        setPadding(8.dp(), 4.dp(), 8.dp(), 4.dp())
+        setAllCaps(false)
+        setPadding(6.dp(), 3.dp(), 6.dp(), 3.dp())
         setOnClickListener { onClick() }
     }
 
@@ -198,12 +215,14 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun speakNextLine() {
+        val voiceConfig = ClochetteVoiceSettings.read(this)
         val line = ClochetteEngine.remark(
             activity = UsageObserver(this).snapshot(),
             sensors = SensorSnapshot(),
             energy = null,
             project = null,
             memory = memory.recent(24),
+            phraseLength = voiceConfig.phraseLength,
         )
         memory.add(
             ClochetteMemoryEntry(
@@ -224,6 +243,17 @@ class ClochetteOverlayService : Service() {
     private fun updateLine(line: String) {
         lineView?.text = line
     }
+
+    private fun toggleMute() {
+        val current = ClochetteVoiceSettings.read(this)
+        val next = current.copy(enabled = !current.enabled)
+        ClochetteVoiceSettings.save(this, next)
+        if (!next.enabled) ClochetteVoice.stop()
+        muteButton?.text = muteLabel(next)
+    }
+
+    private fun muteLabel(config: ClochetteVoiceConfig = ClochetteVoiceSettings.read(this)): String =
+        if (config.enabled) "Muet" else "Son"
 
     private fun pauseOverlay() {
         memory.add(

@@ -9,6 +9,7 @@ object ClochetteEngine {
         energy: String?,
         project: String?,
         memory: List<ClochetteMemoryEntry>,
+        phraseLength: String = ClochetteVoiceSettings.LENGTH_NORMAL,
     ): String {
         val projectInfo = ProjectKnowledge.byName(project)
         val candidates = buildList {
@@ -62,7 +63,12 @@ object ClochetteEngine {
         val packageSeed = activity.foregroundPackage?.sumOf { it.code } ?: 0
         val historySeed = memory.fold(0) { seed, entry -> seed + (entry.timestamp % 97).toInt() }
         val line = source[(memory.size + activity.recentSwitchCount + packageSeed + historySeed) % source.size]
-        return line.limitWords(25)
+        val maxWords = when (phraseLength) {
+            ClochetteVoiceSettings.LENGTH_SHORT -> 14
+            ClochetteVoiceSettings.LENGTH_CHATTY -> 36
+            else -> 25
+        }
+        return line.limitWords(maxWords)
     }
 
     private fun String.limitWords(maxWords: Int): String {
