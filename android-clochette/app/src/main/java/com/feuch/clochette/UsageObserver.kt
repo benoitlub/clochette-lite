@@ -4,12 +4,14 @@ import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 
 class UsageObserver(private val context: Context) {
     private val usageStatsManager =
         context.applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    private val packageManager = context.applicationContext.packageManager
 
     fun hasPermission(): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -53,8 +55,19 @@ class UsageObserver(private val context: Context) {
 
         return ActivitySnapshot(
             foregroundPackage = foregroundPackage,
+            foregroundDisplayName = foregroundPackage?.toDisplayName(),
             recentSwitchCount = switches,
             approximateDurationMs = (now - foregroundSince).coerceAtLeast(0),
         )
     }
+
+    private fun String.toDisplayName(): String = runCatching {
+        val appInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getApplicationInfo(this, PackageManager.ApplicationInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getApplicationInfo(this, 0)
+        }
+        packageManager.getApplicationLabel(appInfo).toString()
+    }.getOrElse { this }
 }

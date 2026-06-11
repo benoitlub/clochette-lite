@@ -75,6 +75,7 @@ private fun ClochetteApp(startSection: String?) {
     var responseText by remember { mutableStateOf("") }
     var voiceConfig by remember { mutableStateOf(ClochetteVoiceSettings.read(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
+    val usageSnapshot = remember(refresh) { UsageObserver(context).snapshot() }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
@@ -85,12 +86,14 @@ private fun ClochetteApp(startSection: String?) {
     }
 
     fun generateLine(autoSpeak: Boolean = true): String {
-        val line = ClochetteEngine.remark(
-            activity = UsageObserver(context).snapshot(),
+        val activity = UsageObserver(context).snapshot()
+        val recentMemory = memory.recent(24)
+        val line = ContextRemarkEngine(context).remark(activity, recentMemory) ?: ClochetteEngine.remark(
+            activity = activity,
                 sensors = SensorSnapshot(),
                 energy = energy,
                 project = project,
-                memory = memory.recent(24),
+                memory = recentMemory,
                 phraseLength = voiceConfig.phraseLength,
             )
             currentLine = line
@@ -228,6 +231,11 @@ private fun ClochetteApp(startSection: String?) {
                     Text("Synchroniser les personas")
                 }
                 ModulesClochettePanel(modules = personaModules)
+                UsageAccessPanel(
+                    hasPermission = UsageObserver(context).hasPermission(),
+                    activity = usageSnapshot,
+                    onOpenSettings = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                )
                 PermissionCard(
                     title = "Surimpression",
                     explanation = "Affiche Clochette par-dessus les apps, en petite presence visible et stoppable.",
@@ -478,6 +486,26 @@ private fun ModulesClochettePanel(modules: List<PersonaModuleStatus>) {
 }
 
 @Composable
+private fun UsageAccessPanel(
+    hasPermission: Boolean,
+    activity: ActivitySnapshot,
+    onOpenSettings: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Usage Access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(if (hasPermission) "Etat : autorise" else "Etat : autorisation requise")
+            Text("Application : ${activity.foregroundDisplayName ?: activity.foregroundPackage ?: "non detectee"}")
+            Text("Temps approximatif : ${activity.approximateDurationMs.toApproximateLabel()}")
+            Text("Changements d'apps : ${activity.recentSwitchCount}")
+            Button(onClick = onOpenSettings) {
+                Text("Ouvrir les parametres Android")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SelectorPanel(
     project: String,
     energy: String,
@@ -535,6 +563,20 @@ private fun SelectorPanel(
 }
 
 private fun Float.formatOneDecimal(): String = ((this * 10).toInt() / 10f).toString()
+
+private fun Long.toApproximateLabel(): String {
+    val minutes = (this / 60_000L).coerceAtLeast(0)
+    return when {
+        minutes <= 0L -> "moins d'une minute"
+        minutes == 1L -> "1 minute"
+        minutes < 60L -> "$minutes minutes"
+        else -> {
+            val hours = minutes / 60
+            val rest = minutes % 60
+            if (rest == 0L) "$hours h" else "$hours h $rest min"
+        }
+    }
+}
 
 @Composable
 private fun PermissionCard(

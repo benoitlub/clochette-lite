@@ -2,6 +2,7 @@ package com.feuch.clochette
 
 data class ActivitySnapshot(
     val foregroundPackage: String? = null,
+    val foregroundDisplayName: String? = null,
     val recentSwitchCount: Int = 0,
     val approximateDurationMs: Long = 0L,
 )
