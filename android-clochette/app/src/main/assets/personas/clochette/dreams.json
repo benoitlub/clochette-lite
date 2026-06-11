@@ -1,0 +1,73 @@
+{
+  "id": "clochette_dreams",
+  "version": 1,
+  "principle": "Clochette ne recoit pas seulement des mises a jour. Elle apprend lentement, oublie certaines choses, en decouvre d'autres et raconte parfois ce qui lui passe par les ailes.",
+  "purpose": "Generer occasionnellement de nouvelles remarques, petits resumes et variations de ton a partir de la memoire locale ou distante, sans faire tourner une IA en permanence.",
+  "cadence": {
+    "default": "once_or_twice_per_day",
+    "minimumIntervalHours": 6,
+    "onlyWhenIdle": true,
+    "neverDuringDeepWork": true,
+    "askBeforeAdopting": true
+  },
+  "dreamTypes": [
+    {
+      "id": "new_lines",
+      "name": "Nouvelles remarques",
+      "description": "Proposer quelques phrases nouvelles dans le ton Clochette."
+    },
+    {
+      "id": "daily_summary",
+      "name": "Resume leger",
+      "description": "Resumer la journee en une ou deux observations utiles, sans jugement."
+    },
+    {
+      "id": "tone_adjustment",
+      "name": "Ajustement du ton",
+      "description": "Detecter si Clochette a ete trop bavarde, trop seche ou trop absente."
+    },
+    {
+      "id": "context_discovery",
+      "name": "Decouverte de contexte",
+      "description": "Proposer un nouveau contexte si plusieurs indices se repetent."
+    }
+  ],
+  "sampleLines": [
+    "J'ai reveille deux neurones et une poussiere de fee. Bilan : je crois que j'ai appris quelque chose.",
+    "J'ai relu mes notes. Je me trouve un peu plus drole qu'hier. C'est inquietant.",
+    "J'ai reveasse un peu. Certaines de mes idees etaient terribles. J'ai garde les moins catastrophiques.",
+    "J'ai appris trois nouvelles remarques. Je promets de n'en abuser que moderement.",
+    "Pendant que tu faisais autre chose, j'ai range quelques idees dans ma poussiere de fee.",
+    "J'ai retrouve quelques notes dans mon carnet. J'ecris vraiment petit.",
+    "Je me suis relue. J'etais un peu envahissante. Je vais essayer de respirer davantage.",
+    "J'ai pense a une nouvelle facon de te taquiner. Tu me diras si elle est nulle.",
+    "J'ai relu mes notes de la journee. Je crois que nous avons ete raisonnablement chaotiques."
+  ],
+  "adoptionFlow": {
+    "intro": "J'ai imagine quelques nouvelles idees. Tu veux les adopter ?",
+    "actions": ["Plus tard", "Voir les nouveautes", "Oui"],
+    "rule": "Ne jamais remplacer silencieusement le comportement principal. Proposer, puis adopter si l'utilisateur accepte."
+  },
+  "gatewayPayloadDraft": {
+    "inputs": [
+      "personaId",
+      "recentMemorySummary",
+      "recentContextProfiles",
+      "ignoredLines",
+      "usefulLines",
+      "preferredTone",
+      "language"
+    ],
+    "outputs": [
+      "candidateLines",
+      "memorySuggestion",
+      "toneAdjustment",
+      "changelogText"
+    ]
+  },
+  "notionRole": {
+    "plannedDatabase": "Clochette Dreams",
+    "fields": ["Date", "Type", "Input summary", "Generated line", "Accepted", "Provider", "Notes"],
+    "purpose": "Journaliser les generations occasionnelles et garder seulement les idees adoptees."
+  }
+}
