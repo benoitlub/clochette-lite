@@ -292,6 +292,14 @@ private fun VisibleClochettePanel(
                                 .putExtra(ClochetteRemarkStore.EXTRA_LINE, line),
                         )
                         Toast.makeText(context, "Overlay démarré", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Autorise l'affichage par-dessus les apps.", Toast.LENGTH_LONG).show()
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
                     }
                     onRefresh()
                 }) {
