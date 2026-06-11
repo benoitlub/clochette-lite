@@ -215,6 +215,17 @@ private fun ClochetteApp(startSection: String?) {
                 )
 
                 Text("Permissions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Button(onClick = {
+                    val result = PersonaLoader(context).synchronizeLocal()
+                    val message = when (result.source) {
+                        PersonaSource.CACHE -> "Persona chargé"
+                        PersonaSource.ASSET,
+                        PersonaSource.DEFAULT -> "Persona local utilisé"
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }) {
+                    Text("Synchroniser les personas")
+                }
                 PermissionCard(
                     title = "Surimpression",
                     explanation = "Affiche Clochette par-dessus les apps, en petite presence visible et stoppable.",
