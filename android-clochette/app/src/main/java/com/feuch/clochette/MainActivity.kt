@@ -88,7 +88,12 @@ private fun ClochetteApp(startSection: String?) {
     fun generateLine(autoSpeak: Boolean = true): String {
         val activity = UsageObserver(context).snapshot()
         val recentMemory = memory.recent(24)
-        val line = ContextRemarkEngine(context).remark(activity, recentMemory) ?: ClochetteEngine.remark(
+        val line = ContextRemarkEngine(context).remark(
+            activity = activity,
+            memory = recentMemory,
+            sensors = SensorSnapshot(),
+            energy = energy,
+        ) ?: ClochetteEngine.remark(
             activity = activity,
                 sensors = SensorSnapshot(),
                 energy = energy,

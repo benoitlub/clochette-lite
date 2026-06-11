@@ -1,95 +1,252 @@
 package com.feuch.clochette
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import org.json.JSONObject
+import java.util.Calendar
 import kotlin.math.abs
 
 class ContextRemarkEngine(context: Context) {
     private val appContext = context.applicationContext
 
-    fun remark(activity: ActivitySnapshot, memory: List<ClochetteMemoryEntry>): String? {
-        val model = loadModel() ?: return null
-        val durationBand = model.durationBands
-            .firstOrNull { activity.approximateDurationMs.toMinutes() in it.minMinutes..it.maxMinutes }
-            ?.id
-            ?: model.durationBands.firstOrNull()?.id
-            ?: return model.fallbackLines.pick(activity, memory)
+    fun remark(
+        activity: ActivitySnapshot,
+        memory: List<ClochetteMemoryEntry>,
+        sensors: SensorSnapshot = SensorSnapshot(),
+        energy: String? = null,
+    ): String? {
+        val state = buildState(activity = activity, sensors = sensors, energy = energy)
+        val model = loadModel() ?: return builtInFallback(state, memory)
+        val mood = MoodManager.moodFor(state, memory)
+        val candidates = rankedCandidates(model, state, mood)
+        val chosen = candidates
+            .filterNot { isForbidden(it.line) }
+            .maxWithOrNull(compareBy<RemarkCandidate> { it.score }.thenBy { seededTieBreaker(it.line, state, memory) })
 
-        val packageName = activity.foregroundPackage.orEmpty().lowercase()
-        val displayName = activity.foregroundDisplayName.orEmpty().lowercase()
-        val app = model.apps.firstOrNull { candidate ->
-            candidate.packageHints.any { hint ->
-                val normalized = hint.lowercase()
-                packageName.contains(normalized) || displayName.contains(normalized)
+        return if (chosen != null && chosen.score >= MIN_RELEVANCE_SCORE) {
+            chosen.line
+        } else {
+            simpleFallback(model, state, memory)
+        }
+    }
+
+    fun buildState(
+        activity: ActivitySnapshot,
+        sensors: SensorSnapshot = SensorSnapshot(),
+        energy: String? = null,
+    ): ContextState {
+        val battery = batteryState()
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val movement = when {
+            sensors.walkingPossible -> MovementState.WALKING
+            sensors.phoneStill -> MovementState.STILL
+            else -> MovementState.STILL
+        }
+        return ContextState(
+            currentAppName = activity.foregroundDisplayName ?: activity.foregroundPackage,
+            durationMinutes = activity.approximateDurationMs.toMinutes(),
+            batteryPercent = battery.percent,
+            isCharging = battery.isCharging,
+            hourOfDay = hour,
+            dayPeriod = dayPeriod(hour),
+            movementState = movement,
+            screenOnDuration = activity.approximateDurationMs,
+            recentAppSwitches = activity.recentSwitchCount,
+            userEnergyEstimate = energy.toEnergyEstimate(),
+        )
+    }
+
+    private fun rankedCandidates(
+        model: ContextLinesModel,
+        state: ContextState,
+        mood: ClochetteMood,
+    ): List<RemarkCandidate> {
+        val results = mutableListOf<RemarkCandidate>()
+        val appName = state.currentAppName.orEmpty().lowercase()
+        val band = durationBand(state.durationMinutes)
+
+        model.apps.forEach { app ->
+            val appMatches = app.names.any { name -> appName.contains(name.lowercase()) } ||
+                app.packageHints.any { hint -> appName.contains(hint.lowercase()) }
+            if (appMatches) {
+                val lines = app.lines[band].orEmpty() + app.lines["any"].orEmpty()
+                lines.forEach { line ->
+                    results += RemarkCandidate(
+                        line = line.withMood(mood),
+                        score = 100 + state.durationMinutes.coerceAtMost(180) / 10,
+                    )
+                }
             }
         }
-        val lines = app?.lines?.get(durationBand)
-            ?: app?.lines?.values?.firstOrNull { it.isNotEmpty() }
-            ?: model.fallbackLines
-        return lines.pick(activity, memory)
+
+        if (state.durationMinutes >= 120) {
+            model.states["duration_long"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 70) }
+        }
+        if (state.dayPeriod == DayPeriod.NIGHT || state.hourOfDay >= 22) {
+            model.states["night"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 60) }
+        }
+        if (state.batteryPercent != null && state.batteryPercent <= 18 && !state.isCharging) {
+            model.states["battery_low"].orEmpty().forEach { results += RemarkCandidate(it.withMood(ClochetteMood.CONCERNED), 55) }
+        }
+        if (state.movementState == MovementState.WALKING) {
+            model.states["walking"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 45) }
+        }
+        if (state.movementState == MovementState.STILL && state.durationMinutes >= 45) {
+            model.states["still_long"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 40) }
+        }
+        if (state.recentAppSwitches >= 5) {
+            model.states["switching"].orEmpty().forEach { results += RemarkCandidate(it.withMood(ClochetteMood.PLAYFUL), 35) }
+        }
+
+        return results
+    }
+
+    private fun simpleFallback(
+        model: ContextLinesModel,
+        state: ContextState,
+        memory: List<ClochetteMemoryEntry>,
+    ): String {
+        val hints = MemoryHints.hintsFor(state, memory)
+        if (hints.isNotEmpty() && state.currentAppName.isNullOrBlank()) {
+            return hints.pick(state, memory) ?: builtInFallback(state, memory)
+        }
+        val lines = model.fallbackLines.filterNot(::isForbidden)
+        return lines.pick(state, memory) ?: builtInFallback(state, memory)
+    }
+
+    private fun builtInFallback(state: ContextState, memory: List<ClochetteMemoryEntry>): String {
+        val fallback = listOf(
+            "Je remarque juste que ca dure. Pas un drame, mais je pose ma petite lampe dessus.",
+            "Je peux me tromper, mais ton attention fait des zigzags.",
+            "J'ai l'impression que quelque chose cherche une sortie simple.",
+        )
+        return fallback.pick(state, memory) ?: fallback.first()
     }
 
     private fun loadModel(): ContextLinesModel? = runCatching {
         val raw = appContext.assets.open(ASSET_PATH).bufferedReader().use { it.readText() }
         val json = JSONObject(raw)
-        val durationBands = json.optJSONArray("durationBands").toList { item ->
-            DurationBand(
-                id = item.optString("id"),
-                minMinutes = item.optInt("minMinutes", 0),
-                maxMinutes = item.optInt("maxMinutes", Int.MAX_VALUE),
-            )
-        }.filter { it.id.isNotBlank() }
-        val apps = json.optJSONArray("apps").toList { item ->
+        val apps = json.optJSONArray("apps").toObjectList { item ->
             val linesJson = item.optJSONObject("lines")
             ContextAppLines(
-                displayName = item.optString("displayName"),
+                id = item.optString("id"),
+                names = item.optJSONArray("names").toStringList(),
                 packageHints = item.optJSONArray("packageHints").toStringList(),
                 lines = linesJson?.keys()?.asSequence()?.associateWith { key ->
                     linesJson.optJSONArray(key).toStringList()
                 }.orEmpty(),
             )
         }
+        val statesJson = json.optJSONObject("states")
+        val states = statesJson?.keys()?.asSequence()?.associateWith { key ->
+            statesJson.optJSONArray(key).toStringList()
+        }.orEmpty()
         ContextLinesModel(
-            durationBands = durationBands,
             apps = apps,
+            states = states,
             fallbackLines = json.optJSONArray("fallbackLines").toStringList(),
         )
     }.getOrNull()
 
-    private fun List<String>.pick(activity: ActivitySnapshot, memory: List<ClochetteMemoryEntry>): String? {
+    private fun batteryState(): BatteryState {
+        val intent = appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        return BatteryState(
+            percent = if (level >= 0 && scale > 0) ((level * 100f) / scale).toInt() else null,
+            isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL,
+        )
+    }
+
+    private fun durationBand(minutes: Int): String = when {
+        minutes >= 180 -> "marathon"
+        minutes >= 120 -> "very_long"
+        minutes >= 60 -> "long"
+        minutes >= 20 -> "medium"
+        else -> "short"
+    }
+
+    private fun dayPeriod(hour: Int): DayPeriod = when (hour) {
+        in 5..11 -> DayPeriod.MORNING
+        in 12..17 -> DayPeriod.AFTERNOON
+        in 18..21 -> DayPeriod.EVENING
+        else -> DayPeriod.NIGHT
+    }
+
+    private fun String?.toEnergyEstimate(): UserEnergyEstimate = when (this?.lowercase()) {
+        "basse", "low", "fatiguee", "fatigue" -> UserEnergyEstimate.LOW
+        "haute", "high" -> UserEnergyEstimate.HIGH
+        else -> UserEnergyEstimate.MEDIUM
+    }
+
+    private fun String.withMood(mood: ClochetteMood): String = when (mood) {
+        ClochetteMood.SLEEPY -> if (contains("sommeil", ignoreCase = true)) this else this
+        ClochetteMood.CONCERNED -> if (startsWith("Je")) this else "Je remarque juste que $this"
+        ClochetteMood.PROUD,
+        ClochetteMood.PLAYFUL,
+        ClochetteMood.CALM -> this
+    }
+
+    private fun List<String>.pick(state: ContextState, memory: List<ClochetteMemoryEntry>): String? {
         if (isEmpty()) return null
-        val seed = activity.foregroundPackage.orEmpty().sumOf { it.code } +
-            activity.recentSwitchCount +
-            memory.fold(0) { total, entry -> total + (entry.timestamp % 31).toInt() }
+        val seed = state.currentAppName.orEmpty().sumOf { it.code } +
+            state.durationMinutes +
+            state.recentAppSwitches +
+            memory.fold(0) { total, entry -> total + (entry.timestamp % 29).toInt() }
         return this[abs(seed) % size]
+    }
+
+    private fun seededTieBreaker(line: String, state: ContextState, memory: List<ClochetteMemoryEntry>): Int {
+        return abs(line.sumOf { it.code } + state.durationMinutes + memory.size)
+    }
+
+    private fun isForbidden(line: String): Boolean {
+        val normalized = line.lowercase()
+        return listOf(
+            "le plan n'est pas l'entree de service",
+            "le plan n'est pas l'entrée de service",
+            "le vide repond au vide",
+            "le vide répond au vide",
+            "les chemins sont des portes",
+        ).any { normalized.contains(it) }
     }
 
     private fun Long.toMinutes(): Int = (this / 60_000L).toInt().coerceAtLeast(0)
 
     private data class ContextLinesModel(
-        val durationBands: List<DurationBand>,
         val apps: List<ContextAppLines>,
+        val states: Map<String, List<String>>,
         val fallbackLines: List<String>,
     )
 
-    private data class DurationBand(
-        val id: String,
-        val minMinutes: Int,
-        val maxMinutes: Int,
-    )
-
     private data class ContextAppLines(
-        val displayName: String,
+        val id: String,
+        val names: List<String>,
         val packageHints: List<String>,
         val lines: Map<String, List<String>>,
     )
 
+    private data class RemarkCandidate(
+        val line: String,
+        val score: Int,
+    )
+
+    private data class BatteryState(
+        val percent: Int?,
+        val isCharging: Boolean,
+    )
+
     private companion object {
-        const val ASSET_PATH = "personas/clochette/app_context_lines.json"
+        const val ASSET_PATH = "personas/clochette/context_lines.json"
+        const val MIN_RELEVANCE_SCORE = 30
     }
 }
 
-private fun <T> org.json.JSONArray?.toList(mapper: (JSONObject) -> T): List<T> {
+private fun <T> org.json.JSONArray?.toObjectList(mapper: (JSONObject) -> T): List<T> {
     if (this == null) return emptyList()
     return (0 until length()).mapNotNull { index -> optJSONObject(index)?.let(mapper) }
 }

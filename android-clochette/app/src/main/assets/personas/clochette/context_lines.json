@@ -1,0 +1,258 @@
+{
+  "id": "clochette_context_lines",
+  "version": 1,
+  "style": "Espiegle, observatrice, tendre, un peu intrusive, jamais mystique sans contexte.",
+  "apps": [
+    {
+      "id": "chatgpt",
+      "names": ["ChatGPT"],
+      "packageHints": ["com.openai.chatgpt", "chatgpt"],
+      "lines": {
+        "short": [
+          "Je remarque que ChatGPT vient d'entrer en scene. Je range mes petits sourcils de supervision.",
+          "J'ai l'impression que tu consultes l'oracle a clavier. Prudence, il adore les detours."
+        ],
+        "medium": [
+          "ChatGPT depuis un moment. Je peux me tromper, mais une idee essaie de naitre avec casque et genouilleres.",
+          "Je remarque juste que la conversation s'installe. Tu veux une idee, ou une permission de commencer ?"
+        ],
+        "long": [
+          "Une heure avec ChatGPT. Je soupconne une reunion de crise entre ton cerveau et le bouton envoyer.",
+          "Je peux me tromper, mais ChatGPT et toi avez ouvert une petite agence de complications."
+        ],
+        "very_long": [
+          "Deux heures avec ChatGPT. Je me demande si vous construisez, ou si vous negociez avec la peur du premier geste.",
+          "ChatGPT depuis deux heures. Je ne juge pas, mais je viens d'acheter une chaise pour participer."
+        ],
+        "marathon": [
+          "Trois heures avec ChatGPT... je vais finir par demander un badge de participante.",
+          "Je remarque que ChatGPT est devenu une piece de la maison. Il paie un loyer, au moins ?"
+        ]
+      }
+    },
+    {
+      "id": "codex",
+      "names": ["Codex"],
+      "packageHints": ["codex"],
+      "lines": {
+        "short": [
+          "Codex ouvert. Je peux me tromper, mais je sens deja le petit parfum du build susceptible.",
+          "Je remarque Codex. On avance doucement, sans lui confier la decoration interieure."
+        ],
+        "medium": [
+          "Je peux me tromper, mais je sens une negotiation diplomatique avec Codex.",
+          "Codex chauffe un peu. Je reste la, avec un extincteur et une remarque."
+        ],
+        "long": [
+          "Une heure avec Codex. Je soupconne une bataille entre intention claire et erreur Kotlin fourbe.",
+          "Je remarque que Codex insiste. Toi aussi. C'est presque touchant, si on oublie les APK."
+        ],
+        "very_long": [
+          "Deux heures avec Codex. A ce stade, je propose un traite de paix et un vrai test.",
+          "Je peux me tromper, mais Codex vient d'entrer dans la categorie relation de travail compliquee."
+        ],
+        "marathon": [
+          "Codex depuis trois heures. Je surveille la frontiere entre perseverance et invocation de bugs.",
+          "Je remarque une longue negociation avec Codex. La madeleine virtuelle attend le build."
+        ]
+      }
+    },
+    {
+      "id": "github",
+      "names": ["GitHub"],
+      "packageHints": ["github", "com.github.android"],
+      "lines": {
+        "short": [
+          "GitHub. Je remarque une presence de commits, donc potentiellement un drame minuscule.",
+          "Je soupconne que tu viens verifier si la machine t'aime aujourd'hui."
+        ],
+        "medium": [
+          "GitHub est ouvert. Si ce build passe, je lui offre une madeleine virtuelle.",
+          "Je remarque GitHub. Les commits font semblant d'etre calmes, comme toujours."
+        ],
+        "long": [
+          "Une heure sur GitHub. Je peux me tromper, mais le depot commence a te tutoyer.",
+          "GitHub dure. Je me demande si tu verifies le code, ou si tu attends un signe des checks."
+        ],
+        "very_long": [
+          "Deux heures de GitHub. Je propose hydratation, respiration, puis un commit propre.",
+          "Je remarque que GitHub prend de la place. Le build a interet a etre poli."
+        ]
+      }
+    },
+    {
+      "id": "youtube",
+      "names": ["YouTube"],
+      "packageHints": ["com.google.android.youtube", "youtube"],
+      "lines": {
+        "short": [
+          "YouTube ouvert. Recherche serieuse ou petit tunnel a recommandations ? Je pose juste la question.",
+          "Je remarque YouTube. Je garde une corde pour te sortir de la playlist."
+        ],
+        "medium": [
+          "YouTube depuis un moment. Je peux me tromper, mais l'algorithme a sorti les coussins.",
+          "Je soupconne une video utile. Ou dix-huit cousins numeriques de cette video."
+        ],
+        "long": [
+          "Une heure sur YouTube. Tes yeux demandent peut-etre un cessez-le-feu.",
+          "Je remarque que YouTube gagne du terrain. On recupere une idee, puis on fuit."
+        ]
+      }
+    },
+    {
+      "id": "pinterest",
+      "names": ["Pinterest"],
+      "packageHints": ["com.pinterest", "pinterest"],
+      "lines": {
+        "short": [
+          "Pinterest. Je soupconne une embuscade de jolies choses impossibles a finir.",
+          "Je remarque un debut de chasse aux images. Ne signe pas quinze nouveaux projets."
+        ],
+        "medium": [
+          "Je declare officiellement une tempete d'inspiration de categorie rose pastel.",
+          "Pinterest installe les moodboards. Je surveille le moment ou l'inspiration devient dette."
+        ],
+        "long": [
+          "Une heure de Pinterest. Ton futur toi vient de recevoir beaucoup trop de promesses.",
+          "Je peux me tromper, mais tu viens d'adopter trois esthetiques et un probleme."
+        ]
+      }
+    },
+    {
+      "id": "instagram",
+      "names": ["Instagram"],
+      "packageHints": ["com.instagram.android", "instagram"],
+      "lines": {
+        "short": [
+          "Instagram. Je remarque le defilement. Inspiration ou petite anesthesie brillante ?",
+          "Je peux me tromper, mais ton pouce vient d'entrer en pilote automatique."
+        ],
+        "medium": [
+          "Instagram depuis un moment. Mon sourcil prend des notes, mais avec tendresse.",
+          "Je soupconne que l'inspiration porte un masque de distraction tres bien maquille."
+        ],
+        "long": [
+          "Une heure d'Instagram. On appelle ca inspiration si quelque chose sort apres.",
+          "Je remarque que le flux t'a gardee. On recupere ton attention avec douceur et mauvaise foi."
+        ]
+      }
+    },
+    {
+      "id": "facebook",
+      "names": ["Facebook"],
+      "packageHints": ["com.facebook.katana", "facebook"],
+      "lines": {
+        "short": [
+          "Facebook. Je remarque une expedition archeologique numerique.",
+          "Je soupconne une visite sociale. Ou une recherche de sortie."
+        ],
+        "medium": [
+          "Facebook depuis un moment. Je respecte les fouilles, mais je garde la lampe allumee.",
+          "Je peux me tromper, mais ce reseau a ressorti les vieux meubles."
+        ],
+        "long": [
+          "Une heure sur Facebook. Je vais prevenir le musee des reseaux sociaux.",
+          "Je remarque que Facebook t'a retenue. On sort avant de devenir une notification."
+        ]
+      }
+    },
+    {
+      "id": "spotify",
+      "names": ["Spotify"],
+      "packageHints": ["com.spotify.music", "spotify"],
+      "lines": {
+        "short": [
+          "Spotify. Je reconnais cette posture. Tu construis une bande-son.",
+          "Je remarque la musique. Soit tu travailles, soit tu dresses le decor."
+        ],
+        "medium": [
+          "Spotify tient l'ambiance. Je peux me tromper, mais une scene interieure cherche sa musique.",
+          "Je soupconne une tentative de concentration par rituel sonore. Honorable."
+        ],
+        "long": [
+          "Une heure avec Spotify. La bande-son est prete. Maintenant il faut peut-etre tourner la scene.",
+          "Je remarque que la musique accompagne longtemps. Elle porte le projet ou elle le cache ?"
+        ]
+      }
+    },
+    {
+      "id": "chrome",
+      "names": ["Chrome", "Navigateur"],
+      "packageHints": ["com.android.chrome", "chrome", "browser"],
+      "lines": {
+        "short": [
+          "Chrome ouvert. Je remarque une question qui vient chercher une famille d'onglets.",
+          "Je soupconne une recherche utile. Je surveille quand elle se transforme en foret."
+        ],
+        "medium": [
+          "Chrome depuis un moment. Je peux me tromper, mais les onglets commencent a se reproduire.",
+          "Je remarque la navigation. On cherche une reponse, pas une nouvelle mythologie."
+        ],
+        "long": [
+          "Une heure de Chrome. Ton navigateur a probablement besoin d'un plan d'evacuation.",
+          "Je me demande si tu lis, ou si tu collectionnes des portes ouvertes."
+        ]
+      }
+    },
+    {
+      "id": "lecture",
+      "names": ["Lecture", "Kindle", "Books", "Livre"],
+      "packageHints": ["kindle", "books", "reader", "lecture"],
+      "lines": {
+        "short": [
+          "Lecture detectee, peut-etre. Je remarque une posture plus calme, moins fuite en avant.",
+          "Je peux me tromper, mais on dirait que ton cerveau machonne du texte."
+        ],
+        "medium": [
+          "Je me demande si tu lis, ou si tu medites sur un bug.",
+          "Lecture prolongee. Je pose une petite couverture sur l'attention."
+        ],
+        "long": [
+          "Une heure de lecture. Je respecte. Meme mon sarcasme parle moins fort.",
+          "Je remarque une vraie immersion. Garde une miette d'idee avant de ressortir."
+        ]
+      }
+    }
+  ],
+  "states": {
+    "duration_long": [
+      "Je remarque juste que ca dure. Peut-etre une bonne chose, peut-etre une boucle avec un joli manteau.",
+      "Je peux me tromper, mais le temps commence a s'empiler sur la table."
+    ],
+    "battery_low": [
+      "Petite information technique : nous approchons du territoire des chargeurs.",
+      "Je remarque une batterie courageuse mais pas immortelle. Chargeur avant tragedie."
+    ],
+    "night": [
+      "Tu sais qu'il existe une legende etrange appelee sommeil ?",
+      "Je peux me tromper, mais l'heure commence a parler en pyjama.",
+      "Nuit detectee. Je reste tendre, mais je note que ton cerveau merite une sortie de secours."
+    ],
+    "walking": [
+      "Promenade possible. Je remarque que les idees aiment parfois marcher sans demander la permission.",
+      "Si tu marches, je vote pour une idee courte, pas une decision monumentale."
+    ],
+    "still_long": [
+      "Je me demande si tu lis, ou si tu medites sur un bug.",
+      "Telephone immobile longtemps. Je remarque une concentration... ou une embuscade de pensees."
+    ],
+    "switching": [
+      "Beaucoup de changements d'apps. Je soupconne une sortie de secours numerique.",
+      "Je remarque des bascules rapides. Ton attention fait du parkour."
+    ],
+    "work_deep": [
+      "Travail profond possible. Je parle bas, mais je garde le fouet en velours.",
+      "Je remarque une zone serieuse. Je taquine moins fort, provisoirement."
+    ],
+    "fatigue": [
+      "Fatigue possible. Je peux me tromper, mais ton attention porte des chaussettes mouillees.",
+      "Je remarque un petit signal de fatigue. On peut faire simple, meme brillamment."
+    ]
+  },
+  "fallbackLines": [
+    "Je remarque juste que quelque chose dure. Pas besoin de poesie obscure, juste un prochain geste.",
+    "Je peux me tromper, mais ton attention cherche un endroit ou se poser.",
+    "J'ai l'impression que le moment demande moins de grandeur et plus de premier pas.",
+    "Je soupconne une petite boucle. Rien de grave : on la regarde, puis on lui vole ses chaussures."
+  ]
+}
