@@ -1,6 +1,9 @@
 package com.feuch.clochette
 
 import android.Manifest
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -145,6 +149,7 @@ private fun ClochetteApp(startSection: String?) {
                             context,
                             Intent(context, ClochettePresenceService::class.java),
                         )
+                        Toast.makeText(context, "Observation active", Toast.LENGTH_SHORT).show()
                         refresh++
                     }) {
                         Text("Observer")
@@ -203,8 +208,8 @@ private fun ClochetteApp(startSection: String?) {
                     explanation = "Ajoute Clochette depuis les widgets Android. Le widget affiche une remarque et peut parler quand tu le touches.",
                     enabled = true,
                     onEnable = {
-                        val line = currentLine ?: generateLine()
-                        ClochetteWidget.updateAll(context, line)
+                        openWidgetPicker(context)
+                        Toast.makeText(context, "Ajoute le widget depuis la liste Android.", Toast.LENGTH_LONG).show()
                     },
                     onDecline = { memory.decline("home_widget") },
                 )
@@ -279,20 +284,14 @@ private fun VisibleClochettePanel(
             Text("Affiche une petite Clochette en bas de l'ecran, avec bulle de texte et boutons rapides.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
-                    if (!Settings.canDrawOverlays(context)) {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${context.packageName}"),
-                            ),
-                        )
-                    } else {
+                    if (Settings.canDrawOverlays(context)) {
                         val line = currentLine ?: onNeedLine()
                         context.startService(
                             Intent(context, ClochetteOverlayService::class.java)
                                 .setAction(ClochetteOverlayService.ACTION_SHOW)
                                 .putExtra(ClochetteRemarkStore.EXTRA_LINE, line),
                         )
+                        Toast.makeText(context, "Overlay démarré", Toast.LENGTH_SHORT).show()
                     }
                     onRefresh()
                 }) {
@@ -554,6 +553,20 @@ private fun stateLabel(raw: String?): String = when (raw) {
     ClochetteState.OBSERVING.name -> "observe"
     ClochetteState.PAUSED.name -> "pause"
     else -> "en veille"
+}
+
+private fun openWidgetPicker(context: Context) {
+    val host = AppWidgetHost(context.applicationContext, 1248)
+    val appWidgetId = host.allocateAppWidgetId()
+    val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
+        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+    runCatching { context.startActivity(intent) }
+        .onFailure { error ->
+            host.deleteAppWidgetId(appWidgetId)
+            if (error is ActivityNotFoundException) {
+                Toast.makeText(context, "Selecteur de widgets indisponible.", Toast.LENGTH_SHORT).show()
+            }
+        }
 }
 
 private fun isAccessibilityServiceEnabled(context: Context): Boolean {
