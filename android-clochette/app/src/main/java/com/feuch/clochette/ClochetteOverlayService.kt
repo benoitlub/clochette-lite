@@ -29,7 +29,6 @@ class ClochetteOverlayService : Service() {
     private lateinit var memory: ClochetteMemory
     private var overlay: View? = null
     private var lineView: TextView? = null
-    private var muteButton: Button? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private val handler = Handler(Looper.getMainLooper())
 
@@ -110,8 +109,8 @@ class ClochetteOverlayService : Service() {
             text = ClochetteRemarkStore.latest(this@ClochetteOverlayService)
             textSize = 13f
             setTextColor(Color.rgb(44, 24, 63))
-            maxWidth = 214.dp()
-            maxLines = 4
+            maxWidth = 196.dp()
+            maxLines = 3
             setPadding(0, 0, 0, 6.dp())
         }
 
@@ -119,10 +118,9 @@ class ClochetteOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
+        buttonRow.addView(actionButton("Parler") { speakNextLine() })
+        buttonRow.addView(actionButton("Repondre") { openMainActivity("response") })
         buttonRow.addView(actionButton("Reglages") { openMainActivity("settings") })
-        muteButton = actionButton(muteLabel()) { toggleMute() }
-        buttonRow.addView(muteButton)
-        buttonRow.addView(actionButton("Micro") { openMainActivity("response") })
 
         bubble.addView(lineView)
         bubble.addView(buttonRow)
@@ -148,7 +146,7 @@ class ClochetteOverlayService : Service() {
             rightMargin = 6.dp()
             bottomMargin = 20.dp()
         }
-        val spriteParams = LinearLayout.LayoutParams(116.dp(), 136.dp()).apply {
+        val spriteParams = LinearLayout.LayoutParams(112.dp(), 132.dp()).apply {
             gravity = Gravity.BOTTOM
         }
 
@@ -243,17 +241,6 @@ class ClochetteOverlayService : Service() {
     private fun updateLine(line: String) {
         lineView?.text = line
     }
-
-    private fun toggleMute() {
-        val current = ClochetteVoiceSettings.read(this)
-        val next = current.copy(enabled = !current.enabled)
-        ClochetteVoiceSettings.save(this, next)
-        if (!next.enabled) ClochetteVoice.stop()
-        muteButton?.text = muteLabel(next)
-    }
-
-    private fun muteLabel(config: ClochetteVoiceConfig = ClochetteVoiceSettings.read(this)): String =
-        if (config.enabled) "Muet" else "Son"
 
     private fun pauseOverlay() {
         memory.add(
