@@ -1,0 +1,167 @@
+{
+  "id": "clochette_app_context_lines",
+  "version": 1,
+  "principle": "Les meilleures phrases de Clochette viennent d'un contexte simple : quelle app, combien de temps, quel rythme, quelle humeur probable.",
+  "durationBands": [
+    { "id": "short", "minMinutes": 10, "maxMinutes": 29, "label": "quelques minutes" },
+    { "id": "medium", "minMinutes": 30, "maxMinutes": 59, "label": "un moment" },
+    { "id": "long", "minMinutes": 60, "maxMinutes": 119, "label": "plus d'une heure" },
+    { "id": "very_long", "minMinutes": 120, "maxMinutes": 179, "label": "plus de deux heures" },
+    { "id": "marathon", "minMinutes": 180, "maxMinutes": 999, "label": "trois heures ou plus" }
+  ],
+  "apps": [
+    {
+      "id": "chatgpt",
+      "displayName": "ChatGPT",
+      "packageHints": ["com.openai.chatgpt", "chatgpt"],
+      "context": "creation_or_reflection",
+      "lines": {
+        "medium": [
+          "ChatGPT est ouvert depuis un moment. Creation, reflexion, ou grande ceremonie de preparation ?",
+          "Vous discutez beaucoup tous les deux. Je ne suis pas jalouse. Enfin, pas officiellement."
+        ],
+        "long": [
+          "Une heure avec ChatGPT. J'espere qu'il t'aide vraiment, sinon je lui tire les pixels.",
+          "Je reconnais ce tunnel : ChatGPT, idees, doutes, relance. Respire un peu, architecte du bazar."
+        ],
+        "very_long": [
+          "Deux heures avec ChatGPT. Tu veux produire quelque chose, ou preparer la preparation de la production ?",
+          "ChatGPT depuis deux heures. Je note une relation serieuse avec clause de dependance creative."
+        ],
+        "marathon": [
+          "Trois heures avec ChatGPT... je vais finir par demander un badge de participante.",
+          "Trois heures ici. Je peux me tromper, mais ton cerveau doit avoir une petite odeur de grille-pain cosmique."
+        ]
+      }
+    },
+    {
+      "id": "github",
+      "displayName": "GitHub",
+      "packageHints": ["github", "com.github.android"],
+      "context": "development",
+      "lines": {
+        "medium": [
+          "GitHub est ouvert. Je sens une histoire de commit qui veut faire semblant d'etre simple.",
+          "Tu regardes GitHub avec beaucoup d'intensite. Le depot va finir par rougir."
+        ],
+        "long": [
+          "Une heure sur GitHub. Tu codes, tu verifies, ou tu contemples les commits comme des cailloux sacres ?",
+          "Je vois du GitHub prolonge. Hydratation avant merge mystique."
+        ],
+        "very_long": [
+          "Deux heures de GitHub. Si le build passe, on lui offre une madeleine virtuelle.",
+          "Tu programmes ou tu contemples GitHub comme un philosophe contemple les etoiles ?"
+        ]
+      }
+    },
+    {
+      "id": "codex",
+      "displayName": "Codex",
+      "packageHints": ["codex"],
+      "context": "development_assistant",
+      "lines": {
+        "medium": [
+          "Codex tourne depuis un moment. Je prepare le coussin anti-frustration.",
+          "Tu es encore en train de faire travailler ce pauvre Codex ?"
+        ],
+        "long": [
+          "Une heure avec Codex. S'il repart en silhouette violette, je mors.",
+          "Codex chauffe. Je conseille une pause avant le prochain prompt diplomatique."
+        ],
+        "very_long": [
+          "Deux heures avec Codex. A ce niveau, ce n'est plus du debug, c'est une relation karmique.",
+          "Je surveille Codex. Pas par jalousie. Par hygiene mentale."
+        ]
+      }
+    },
+    {
+      "id": "youtube",
+      "displayName": "YouTube",
+      "packageHints": ["com.google.android.youtube", "youtube"],
+      "context": "video_or_research",
+      "lines": {
+        "medium": [
+          "YouTube depuis un moment. Recherche serieuse ou embuscade de recommandations ?",
+          "Je ne juge pas YouTube. Je regarde juste la spirale avec une petite lampe frontale."
+        ],
+        "long": [
+          "Une heure sur YouTube. Documentaire profond ou lapin blanc numerique ?",
+          "YouTube a gagne une manche. Tu veux reprendre le controle ou negocier une treve ?"
+        ],
+        "very_long": [
+          "Deux heures sur YouTube. Recherche approfondie ou attaque de videos recommandees ?",
+          "Deux heures de videos. Tes yeux demandent peut-etre un cessez-le-feu."
+        ]
+      }
+    },
+    {
+      "id": "instagram",
+      "displayName": "Instagram",
+      "packageHints": ["com.instagram.android", "instagram"],
+      "context": "social_or_visual_inspiration",
+      "lines": {
+        "medium": [
+          "Instagram depuis un moment. Inspiration ou chasse aux chats mignons ?",
+          "Je vois defiler des images. Une idee nait peut-etre. Ou un piege brillant."
+        ],
+        "long": [
+          "Une heure sur Instagram. Je ne juge pas. Mon sourcil, lui, prend des notes.",
+          "Instagram t'a garde longtemps. On appelle ca inspiration si tu en fais quelque chose apres."
+        ]
+      }
+    },
+    {
+      "id": "pinterest",
+      "displayName": "Pinterest",
+      "packageHints": ["com.pinterest", "pinterest"],
+      "context": "visual_inspiration",
+      "lines": {
+        "medium": [
+          "Pinterest est ouvert depuis un moment. Je sens un projet... ou une magnifique collection d'idees impossibles a terminer.",
+          "Pinterest a encore sorti les rubans, les moodboards et les promesses de demain."
+        ],
+        "long": [
+          "Une heure de Pinterest. Ton futur toi vient de recevoir dix-huit projets non signes.",
+          "Pinterest prolonge. Je declare officiellement une tempete d'inspiration classee rose pastel."
+        ]
+      }
+    },
+    {
+      "id": "facebook",
+      "displayName": "Facebook",
+      "packageHints": ["com.facebook.katana", "facebook"],
+      "context": "social",
+      "lines": {
+        "medium": [
+          "Facebook ? Voila qui devient vintage.",
+          "Facebook depuis un moment. Je respecte les fouilles archeologiques numeriques."
+        ],
+        "long": [
+          "Une heure sur Facebook. Je vais prevenir le musee des reseaux sociaux.",
+          "Facebook t'a retenu longtemps. Tu cherchais quelqu'un, ou juste la sortie ?"
+        ]
+      }
+    },
+    {
+      "id": "chrome",
+      "displayName": "Chrome",
+      "packageHints": ["com.android.chrome", "chrome"],
+      "context": "search_or_navigation",
+      "lines": {
+        "medium": [
+          "Chrome est ouvert depuis un moment. Recherche utile ou jungle a onglets ?",
+          "Je sens des onglets. Beaucoup d'onglets. Une petite foret de questions."
+        ],
+        "long": [
+          "Une heure de Chrome. Ton navigateur a probablement besoin d'un plan d'evacuation.",
+          "Chrome prolonge. Tu cherches une reponse ou une nouvelle branche de labyrinthe ?"
+        ]
+      }
+    }
+  ],
+  "fallbackLines": [
+    "Je peux me tromper, mais tu sembles bloque dans une petite boucle numerique.",
+    "Je ne sais pas exactement ce que tu fais. Je remarque juste que ca dure.",
+    "Je viens en paix. Avec une remarque. Donc presque en paix."
+  ]
+}
