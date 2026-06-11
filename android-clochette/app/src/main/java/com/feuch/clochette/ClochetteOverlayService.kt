@@ -17,6 +17,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -41,7 +42,7 @@ class ClochetteOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Toast.makeText(this, "Service créé", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Service cree", Toast.LENGTH_SHORT).show()
         memory = ClochetteMemory(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         ContextCompat.registerReceiver(
@@ -125,11 +126,10 @@ class ClochetteOverlayService : Service() {
         bubble.addView(lineView)
         bubble.addView(buttonRow)
 
-        val sprite = TextView(this).apply {
-            text = "🧚‍♀️"
-            textSize = 72f
-            gravity = Gravity.CENTER
-            background = roundedBackground(Color.rgb(233, 213, 255), Color.rgb(109, 58, 161), 70.dp())
+        val sprite = ImageView(this).apply {
+            setImageResource(R.drawable.clochette_overlay_model)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
             setPadding(0, 0, 0, 0)
             elevation = 14f
             setOnClickListener { speakNextLine() }
@@ -147,7 +147,7 @@ class ClochetteOverlayService : Service() {
             rightMargin = 6.dp()
             bottomMargin = 20.dp()
         }
-        val spriteParams = LinearLayout.LayoutParams(140.dp(), 160.dp()).apply {
+        val spriteParams = LinearLayout.LayoutParams(86.dp(), 150.dp()).apply {
             gravity = Gravity.BOTTOM
         }
 
@@ -157,7 +157,7 @@ class ClochetteOverlayService : Service() {
         installDragBehavior(root, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
-        Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Overlay affiche", Toast.LENGTH_SHORT).show()
         overlay = root
         layoutParams = params
     }
