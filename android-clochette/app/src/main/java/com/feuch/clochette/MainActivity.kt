@@ -74,6 +74,7 @@ private fun ClochetteApp(startSection: String?) {
     var currentLine by remember { mutableStateOf<String?>(null) }
     var responseText by remember { mutableStateOf("") }
     var voiceConfig by remember { mutableStateOf(ClochetteVoiceSettings.read(context)) }
+    val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
@@ -226,6 +227,7 @@ private fun ClochetteApp(startSection: String?) {
                 }) {
                     Text("Synchroniser les personas")
                 }
+                ModulesClochettePanel(modules = personaModules)
                 PermissionCard(
                     title = "Surimpression",
                     explanation = "Affiche Clochette par-dessus les apps, en petite presence visible et stoppable.",
@@ -453,6 +455,23 @@ private fun VoiceChoice(
                         open = false
                     },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModulesClochettePanel(modules: List<PersonaModuleStatus>) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Modules Clochette", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            modules.forEach { module ->
+                val status = when {
+                    module.detected && module.validJson -> "detecte"
+                    module.detected -> "invalide"
+                    else -> "manquant"
+                }
+                Text("${module.fileName} : $status")
             }
         }
     }
