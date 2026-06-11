@@ -284,14 +284,19 @@ private fun VisibleClochettePanel(
             Text("Affiche une petite Clochette en bas de l'ecran, avec bulle de texte et boutons rapides.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
+                    Toast.makeText(context, "Afficher Clochette appuyé", Toast.LENGTH_SHORT).show()
                     if (Settings.canDrawOverlays(context)) {
-                        val line = currentLine ?: onNeedLine()
-                        context.startService(
-                            Intent(context, ClochetteOverlayService::class.java)
-                                .setAction(ClochetteOverlayService.ACTION_SHOW)
-                                .putExtra(ClochetteRemarkStore.EXTRA_LINE, line),
-                        )
-                        Toast.makeText(context, "Overlay démarré", Toast.LENGTH_SHORT).show()
+                        runCatching {
+                            context.startService(
+                                Intent(context, ClochetteOverlayService::class.java)
+                                    .setAction(ClochetteOverlayService.ACTION_SHOW)
+                                    .putExtra(ClochetteRemarkStore.EXTRA_LINE, currentLine ?: ClochetteRemarkStore.latest(context)),
+                            )
+                        }.onSuccess {
+                            Toast.makeText(context, "Overlay démarré", Toast.LENGTH_SHORT).show()
+                        }.onFailure {
+                            Toast.makeText(context, "Erreur overlay: ${it.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                        }
                     } else {
                         Toast.makeText(context, "Autorise l'affichage par-dessus les apps.", Toast.LENGTH_LONG).show()
                         context.startActivity(
