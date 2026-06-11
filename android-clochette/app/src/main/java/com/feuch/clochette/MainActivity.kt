@@ -29,6 +29,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,19 +49,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ClochetteApp()
+            ClochetteApp(startSection = intent.getStringExtra(EXTRA_START_SECTION))
         }
+    }
+
+    companion object {
+        const val EXTRA_START_SECTION = "start_section"
     }
 }
 
 @Composable
-private fun ClochetteApp() {
+private fun ClochetteApp(startSection: String?) {
     val context = LocalContext.current
     val memory = remember { ClochetteMemory(context) }
     var refresh by remember { mutableIntStateOf(0) }
     var project by remember { mutableStateOf(ProjectKnowledge.projects.first().name) }
     var energy by remember { mutableStateOf("moyenne") }
     var currentLine by remember { mutableStateOf<String?>(null) }
+    var responseText by remember { mutableStateOf("") }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
@@ -68,13 +74,13 @@ private fun ClochetteApp() {
     fun generateLine(): String {
         val line = ClochetteEngine.remark(
             activity = UsageObserver(context).snapshot(),
-            sensors = SensorSnapshot(),
-            energy = energy,
-            project = project,
-            memory = memory.recent(),
-        )
-        currentLine = line
-        memory.add(
+                sensors = SensorSnapshot(),
+                energy = energy,
+                project = project,
+                memory = memory.recent(24),
+            )
+            currentLine = line
+            memory.add(
             ClochetteMemoryEntry(
                 context = "main_activity",
                 observedSignal = "manual_line",
@@ -83,11 +89,11 @@ private fun ClochetteApp() {
                 clochetteLine = line,
                 userReaction = null,
                 result = "shown",
-            ),
-        )
-        ClochetteWidget.updateAll(context, line)
-        return line
-    }
+                ),
+            )
+            ClochetteWidget.updateAll(context, line)
+            return line
+        }
 
     MaterialTheme {
         Surface(
@@ -110,6 +116,13 @@ private fun ClochetteApp() {
                 )
 
                 StatusPanel(context = context, refresh = refresh)
+
+                VisibleClochettePanel(
+                    context = context,
+                    currentLine = currentLine,
+                    onNeedLine = { generateLine() },
+                    onRefresh = { refresh++ },
+                )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = {
@@ -139,6 +152,7 @@ private fun ClochetteApp() {
                     }
                 }
 
+                Text("Voix", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 SelectorPanel(
                     project = project,
                     energy = energy,
@@ -149,6 +163,12 @@ private fun ClochetteApp() {
                         val line = currentLine ?: generateLine()
                         ClochetteVoice.speak(context, line)
                     },
+                )
+
+                ResponsePanel(
+                    responseText = responseText,
+                    onResponseText = { responseText = it },
+                    highlighted = startSection == "response",
                 )
 
                 currentLine?.let {
@@ -163,7 +183,7 @@ private fun ClochetteApp() {
                     }
                 }
 
-                Text("Permissions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("Widget ecran d'accueil", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 PermissionCard(
                     title = "Widget ecran d'accueil",
                     explanation = "Ajoute Clochette depuis les widgets Android. Le widget affiche une remarque et peut parler quand tu le touches.",
@@ -174,9 +194,11 @@ private fun ClochetteApp() {
                     },
                     onDecline = { memory.decline("home_widget") },
                 )
+
+                Text("Permissions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 PermissionCard(
                     title = "Surimpression",
-                    explanation = "Plus tard. Pour l'instant on privilegie l'ecran d'accueil, plus stable et moins envahissant.",
+                    explanation = "Affiche Clochette par-dessus les apps, en petite presence visible et stoppable.",
                     enabled = Settings.canDrawOverlays(context),
                     onEnable = {
                         context.startActivity(
@@ -210,6 +232,7 @@ private fun ClochetteApp() {
                     onDecline = { memory.decline("assistive_clochette") },
                 )
 
+                Text("Memoire locale", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 MemoryPreview(memory = memory, refresh = refresh)
             }
         }
@@ -225,6 +248,73 @@ private fun StatusPanel(context: Context, refresh: Int) {
             Text("Etat : ${stateLabel(state)}", fontWeight = FontWeight.SemiBold)
             Text("Carnet d'indices local. Aucun appel reseau, aucune cle API en dur.")
             Text("Rafraichissement $refresh", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+        }
+    }
+}
+
+@Composable
+private fun VisibleClochettePanel(
+    context: Context,
+    currentLine: String?,
+    onNeedLine: () -> String,
+    onRefresh: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Clochette visible", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Affiche une petite Clochette en bas de l'ecran, avec bulle de texte et boutons rapides.")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = {
+                    if (!Settings.canDrawOverlays(context)) {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
+                    } else {
+                        val line = currentLine ?: onNeedLine()
+                        context.startService(
+                            Intent(context, ClochetteOverlayService::class.java)
+                                .setAction(ClochetteOverlayService.ACTION_SHOW)
+                                .putExtra(ClochetteRemarkStore.EXTRA_LINE, line),
+                        )
+                    }
+                    onRefresh()
+                }) {
+                    Text("Afficher Clochette")
+                }
+                OutlinedButton(onClick = {
+                    context.stopService(Intent(context, ClochetteOverlayService::class.java))
+                    onRefresh()
+                }) {
+                    Text("Masquer Clochette")
+                }
+            }
+            Text(
+                if (Settings.canDrawOverlays(context)) "Surimpression : autorisee" else "Surimpression : autorisation requise",
+                color = if (Settings.canDrawOverlays(context)) Color(0xFF2E7D5B) else Color(0xFF8A4B25),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResponsePanel(
+    responseText: String,
+    onResponseText: (String) -> Unit,
+    highlighted: Boolean,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = if (highlighted) Color(0xFFFFF9E6) else Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Reponse a Clochette", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = responseText,
+                onValueChange = onResponseText,
+                minLines = 3,
+                label = { Text("Note rapide") },
+            )
         }
     }
 }

@@ -22,7 +22,7 @@ class ClochetteWidget : AppWidgetProvider() {
                 sensors = SensorSnapshot(),
                 energy = null,
                 project = ProjectKnowledge.projects.firstOrNull()?.name,
-                memory = memory.recent(),
+                memory = memory.recent(24),
             )
             memory.add(
                 ClochetteMemoryEntry(
@@ -35,7 +35,6 @@ class ClochetteWidget : AppWidgetProvider() {
                     result = "spoken_from_widget",
                 ),
             )
-            saveLatestLine(context, line)
             ClochetteVoice.speak(context, line)
             updateAll(context, line)
         }
@@ -43,12 +42,9 @@ class ClochetteWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REMARK = "com.feuch.clochette.ACTION_WIDGET_REMARK"
-        private const val PREFS = "clochette_widget"
-        private const val KEY_LINE = "latest_line"
-        private const val DEFAULT_LINE = "Clochette attend sur l'ecran d'accueil. C'est suspectement raisonnable."
 
         fun updateAll(context: Context, line: String = latestLine(context)) {
-            saveLatestLine(context, line)
+            ClochetteRemarkStore.announce(context, line)
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, ClochetteWidget::class.java)
             manager.getAppWidgetIds(component).forEach { update(context, manager, it, line) }
@@ -73,15 +69,6 @@ class ClochetteWidget : AppWidgetProvider() {
             )
         }
 
-        private fun latestLine(context: Context): String = context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_LINE, DEFAULT_LINE) ?: DEFAULT_LINE
-
-        private fun saveLatestLine(context: Context, line: String) {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putString(KEY_LINE, line)
-                .apply()
-        }
+        private fun latestLine(context: Context): String = ClochetteRemarkStore.latest(context)
     }
 }

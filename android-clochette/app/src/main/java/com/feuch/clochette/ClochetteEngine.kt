@@ -56,11 +56,12 @@ object ClochetteEngine {
             add("Je peux me tromper : ce n'est pas le plan qui manque, c'est l'entree de service.")
             add("Hypothese : tu veux la bonne forme avant la premiere trace. Mauvais contrat. Trace d'abord.")
         }
-        val recentLines = memory.mapNotNull { it.clochetteLine }.take(6).toSet()
+        val recentLines = memory.mapNotNull { it.clochetteLine }.takeLast(6).toSet()
         val freshCandidates = candidates.filterNot { it in recentLines }
         val source = freshCandidates.ifEmpty { candidates }
         val packageSeed = activity.foregroundPackage?.sumOf { it.code } ?: 0
-        val line = source[(memory.size + activity.recentSwitchCount + packageSeed) % source.size]
+        val historySeed = memory.fold(0) { seed, entry -> seed + (entry.timestamp % 97).toInt() }
+        val line = source[(memory.size + activity.recentSwitchCount + packageSeed + historySeed) % source.size]
         return line.limitWords(25)
     }
 
