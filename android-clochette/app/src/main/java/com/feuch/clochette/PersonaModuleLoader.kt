@@ -36,6 +36,10 @@ class PersonaModuleLoader(context: Context) {
             "ai_gateway.json",
             "notion_sync.json",
             "dreams.json",
+            "octopus_core.json",
+            "guardian_rules.json",
+            "relationship_modes.json",
+            "library_schema.json",
         )
     }
 }

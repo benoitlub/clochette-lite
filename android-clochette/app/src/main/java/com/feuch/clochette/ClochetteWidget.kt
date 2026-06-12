@@ -22,9 +22,11 @@ class ClochetteWidget : AppWidgetProvider() {
             val recentMemory = memory.recent(24)
             val state = ContextRemarkEngine(context).buildState(activity)
             val journal = ObservationJournal(context)
-            val askQuestion = ProactiveSettings.read(context).spontaneousQuestions &&
+            val relationshipMode = RelationshipModeSettings.selected(context)
+            val effectiveConfig = RelationshipModeSettings.effectiveConfig(context)
+            val askQuestion = effectiveConfig.spontaneousQuestions &&
                 (activity.recentSwitchCount >= 4 || System.currentTimeMillis() / 60_000L % 4L == 0L)
-            val line = if (askQuestion) {
+            val candidateLine = if (askQuestion) {
                 ProactiveQuestionEngine.question(state, journal.recent(12))
             } else {
                 ContextRemarkEngine(context).remark(activity, recentMemory) ?: ClochetteEngine.remark(
@@ -36,6 +38,15 @@ class ClochetteWidget : AppWidgetProvider() {
                     phraseLength = voiceConfig.phraseLength,
                 )
             }
+            val decision = GuardianRulesLoader(context).approve(
+                candidate = candidateLine,
+                state = state,
+                recentLines = recentMemory.mapNotNull { it.clochetteLine },
+                recentEntries = recentMemory,
+                relationshipMode = relationshipMode,
+                wantsVoice = true,
+            )
+            val line = decision.line ?: return
             memory.add(
                 ClochetteMemoryEntry(
                     context = "home_widget",
@@ -44,19 +55,19 @@ class ClochetteWidget : AppWidgetProvider() {
                     energy = null,
                     clochetteLine = line,
                     userReaction = "tap",
-                    result = "spoken_from_widget",
+                    result = decision.reason,
                 ),
             )
             journal.add(
                 ObservationJournalEntry(
                     activity = state.currentAppName,
                     question = line.takeIf { askQuestion },
-                    reaction = "widget_tap",
+                    reaction = decision.reason,
                     result = "shown",
                 ),
             )
             updateAll(context, line)
-            ClochetteVoice.speakAfterRemark(context, line)
+            if (decision.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
         }
     }
 

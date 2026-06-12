@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
@@ -24,7 +23,9 @@ class ClochetteProactiveService : Service() {
         override fun run() {
             if (!running) return
             maybeIntervene()
-            handler.postDelayed(this, nextDelayMillis(ProactiveSettings.read(this@ClochetteProactiveService).frequency))
+            val config = RelationshipModeSettings.effectiveConfig(this@ClochetteProactiveService)
+            val mode = RelationshipModeSettings.selected(this@ClochetteProactiveService)
+            handler.postDelayed(this, nextDelayMillis(config.frequency, mode.cooldownMultiplier))
         }
     }
 
@@ -53,12 +54,14 @@ class ClochetteProactiveService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun observe() {
-        val config = ProactiveSettings.read(this).copy(mode = ProactiveMode.OBSERVE)
-        ProactiveSettings.save(this, config)
+        val savedConfig = ProactiveSettings.read(this).copy(mode = ProactiveMode.OBSERVE)
+        ProactiveSettings.save(this, savedConfig)
+        val config = RelationshipModeSettings.effectiveConfig(this, savedConfig)
+        val relationshipMode = RelationshipModeSettings.selected(this)
         running = true
-        startForeground(NOTIFICATION_ID, buildNotification(config))
+        startForeground(NOTIFICATION_ID, buildNotification(config, relationshipMode))
         handler.removeCallbacksAndMessages(null)
-        handler.postDelayed(tick, nextDelayMillis(config.frequency))
+        handler.postDelayed(tick, nextDelayMillis(config.frequency, relationshipMode.cooldownMultiplier))
     }
 
     private fun pause() {
@@ -70,29 +73,41 @@ class ClochetteProactiveService : Service() {
     }
 
     private fun maybeIntervene() {
-        val config = ProactiveSettings.read(this)
+        val config = RelationshipModeSettings.effectiveConfig(this)
+        val relationshipMode = RelationshipModeSettings.selected(this)
         if (config.mode != ProactiveMode.OBSERVE) return
         if (!config.voiceInterventions && !config.spontaneousQuestions) return
 
         val activity = usageObserver.snapshot()
         val state = ContextRemarkEngine(this).buildState(activity)
-        val question = config.spontaneousQuestions && Random.nextInt(100) < questionChance(config.frequency)
-        val line = if (question) {
+        val recentMemory = memory.recent(24)
+        val question = config.spontaneousQuestions &&
+            Random.nextInt(100) < questionChance(relationshipMode.questionFrequency)
+        val candidateLine = if (question) {
             ProactiveQuestionEngine.question(state, journal.recent(12))
         } else {
-            ContextRemarkEngine(this).remark(activity, memory.recent(24)) ?: ClochetteEngine.remark(
+            ContextRemarkEngine(this).remark(activity, recentMemory) ?: ClochetteEngine.remark(
                 activity = activity,
                 sensors = SensorSnapshot(),
                 energy = null,
                 project = null,
-                memory = memory.recent(24),
+                memory = recentMemory,
                 phraseLength = ClochetteVoiceSettings.read(this).phraseLength,
             )
         }
+        val decision = GuardianRulesLoader(this).approve(
+            candidate = candidateLine,
+            state = state,
+            recentLines = recentMemory.mapNotNull { it.clochetteLine },
+            recentEntries = recentMemory,
+            relationshipMode = relationshipMode,
+            wantsVoice = config.voiceInterventions,
+        )
+        val line = decision.line ?: return
 
         ClochetteRemarkStore.announce(this, line)
         ClochetteWidget.updateAll(this, line)
-        if (config.voiceInterventions) ClochetteVoice.speakAfterRemark(this, line)
+        if (decision.shouldSpeak) ClochetteVoice.speakAfterRemark(this, line)
 
         memory.add(
             ClochetteMemoryEntry(
@@ -102,20 +117,20 @@ class ClochetteProactiveService : Service() {
                 energy = null,
                 clochetteLine = line,
                 userReaction = null,
-                result = "shown",
+                result = decision.reason,
             ),
         )
         journal.add(
             ObservationJournalEntry(
                 activity = state.currentAppName,
                 question = line.takeIf { question },
-                reaction = if (config.voiceInterventions) "spoken" else "silent",
+                reaction = decision.reason,
                 result = "proactive",
             ),
         )
     }
 
-    private fun buildNotification(config: ProactiveConfig): Notification {
+    private fun buildNotification(config: ProactiveConfig, relationshipMode: RelationshipMode): Notification {
         val pauseIntent = PendingIntent.getService(
             this,
             41,
@@ -132,7 +147,7 @@ class ClochetteProactiveService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_clochette)
             .setContentTitle("Clochette veille")
-            .setContentText("Mode $mode · fréquence ${config.frequency.name.lowercase()}")
+            .setContentText("Mode $mode · présence ${relationshipMode.name.lowercase()}")
             .setOngoing(true)
             .setContentIntent(openIntent)
             .addAction(R.drawable.ic_stat_clochette, "Pause", pauseIntent)
@@ -150,19 +165,20 @@ class ClochetteProactiveService : Service() {
         )
     }
 
-    private fun nextDelayMillis(frequency: ProactiveFrequency): Long {
+    private fun nextDelayMillis(frequency: ProactiveFrequency, cooldownMultiplier: Double): Long {
         val minutes = when (frequency) {
             ProactiveFrequency.DISCRETE -> Random.nextLong(18L, 21L)
             ProactiveFrequency.NORMALE -> Random.nextLong(13L, 18L)
             ProactiveFrequency.BAVARDE -> Random.nextLong(10L, 13L)
         }
-        return minutes * 60_000L
+        return (minutes * cooldownMultiplier).toLong().coerceAtLeast(10L) * 60_000L
     }
 
-    private fun questionChance(frequency: ProactiveFrequency): Int = when (frequency) {
-        ProactiveFrequency.DISCRETE -> 35
-        ProactiveFrequency.NORMALE -> 50
-        ProactiveFrequency.BAVARDE -> 65
+    private fun questionChance(questionFrequency: String): Int = when (questionFrequency) {
+        "high" -> 65
+        "medium" -> 50
+        "low" -> 25
+        else -> 10
     }
 
     companion object {

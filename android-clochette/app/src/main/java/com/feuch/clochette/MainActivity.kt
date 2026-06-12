@@ -75,7 +75,9 @@ private fun ClochetteApp(startSection: String?) {
     var responseText by remember { mutableStateOf("") }
     var voiceConfig by remember { mutableStateOf(ClochetteVoiceSettings.read(context)) }
     var proactiveConfig by remember { mutableStateOf(ProactiveSettings.read(context)) }
+    var relationshipModeId by remember { mutableStateOf(RelationshipModeSettings.selectedId(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
+    val relationshipModes = remember(refresh) { RelationshipModeSettings.modes(context) }
     val usageSnapshot = remember(refresh) { UsageObserver(context).snapshot() }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -91,10 +93,15 @@ private fun ClochetteApp(startSection: String?) {
         ProactiveSettings.save(context, config)
     }
 
+    fun updateRelationshipMode(modeId: String) {
+        relationshipModeId = modeId
+        RelationshipModeSettings.saveSelectedId(context, modeId)
+    }
+
     fun generateLine(autoSpeak: Boolean = true): String {
         val activity = UsageObserver(context).snapshot()
         val recentMemory = memory.recent(24)
-        val line = ContextRemarkEngine(context).remark(
+        val rawLine = ContextRemarkEngine(context).remark(
             activity = activity,
             memory = recentMemory,
             sensors = SensorSnapshot(),
@@ -107,6 +114,16 @@ private fun ClochetteApp(startSection: String?) {
                 memory = recentMemory,
                 phraseLength = voiceConfig.phraseLength,
             )
+            val state = ContextRemarkEngine(context).buildState(activity, energy = energy)
+            val guardian = GuardianRulesLoader(context).approve(
+                candidate = rawLine,
+                state = state,
+                recentLines = recentMemory.mapNotNull { it.clochetteLine },
+                recentEntries = recentMemory,
+                relationshipMode = RelationshipModeSettings.selected(context),
+                wantsVoice = autoSpeak,
+            )
+            val line = guardian.line ?: return ClochetteRemarkStore.latest(context)
             currentLine = line
             memory.add(
             ClochetteMemoryEntry(
@@ -120,7 +137,7 @@ private fun ClochetteApp(startSection: String?) {
                 ),
             )
             ClochetteWidget.updateAll(context, line)
-            if (autoSpeak) ClochetteVoice.speakAfterRemark(context, line)
+            if (autoSpeak && guardian.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
             return line
         }
 
@@ -196,6 +213,9 @@ private fun ClochetteApp(startSection: String?) {
                     onConfig = { updateVoiceConfig(it) },
                     proactiveConfig = proactiveConfig,
                     onProactiveConfig = { updateProactiveConfig(it) },
+                    relationshipModeId = relationshipModeId,
+                    relationshipModes = relationshipModes,
+                    onRelationshipMode = { updateRelationshipMode(it) },
                 )
 
                 SelectorPanel(
@@ -394,6 +414,9 @@ private fun VoiceSettingsPanel(
     onConfig: (ClochetteVoiceConfig) -> Unit,
     proactiveConfig: ProactiveConfig,
     onProactiveConfig: (ProactiveConfig) -> Unit,
+    relationshipModeId: String,
+    relationshipModes: List<RelationshipMode>,
+    onRelationshipMode: (String) -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -439,9 +462,17 @@ private fun VoiceSettingsPanel(
                 )
             }
             VoiceChoice(
+                title = "Mode de présence",
+                value = relationshipModes.firstOrNull { it.id == relationshipModeId }?.name ?: "Discrète",
+                options = relationshipModes.map { it.name },
+                onValue = { selected ->
+                    relationshipModes.firstOrNull { it.name == selected }?.let { onRelationshipMode(it.id) }
+                },
+            )
+            VoiceChoice(
                 title = "Fréquence",
                 value = proactiveConfig.frequency.name.lowercase(),
-                options = ProactiveFrequency.entries.map { it.name.lowercase() },
+                options = ProactiveFrequency.values().map { it.name.lowercase() },
                 onValue = { selected ->
                     val frequency = ProactiveFrequency.valueOf(selected.uppercase())
                     onProactiveConfig(proactiveConfig.copy(frequency = frequency))
