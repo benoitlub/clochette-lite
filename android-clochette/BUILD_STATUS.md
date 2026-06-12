@@ -1,30 +1,27 @@
 # Android Clochette Build Status
 
-- Date: 2026-06-12
-- Commit tested: working tree after `7fb427c` (`Expose Clochette AI settings and proactive speech`)
+- Date: 2026-06-13
+- Commit tested: working tree for `Fix proactive Guardian blocking and voice diagnostics`
 - Persona asset validation: `python android-clochette/tools/validate_persona_assets.py`
-- Build command: `cd android-clochette && ./gradlew assembleDebug --stacktrace`
+- Build command: `cd android-clochette && ./gradlew assembleDebug --stacktrace --no-daemon`
 - Result: success
-- Expected debug APK: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Debug APK: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 
-Notes:
-- `ContextRemarkEngine` loads both `personas/clochette/context_lines.json` and `personas/clochette/app_context_lines.json`.
-- Generated lines pass through `withVisibleFrenchAccents()`.
-- GitHub Actions validates persona JSON assets before `assembleDebug`.
-- Overlay text wraps up to six lines with dynamic width and source debug.
-- AI gateway is optional, has no embedded API key, and falls back locally.
-- Now Playing uses Android notification listener metadata only when the user grants permission.
-- Visible in this APK:
-  - top-level `Contrôle vivant` panel with phrase source, AI provider/status, and last action;
-  - `Tester intervention vivante` button speaks immediately through proactive voice;
-  - `IA de Clochette` panel shows `auto`, `mistral`, `gemini`, `local` and fallback status;
-  - overlay debug line shows source, provider, and last action;
-  - local natural fallback is used when no gateway URL is configured.
-  - `Diagnostic Clochette vivante` explains why proactive speech is silent or spoken;
-  - `Tester parole proactive maintenant` calls `ClochetteProactiveService.ACTION_TEST_INTERVENTION`;
-  - forced proactive test bypasses old silence history (`pause/refus/overlay_closed`) so it can verify TTS immediately;
-  - first proactive attempt after `Observer` is scheduled after 10 seconds;
-  - prototype fast proactive mode is enabled with `DEBUG_FAST_PROACTIVE = true`.
+Observed bug fixed:
+- The widget could show a generated proactive phrase while the overlay showed `Je garde celle-là pour plus tard.`
+- Diagnostics showed `source : guardian_fallback`, `voix : skipped_guardian`, `provider : aucun`.
+- The proactive phrase, overlay, widget, memory and voice were not using one single result.
+
+Correction:
+- Proactive interventions now pass through `ProactiveInterventionRunner`.
+- The runner returns one result: original line, final line, source, Guardian reason, voice status, mic decision and provider.
+- Widget and overlay now receive the same `finalLine`.
+- The safe test path uses `local_proactive_test`, `guardian : approved`, `voix : spoken`.
+- Overlay diagnostics include source, voice status, Guardian decision and provider.
+- If Guardian blocks or voice is skipped, the overlay diagnostic bubble remains visible for 60 seconds.
+- The overlay includes a visible `Micro` button.
+- The sprite can be dragged even when the text bubble is hidden.
+- Prototype fast proactive mode is enabled. In `BAVARDE`, the next attempts are roughly 35 to 60 seconds apart after the first 10-second attempt.
 
 Phone test procedure:
 1. Install the debug APK.
@@ -37,8 +34,18 @@ Phone test procedure:
 8. Enable `Interventions vocales`.
 9. Enable `Questions spontanées`.
 10. Select relationship mode `Vivante`.
-11. Select frequency `bavarde`.
+11. Select frequency `Bavarde`.
 12. Tap `Observer`.
-13. Tap `Tester parole proactive maintenant`.
+13. Tap `Forcer phrase sûre parlée`.
 14. Confirm Clochette speaks without tapping the overlay sprite.
-15. Wait 10 seconds after `Observer` and check `Diagnostic Clochette vivante` for the proactive tick and decision.
+15. Confirm overlay and widget show the same phrase.
+16. Confirm overlay debug shows `source : local_proactive_test`, `voix : spoken`, `guardian : approved`.
+17. Tap `Tester parole proactive maintenant`.
+18. Confirm it no longer lands on `guardian_fallback` by default.
+19. Hide the bubble, then drag Clochette by the sprite.
+20. Tap `Micro` in the overlay and confirm `VoiceReplyActivity` opens visibly.
+
+Notion/API status:
+- Notion sync and external AI providers are still not active in this APK.
+- Current priority is local proactive speech and visible diagnostics.
+- No API key is stored in the repository or APK.

@@ -134,7 +134,7 @@ class ClochetteOverlayService : Service() {
             textSize = 9f
             setTextColor(Color.rgb(105, 82, 122))
             maxWidth = bubbleMaxWidth
-            maxLines = 2
+            maxLines = 3
             setPadding(0, 0, 0, 4.dp())
         }
 
@@ -143,7 +143,7 @@ class ClochetteOverlayService : Service() {
             gravity = Gravity.END
         }
         buttonRow.addView(actionButton("Parler") { speakNextLine() })
-        buttonRow.addView(actionButton("Répondre") { openVoiceReply() })
+        buttonRow.addView(actionButton("Micro") { openVoiceReply() })
         buttonRow.addView(actionButton("Réglages") { openMainActivity("settings") })
 
         bubble.addView(lineView)
@@ -181,7 +181,7 @@ class ClochetteOverlayService : Service() {
         root.addView(bubble, bubbleParams)
         root.addView(sprite, spriteParams)
 
-        installDragBehavior(root, params)
+        installDragBehavior(root, sprite, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
         Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
@@ -202,7 +202,7 @@ class ClochetteOverlayService : Service() {
         setOnClickListener { onClick() }
     }
 
-    private fun installDragBehavior(view: View, params: WindowManager.LayoutParams) {
+    private fun installDragBehavior(root: View, sprite: View, params: WindowManager.LayoutParams) {
         var startX = 0
         var startY = 0
         var touchX = 0f
@@ -211,7 +211,7 @@ class ClochetteOverlayService : Service() {
         var moved = false
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
 
-        view.setOnTouchListener { touched, event ->
+        val listener = View.OnTouchListener { touched, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     showBubbleTemporarily()
@@ -230,7 +230,7 @@ class ClochetteOverlayService : Service() {
                         moved = true
                         params.x = (startX - dx).coerceAtLeast(0)
                         params.y = (startY - dy).coerceAtLeast(0)
-                        windowManager.updateViewLayout(touched, params)
+                        overlay?.let { windowManager.updateViewLayout(it, params) }
                     }
                     true
                 }
@@ -238,6 +238,9 @@ class ClochetteOverlayService : Service() {
                     val pressDuration = System.currentTimeMillis() - downAt
                     if (!moved && pressDuration >= 2_500L) {
                         pauseOverlay()
+                    } else if (!moved && touched == sprite) {
+                        showBubbleTemporarily()
+                        speakNextLine()
                     } else {
                         scheduleBubbleHide()
                     }
@@ -249,6 +252,8 @@ class ClochetteOverlayService : Service() {
                 else -> false
             }
         }
+        root.setOnTouchListener(listener)
+        sprite.setOnTouchListener(listener)
     }
 
     private fun speakNextLine() {
@@ -286,7 +291,7 @@ class ClochetteOverlayService : Service() {
     private fun debugLine(): String {
         val ai = AiGatewaySettings.read(this)
         val runtime = ClochetteRuntimeStatus.read(this)
-        return "source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · provider : ${ai.lastProviderUsed ?: "aucun"}"
+        return "source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"}"
     }
 
     private fun showBubbleTemporarily() {
@@ -296,7 +301,17 @@ class ClochetteOverlayService : Service() {
 
     private fun scheduleBubbleHide() {
         handler.removeCallbacks(hideBubbleRunnable)
-        handler.postDelayed(hideBubbleRunnable, BUBBLE_AUTO_HIDE_MS)
+        handler.postDelayed(hideBubbleRunnable, bubbleHideDelay())
+    }
+
+    private fun bubbleHideDelay(): Long {
+        val runtime = ClochetteRuntimeStatus.read(this)
+        val source = ClochetteRemarkStore.latestSource(this)
+        return if (runtime.lastVoiceAction.startsWith("skipped_") || source == PhraseSource.GUARDIAN_FALLBACK) {
+            DIAGNOSTIC_BUBBLE_HIDE_MS
+        } else {
+            BUBBLE_AUTO_HIDE_MS
+        }
     }
 
     private fun pauseOverlay() {
@@ -346,5 +361,6 @@ class ClochetteOverlayService : Service() {
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
         private const val BUBBLE_AUTO_HIDE_MS = 25_000L
+        private const val DIAGNOSTIC_BUBBLE_HIDE_MS = 60_000L
     }
 }

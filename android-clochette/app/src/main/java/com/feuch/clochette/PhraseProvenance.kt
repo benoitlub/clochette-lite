@@ -11,6 +11,7 @@ enum class PhraseSource(val id: String) {
     GEMINI("gemini"),
     LOCAL_FALLBACK("local_fallback"),
     LOCAL_PROACTIVE("local_proactive"),
+    LOCAL_PROACTIVE_TEST("local_proactive_test"),
     NOW_PLAYING("now_playing"),
     UNKNOWN("unknown"),
 }

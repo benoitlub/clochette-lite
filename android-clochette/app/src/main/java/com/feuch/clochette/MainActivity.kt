@@ -274,6 +274,22 @@ private fun ClochetteApp(startSection: String?) {
         }, 2_500L)
     }
 
+    fun forceSafeSpokenPhrase() {
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, ClochetteProactiveService::class.java)
+                .setAction(ClochetteProactiveService.ACTION_FORCE_SAFE_SPOKEN),
+        )
+        Toast.makeText(context, "Phrase sûre parlée lancée", Toast.LENGTH_SHORT).show()
+        Handler(Looper.getMainLooper()).postDelayed({
+            runtimeStatus = ClochetteRuntimeStatus.read(context)
+            aiConfig = AiGatewaySettings.read(context)
+            currentLine = ClochetteRemarkStore.latest(context)
+            aiTestLine = currentLine
+            refresh++
+        }, 2_500L)
+    }
+
     MaterialTheme {
         Surface(
             modifier = Modifier
@@ -311,6 +327,7 @@ private fun ClochetteApp(startSection: String?) {
                     aiConfig = aiConfig,
                     runtimeStatus = runtimeStatus,
                     onTestLiving = { testLivingIntervention() },
+                    onForceSafeSpoken = { forceSafeSpokenPhrase() },
                     onNeedLine = { generateLine() },
                     onRefresh = {
                         aiConfig = AiGatewaySettings.read(context)
@@ -592,6 +609,7 @@ private fun ClochetteControlPanel(
     aiConfig: AiGatewayConfig,
     runtimeStatus: ClochetteRuntimeSnapshot,
     onTestLiving: () -> Unit,
+    onForceSafeSpoken: () -> Unit,
     onNeedLine: () -> String,
     onRefresh: () -> Unit,
 ) {
@@ -610,6 +628,12 @@ private fun ClochetteControlPanel(
                 onClick = onTestLiving,
             ) {
                 Text("Tester parole proactive maintenant")
+            }
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onForceSafeSpoken,
+            ) {
+                Text("Forcer phrase sûre parlée")
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = {
