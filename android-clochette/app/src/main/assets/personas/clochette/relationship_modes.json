@@ -1,0 +1,53 @@
+{
+  "id": "clochette_relationship_modes",
+  "version": 1,
+  "principle": "La présence de Clochette doit être réglable. L'utilisateur choisit le niveau d'intervention, Clochette s'adapte.",
+  "modes": [
+    {
+      "id": "discrete",
+      "name": "Discrète",
+      "description": "Clochette parle rarement, surtout en réponse aux actions explicites.",
+      "questionFrequency": "low",
+      "voiceDefault": false,
+      "cooldownMultiplier": 2.0
+    },
+    {
+      "id": "manual",
+      "name": "Manuelle",
+      "description": "Clochette attend surtout les boutons Parler ou Répondre.",
+      "questionFrequency": "very_low",
+      "voiceDefault": false,
+      "cooldownMultiplier": 3.0
+    },
+    {
+      "id": "companion",
+      "name": "Compagne",
+      "description": "Clochette intervient parfois avec prudence et peut poser des questions courtes.",
+      "questionFrequency": "medium",
+      "voiceDefault": true,
+      "cooldownMultiplier": 1.0
+    },
+    {
+      "id": "alive",
+      "name": "Vivante",
+      "description": "Clochette est plus présente, plus espiègle, et ouvre le micro brièvement après certaines questions.",
+      "questionFrequency": "high",
+      "voiceDefault": true,
+      "cooldownMultiplier": 0.75
+    },
+    {
+      "id": "quiet_night",
+      "name": "Nuit douce",
+      "description": "Mode calme pour le soir : moins de voix, moins de questions, plus de douceur.",
+      "questionFrequency": "low",
+      "voiceDefault": false,
+      "cooldownMultiplier": 2.5
+    }
+  ],
+  "rules": [
+    "Ne jamais forcer la voix si le mode vocal est désactivé.",
+    "Ne jamais ouvrir le micro hors action explicite ou mode Vivante accepté.",
+    "Permettre de revenir à Discrète rapidement.",
+    "Une fermeture d'overlay compte comme signal de baisse d'intervention."
+  ]
+}
