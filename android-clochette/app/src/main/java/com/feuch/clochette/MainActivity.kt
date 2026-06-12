@@ -74,6 +74,7 @@ private fun ClochetteApp(startSection: String?) {
     var currentLine by remember { mutableStateOf<String?>(null) }
     var responseText by remember { mutableStateOf("") }
     var voiceConfig by remember { mutableStateOf(ClochetteVoiceSettings.read(context)) }
+    var proactiveConfig by remember { mutableStateOf(ProactiveSettings.read(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val usageSnapshot = remember(refresh) { UsageObserver(context).snapshot() }
     val notificationLauncher = rememberLauncherForActivityResult(
@@ -83,6 +84,11 @@ private fun ClochetteApp(startSection: String?) {
     fun updateVoiceConfig(config: ClochetteVoiceConfig) {
         voiceConfig = config
         ClochetteVoiceSettings.save(context, config)
+    }
+
+    fun updateProactiveConfig(config: ProactiveConfig) {
+        proactiveConfig = config
+        ProactiveSettings.save(context, config)
     }
 
     fun generateLine(autoSpeak: Boolean = true): String {
@@ -158,6 +164,11 @@ private fun ClochetteApp(startSection: String?) {
                             context,
                             Intent(context, ClochettePresenceService::class.java),
                         )
+                        ContextCompat.startForegroundService(
+                            context,
+                            Intent(context, ClochetteProactiveService::class.java)
+                                .setAction(ClochetteProactiveService.ACTION_OBSERVE),
+                        )
                         Toast.makeText(context, "Observation active", Toast.LENGTH_SHORT).show()
                         refresh++
                     }) {
@@ -167,6 +178,10 @@ private fun ClochetteApp(startSection: String?) {
                         context.startService(
                             Intent(context, ClochettePresenceService::class.java)
                                 .setAction(ClochettePresenceService.ACTION_PAUSE),
+                        )
+                        context.startService(
+                            Intent(context, ClochetteProactiveService::class.java)
+                                .setAction(ClochetteProactiveService.ACTION_PAUSE),
                         )
                         context.stopService(Intent(context, ClochetteOverlayService::class.java))
                         ClochetteVoice.stop()
@@ -179,6 +194,8 @@ private fun ClochetteApp(startSection: String?) {
                 VoiceSettingsPanel(
                     config = voiceConfig,
                     onConfig = { updateVoiceConfig(it) },
+                    proactiveConfig = proactiveConfig,
+                    onProactiveConfig = { updateProactiveConfig(it) },
                 )
 
                 SelectorPanel(
@@ -375,6 +392,8 @@ private fun ResponsePanel(
 private fun VoiceSettingsPanel(
     config: ClochetteVoiceConfig,
     onConfig: (ClochetteVoiceConfig) -> Unit,
+    proactiveConfig: ProactiveConfig,
+    onProactiveConfig: (ProactiveConfig) -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -399,6 +418,35 @@ private fun VoiceSettingsPanel(
                     onCheckedChange = { onConfig(config.copy(autoSpeak = it)) },
                 )
             }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Interventions vocales")
+                Switch(
+                    checked = proactiveConfig.voiceInterventions,
+                    onCheckedChange = { onProactiveConfig(proactiveConfig.copy(voiceInterventions = it)) },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Questions spontanées")
+                Switch(
+                    checked = proactiveConfig.spontaneousQuestions,
+                    onCheckedChange = { onProactiveConfig(proactiveConfig.copy(spontaneousQuestions = it)) },
+                )
+            }
+            VoiceChoice(
+                title = "Fréquence",
+                value = proactiveConfig.frequency.name.lowercase(),
+                options = ProactiveFrequency.entries.map { it.name.lowercase() },
+                onValue = { selected ->
+                    val frequency = ProactiveFrequency.valueOf(selected.uppercase())
+                    onProactiveConfig(proactiveConfig.copy(frequency = frequency))
+                },
+            )
             Text("Vitesse de parole : ${config.speechRate.formatOneDecimal()}")
             Slider(
                 value = config.speechRate,
