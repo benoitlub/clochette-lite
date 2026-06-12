@@ -1,0 +1,102 @@
+{
+  "id": "clochette_octopus_core",
+  "version": 1,
+  "visibility": "internal_architecture",
+  "publicExplanation": "Une petite IA espiègle qui remarque des choses et accompagne l'utilisateur sans tout savoir.",
+  "principle": "Clochette n'est pas un gros cerveau central. Elle fonctionne comme plusieurs petits modules spécialisés qui échangent des signaux simples.",
+  "internalNickname": "Octopus Core",
+  "rules": [
+    "Ne pas présenter cette architecture comme un système conscient.",
+    "Garder l'expérience utilisateur simple : Clochette remarque, parle, écoute un instant, puis laisse tranquille.",
+    "Chaque module doit pouvoir échouer sans casser l'application.",
+    "Privilégier le local-first et le fallback simple.",
+    "Ne jamais stocker ou lire le contenu des autres applications.",
+    "Ne jamais embarquer de clé API dans l'APK de production."
+  ],
+  "arms": [
+    {
+      "id": "observer",
+      "name": "Observer",
+      "role": "Observe les signaux locaux disponibles.",
+      "inputs": ["foreground_app", "duration", "battery", "time", "motion", "screen_state"],
+      "outputs": ["ContextState"],
+      "status": "planned_or_partial"
+    },
+    {
+      "id": "companion",
+      "name": "Compagnon",
+      "role": "Gère présence, bulle, voix et écoute courte.",
+      "inputs": ["line", "should_speak", "should_listen"],
+      "outputs": ["spoken_line", "user_reply"],
+      "status": "partial"
+    },
+    {
+      "id": "archivist",
+      "name": "Archiviste",
+      "role": "Transforme les réponses et réactions en souvenirs courts.",
+      "inputs": ["user_reply", "context", "result_after_remark"],
+      "outputs": ["MemoryHint", "cooldown"],
+      "status": "planned"
+    },
+    {
+      "id": "dreamer",
+      "name": "Rêveur",
+      "role": "Génère occasionnellement des phrases candidates et des mini bilans.",
+      "inputs": ["recent_memories", "accepted_lines", "ignored_lines"],
+      "outputs": ["candidate_lines", "changelog", "tone_adjustment"],
+      "status": "planned"
+    },
+    {
+      "id": "librarian",
+      "name": "Bibliothécaire",
+      "role": "Relie la bibliothèque Notion, les JSON Android et les personas.",
+      "inputs": ["notion_library", "json_modules"],
+      "outputs": ["accepted_content", "module_updates"],
+      "status": "planned"
+    },
+    {
+      "id": "diplomat",
+      "name": "Diplomate IA",
+      "role": "Choisit le fournisseur IA via une gateway.",
+      "inputs": ["prompt", "budget", "privacy_mode", "fallbacks"],
+      "outputs": ["generated_line", "provider_used"],
+      "providers": ["Mistral", "Gemini", "OpenAI", "Ollama"],
+      "status": "planned"
+    },
+    {
+      "id": "guardian",
+      "name": "Gardien",
+      "role": "Filtre l'absurde, l'intrusion et la répétition.",
+      "inputs": ["candidate_line", "context", "recent_lines", "relationship_mode"],
+      "outputs": ["approved_line", "fallback_line", "silence"],
+      "status": "planned"
+    },
+    {
+      "id": "chameleon",
+      "name": "Caméléon",
+      "role": "Permet de changer de persona sans changer l'architecture.",
+      "inputs": ["persona_id", "persona_modules"],
+      "outputs": ["persona_behavior"],
+      "personas": ["Clochette", "Natasha", "Pattou", "Aloisia"],
+      "status": "planned"
+    }
+  ],
+  "signalFlow": [
+    "Observer produit ContextState.",
+    "MoodManager estime l'humeur de Clochette.",
+    "ContextRemarkEngine propose une phrase.",
+    "Guardian vérifie pertinence, ton et répétition.",
+    "Companion affiche, parle ou écoute brièvement.",
+    "Archivist transforme la suite en mémoire courte.",
+    "Dreamer peut proposer plus tard de nouvelles phrases candidates.",
+    "Librarian garde les contenus adoptés dans la bibliothèque.",
+    "Diplomat route les appels IA via une gateway si nécessaire."
+  ],
+  "firstImplementationSteps": [
+    "Charger ce manifeste dans PersonaModuleLoader.",
+    "Afficher Octopus Core comme module interne détecté dans la section Modules Clochette.",
+    "Ne pas exposer le terme Octopus Core dans l'interface grand public sauf mode debug.",
+    "Brancher d'abord Observer, ContextRemarkEngine et Guardian.",
+    "Brancher ensuite Archivist, Dreamer et Librarian."
+  ]
+}
