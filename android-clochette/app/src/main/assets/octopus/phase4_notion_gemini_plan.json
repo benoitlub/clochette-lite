@@ -1,0 +1,80 @@
+{
+  "id": "octopus_phase4_notion_gemini_plan",
+  "version": 1,
+  "status": "planning_only",
+  "principle": "Notion et Gemini doivent enrichir la bibliothèque commune de façon ponctuelle, validée, et jamais en continu.",
+  "doNotActivateYet": [
+    "notion_sync",
+    "gemini_network_call",
+    "remote_memory",
+    "automatic_adoption",
+    "background_generation_loop"
+  ],
+  "targetFlow": [
+    "Observation locale produit un résumé court.",
+    "Dreamer prépare une demande de récolte ponctuelle.",
+    "Diplomat choisit Gemini ou un autre fournisseur via gateway.",
+    "La réponse génère des candidates.",
+    "Librarian écrit les candidates dans la bibliothèque.",
+    "Guardian préfiltre.",
+    "L'utilisateur accepte, rejette ou garde pour plus tard.",
+    "Seules les candidates acceptées deviennent exploitables par Clochette."
+  ],
+  "harvestCadence": {
+    "default": "manual_or_once_per_day",
+    "minimumIntervalHours": 12,
+    "maximumCandidatesPerHarvest": 20,
+    "preferredQuietWindow": "when_phone_idle",
+    "neverDuring": ["deep_work", "active_call", "low_battery", "night_quiet_mode"]
+  },
+  "notionRole": {
+    "mode": "editorial_library",
+    "notProductionBrain": true,
+    "stores": [
+      "candidate_lines",
+      "dream_returns",
+      "mini_changelogs",
+      "prompt_versions",
+      "accepted_lines"
+    ],
+    "neverStores": [
+      "raw_micro_transcripts",
+      "content_from_other_apps",
+      "api_keys"
+    ]
+  },
+  "geminiRole": {
+    "mode": "occasional_generator",
+    "inputs": [
+      "persona_traits",
+      "recent_context_summary",
+      "accepted_examples",
+      "rejected_examples",
+      "target_contexts"
+    ],
+    "outputs": [
+      "candidate_lines",
+      "candidate_questions",
+      "dream_return_lines",
+      "tone_adjustment_suggestion"
+    ],
+    "rules": [
+      "Réponses courtes.",
+      "Pas de mystique abstraite.",
+      "Toujours liées à un contexte concret.",
+      "Clochette formule des hypothèses, jamais des certitudes intrusives."
+    ]
+  },
+  "userFacingLines": {
+    "beforeHarvest": [
+      "Je vais relire mon carnet. J'écris vraiment petit.",
+      "Je vais rêvasser un peu. C'est un travail étonnamment exigeant.",
+      "J'ai rendez-vous avec deux neurones et une tasse de pixels."
+    ],
+    "afterHarvest": [
+      "Me revoilà. J'ai rejeté trois idées catastrophiques et gardé les moins dangereuses.",
+      "J'ai rêvassé. C'est presque du travail, si on plisse les yeux.",
+      "J'ai trouvé quelques nouvelles bêtises. Tu veux les voir plus tard ?"
+    ]
+  }
+}
