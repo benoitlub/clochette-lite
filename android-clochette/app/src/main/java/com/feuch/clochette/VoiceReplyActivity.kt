@@ -139,6 +139,7 @@ class VoiceReplyActivity : ComponentActivity() {
         if (!listening) return
         status = message
         listening = false
+        ClochetteRuntimeStatus.recordAction(this, "micro fermé")
         recognizer?.stopListening()
     }
 
@@ -158,10 +159,12 @@ class VoiceReplyActivity : ComponentActivity() {
         override fun onError(error: Int) {
             listening = false
             status = "Je n'ai pas bien attrapé la phrase."
+            ClochetteRuntimeStatus.recordAction(this@VoiceReplyActivity, "micro fermé")
         }
 
         override fun onResults(results: Bundle?) {
             listening = false
+            ClochetteRuntimeStatus.recordAction(this@VoiceReplyActivity, "micro fermé")
             val text = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()

@@ -188,14 +188,22 @@ class ClochetteProactiveService : Service() {
             relationshipMode = relationshipMode,
             wantsVoice = wantsVoice,
         )
-        val line = decision.line ?: return
+        val line = decision.line ?: run {
+            ClochetteRuntimeStatus.recordAction(this, "silencieux")
+            return
+        }
         if (line != candidateLine || decision.reason != "approved") {
             effectiveSource = PhraseSource.GUARDIAN_FALLBACK
         }
 
         ClochetteWidget.updateAll(this, line, effectiveSource)
-        if (decision.shouldSpeak) ClochetteVoice.speakProactive(this, line)
+        if (decision.shouldSpeak) {
+            ClochetteVoice.speakProactive(this, line)
+        } else {
+            ClochetteRuntimeStatus.recordAction(this, "silencieux")
+        }
         if (openMicAfter && question && line.contains("?")) {
+            ClochetteRuntimeStatus.recordAction(this, "micro ouvert")
             startActivity(
                 Intent(this, VoiceReplyActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

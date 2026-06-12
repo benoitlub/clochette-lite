@@ -130,11 +130,11 @@ class ClochetteOverlayService : Service() {
         }
 
         sourceView = TextView(this).apply {
-            text = "source : ${ClochetteRemarkStore.latestSource(this@ClochetteOverlayService).id}"
+            text = debugLine()
             textSize = 9f
             setTextColor(Color.rgb(105, 82, 122))
             maxWidth = bubbleMaxWidth
-            maxLines = 1
+            maxLines = 2
             setPadding(0, 0, 0, 4.dp())
         }
 
@@ -279,8 +279,14 @@ class ClochetteOverlayService : Service() {
 
     private fun updateLine(line: String) {
         lineView?.text = line.withVisibleFrenchAccents()
-        sourceView?.text = "source : ${ClochetteRemarkStore.latestSource(this).id}"
+        sourceView?.text = debugLine()
         showBubbleTemporarily()
+    }
+
+    private fun debugLine(): String {
+        val ai = AiGatewaySettings.read(this)
+        val runtime = ClochetteRuntimeStatus.read(this)
+        return "source : ${ClochetteRemarkStore.latestSource(this).id} · provider : ${ai.lastProviderUsed ?: "aucun"} · action : ${runtime.lastAction}"
     }
 
     private fun showBubbleTemporarily() {
@@ -306,6 +312,7 @@ class ClochetteOverlayService : Service() {
             ),
         )
         Toast.makeText(this, "Clochette se met en pause.", Toast.LENGTH_SHORT).show()
+        ClochetteRuntimeStatus.recordAction(this, "overlay fermé")
         stopSelf()
     }
 

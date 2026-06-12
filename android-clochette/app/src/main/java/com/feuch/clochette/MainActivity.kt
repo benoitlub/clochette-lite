@@ -80,6 +80,7 @@ private fun ClochetteApp(startSection: String?) {
     var proactiveConfig by remember { mutableStateOf(ProactiveSettings.read(context)) }
     var aiConfig by remember { mutableStateOf(AiGatewaySettings.read(context)) }
     var aiTestLine by remember { mutableStateOf<String?>(null) }
+    var runtimeStatus by remember { mutableStateOf(ClochetteRuntimeStatus.read(context)) }
     var relationshipModeId by remember { mutableStateOf(RelationshipModeSettings.selectedId(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val relationshipModes = remember(refresh) { RelationshipModeSettings.modes(context) }
@@ -107,6 +108,13 @@ private fun ClochetteApp(startSection: String?) {
     fun updateRelationshipMode(modeId: String) {
         relationshipModeId = modeId
         RelationshipModeSettings.saveSelectedId(context, modeId)
+    }
+
+    fun recordAction(action: String) {
+        ClochetteRuntimeStatus.recordAction(context, action)
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+        aiConfig = AiGatewaySettings.read(context)
+        refresh++
     }
 
     fun aiRequest(activity: ActivitySnapshot, recentMemory: List<ClochetteMemoryEntry>, userReply: String? = null): AiRemarkRequest {
@@ -164,7 +172,12 @@ private fun ClochetteApp(startSection: String?) {
             ),
         )
         ClochetteWidget.updateAll(context, line, source)
-        if (autoSpeak && guardian.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
+        if (autoSpeak && guardian.shouldSpeak) {
+            ClochetteVoice.speakAfterRemark(context, line)
+            recordAction("parlé")
+        } else {
+            recordAction("silencieux")
+        }
         return line
     }
 
@@ -193,12 +206,30 @@ private fun ClochetteApp(startSection: String?) {
             return acceptLine(rawLine, source, autoSpeak)
         }
 
+    fun naturalLocalTestLine(activity: ActivitySnapshot): String {
+        val app = activity.foregroundDisplayName ?: activity.foregroundPackage ?: "cette appli"
+        val minutes = activity.approximateDurationMs.toMinutesForUi()
+        return when {
+            activity.recentSwitchCount >= 4 ->
+                "Tu changes souvent d’application. Tu cherches quelque chose ou tu évites quelque chose ?"
+            minutes >= 20 ->
+                "Je vois que tu es sur $app depuis un moment. Tu veux faire une pause ou continuer ?"
+            RelationshipModeSettings.selected(context).id == "alive" ->
+                "Je peux poser une question courte, puis ouvrir le micro quinze secondes."
+            else ->
+                "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?"
+        }.withVisibleFrenchAccents()
+    }
+
     fun generateLineWithAi(autoSpeak: Boolean = true, testOnly: Boolean = false) {
         val config = AiGatewaySettings.read(context)
         aiConfig = config
-        if (!config.enabled) {
-            val line = generateLine(autoSpeak)
+        if (!config.enabled || config.gatewayUrl.isBlank() || config.preferredProvider == AiGatewaySettings.PROVIDER_LOCAL) {
+            val activity = UsageObserver(context).snapshot()
+            AiGatewaySettings.record(context, "local", if (config.enabled) "fallback local" else "désactivée")
+            val line = acceptLine(naturalLocalTestLine(activity), PhraseSource.LOCAL_FALLBACK, autoSpeak)
             if (testOnly) aiTestLine = line
+            aiConfig = AiGatewaySettings.read(context)
             return
         }
         val appContext = context.applicationContext
@@ -222,8 +253,51 @@ private fun ClochetteApp(startSection: String?) {
                 }
                 aiConfig = AiGatewaySettings.read(context)
                 if (testOnly) aiTestLine = line
+                runtimeStatus = ClochetteRuntimeStatus.read(context)
             }
         }
+    }
+
+    fun testLivingIntervention() {
+        val config = AiGatewaySettings.read(context)
+        if (config.enabled && config.gatewayUrl.isNotBlank()) {
+            val appContext = context.applicationContext
+            val mainHandler = Handler(Looper.getMainLooper())
+            val activity = UsageObserver(context).snapshot()
+            val recentMemory = memory.recent(24)
+            thread(name = "clochette-test-living-ai") {
+                val result = AiGatewayClient(appContext).generateRemark(aiRequest(activity, recentMemory))
+                mainHandler.post {
+                    val line = if (result != null) {
+                        acceptLine(result.line, result.source, autoSpeak = false)
+                    } else {
+                        AiGatewaySettings.record(appContext, "fallback", "fallback local")
+                        acceptLine(naturalLocalTestLine(activity), PhraseSource.LOCAL_FALLBACK, autoSpeak = false)
+                    }
+                    ClochetteVoice.speakProactive(context, line)
+                    runtimeStatus = ClochetteRuntimeStatus.read(context)
+                    if (line.contains("?") && RelationshipModeSettings.selected(context).id == "alive") {
+                        recordAction("micro ouvert")
+                        context.startActivity(Intent(context, VoiceReplyActivity::class.java))
+                    }
+                    aiConfig = AiGatewaySettings.read(context)
+                    aiTestLine = line
+                }
+            }
+            return
+        } else {
+            AiGatewaySettings.record(context, "local", if (config.enabled) "fallback local" else "désactivée")
+        }
+        val activity = UsageObserver(context).snapshot()
+        val spokenLine = acceptLine(naturalLocalTestLine(activity), PhraseSource.LOCAL_FALLBACK, autoSpeak = false)
+        ClochetteVoice.speakProactive(context, spokenLine)
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+        if (spokenLine.contains("?") && RelationshipModeSettings.selected(context).id == "alive") {
+            recordAction("micro ouvert")
+            context.startActivity(Intent(context, VoiceReplyActivity::class.java))
+        }
+        aiConfig = AiGatewaySettings.read(context)
+        aiTestLine = spokenLine
     }
 
     MaterialTheme {
@@ -248,11 +322,27 @@ private fun ClochetteApp(startSection: String?) {
 
                 StatusPanel(context = context, refresh = refresh)
 
-                VisibleClochettePanel(
+                ClochetteControlPanel(
                     context = context,
                     currentLine = currentLine,
+                    latestSource = ClochetteRemarkStore.latestSource(context).id,
+                    aiConfig = aiConfig,
+                    runtimeStatus = runtimeStatus,
+                    onTestLiving = { testLivingIntervention() },
                     onNeedLine = { generateLine() },
-                    onRefresh = { refresh++ },
+                    onRefresh = {
+                        aiConfig = AiGatewaySettings.read(context)
+                        runtimeStatus = ClochetteRuntimeStatus.read(context)
+                        refresh++
+                    },
+                )
+
+                AiGatewayPanel(
+                    config = aiConfig,
+                    latestSource = ClochetteRemarkStore.latestSource(context).id,
+                    testLine = aiTestLine,
+                    onConfig = { updateAiConfig(it) },
+                    onTest = { generateLineWithAi(autoSpeak = false, testOnly = true) },
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -301,14 +391,6 @@ private fun ClochetteApp(startSection: String?) {
                     relationshipModeId = relationshipModeId,
                     relationshipModes = relationshipModes,
                     onRelationshipMode = { updateRelationshipMode(it) },
-                )
-
-                AiGatewayPanel(
-                    config = aiConfig,
-                    latestSource = ClochetteRemarkStore.latestSource(context).id,
-                    testLine = aiTestLine,
-                    onConfig = { updateAiConfig(it) },
-                    onTest = { generateLineWithAi(autoSpeak = false, testOnly = true) },
                 )
 
                 SelectorPanel(
@@ -472,6 +554,82 @@ private fun VisibleClochettePanel(
                     Text("Afficher Clochette")
                 }
                 OutlinedButton(onClick = {
+                    context.stopService(Intent(context, ClochetteOverlayService::class.java))
+                    onRefresh()
+                }) {
+                    Text("Masquer Clochette")
+                }
+            }
+            Text(
+                if (Settings.canDrawOverlays(context)) "Surimpression : autorisée" else "Surimpression : autorisation requise",
+                color = if (Settings.canDrawOverlays(context)) Color(0xFF2E7D5B) else Color(0xFF8A4B25),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClochetteControlPanel(
+    context: Context,
+    currentLine: String?,
+    latestSource: String,
+    aiConfig: AiGatewayConfig,
+    runtimeStatus: ClochetteRuntimeSnapshot,
+    onTestLiving: () -> Unit,
+    onNeedLine: () -> String,
+    onRefresh: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6))) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Contrôle vivant", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Dernière source phrase : $latestSource")
+            Text("Dernier provider IA : ${aiConfig.lastProviderUsed ?: "aucun"}")
+            Text("Dernier statut IA : ${aiConfig.lastStatus ?: if (aiConfig.enabled) "non testé" else "désactivée"}")
+            Text("Dernière action : ${runtimeStatus.lastAction}")
+            if (aiConfig.enabled && aiConfig.gatewayUrl.isBlank()) {
+                Text("IA distante non configurée · fallback local actif", color = Color(0xFF8A4B25))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onTestLiving) {
+                    Text("Tester intervention vivante")
+                }
+                OutlinedButton(onClick = {
+                    onNeedLine()
+                    onRefresh()
+                }) {
+                    Text("Nouvelle phrase")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = {
+                    Toast.makeText(context, "Afficher Clochette appuyé", Toast.LENGTH_SHORT).show()
+                    if (Settings.canDrawOverlays(context)) {
+                        runCatching {
+                            context.startService(
+                                Intent(context, ClochetteOverlayService::class.java)
+                                    .setAction(ClochetteOverlayService.ACTION_SHOW)
+                                    .putExtra(ClochetteRemarkStore.EXTRA_LINE, currentLine ?: ClochetteRemarkStore.latest(context)),
+                            )
+                        }.onSuccess {
+                            Toast.makeText(context, "Overlay démarré", Toast.LENGTH_SHORT).show()
+                        }.onFailure {
+                            Toast.makeText(context, "Erreur overlay: ${it.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Autorise l'affichage par-dessus les apps.", Toast.LENGTH_LONG).show()
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
+                    }
+                    onRefresh()
+                }) {
+                    Text("Afficher Clochette")
+                }
+                OutlinedButton(onClick = {
+                    ClochetteRuntimeStatus.recordAction(context, "overlay fermé")
                     context.stopService(Intent(context, ClochetteOverlayService::class.java))
                     onRefresh()
                 }) {
@@ -676,6 +834,9 @@ private fun AiGatewayPanel(
             Text("Dernier statut : ${config.lastStatus ?: "non testé"}")
             Text("Dernière latence : ${config.lastLatencyMs?.let { "$it ms" } ?: "-"}")
             Text("Dernière source : $latestSource")
+            if (config.gatewayUrl.isBlank()) {
+                Text("IA distante non configurée · fallback local actif", color = Color(0xFF8A4B25))
+            }
             Button(onClick = onTest) {
                 Text("Tester l’IA")
             }
@@ -829,6 +990,8 @@ private fun SelectorPanel(
 }
 
 private fun Float.formatOneDecimal(): String = ((this * 10).toInt() / 10f).toString()
+
+private fun Long.toMinutesForUi(): Int = (this / 60_000L).toInt().coerceAtLeast(0)
 
 private fun Long.toApproximateLabel(): String {
     val minutes = (this / 60_000L).coerceAtLeast(0)

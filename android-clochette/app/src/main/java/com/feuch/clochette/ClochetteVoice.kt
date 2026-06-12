@@ -14,7 +14,10 @@ object ClochetteVoice {
 
     fun speak(context: Context, text: String, automatic: Boolean = false) {
         val config = ClochetteVoiceSettings.read(context)
-        if (!config.enabled || (automatic && !config.autoSpeak)) return
+        if (!config.enabled || (automatic && !config.autoSpeak)) {
+            ClochetteRuntimeStatus.recordAction(context, "silencieux")
+            return
+        }
 
         val appContext = context.applicationContext
         val current = tts
@@ -22,12 +25,18 @@ object ClochetteVoice {
             tts = TextToSpeech(appContext) { status ->
                 ready = status == TextToSpeech.SUCCESS
                 configure(config)
-                if (ready) say(config, text)
+                if (ready) {
+                    say(config, text)
+                    ClochetteRuntimeStatus.recordAction(appContext, "parlé")
+                }
             }
             return
         }
         configure(config)
-        if (ready) say(config, text)
+        if (ready) {
+            say(config, text)
+            ClochetteRuntimeStatus.recordAction(appContext, "parlé")
+        }
     }
 
     fun speakAfterRemark(context: Context, text: String) {
