@@ -1,0 +1,40 @@
+{
+  "id": "accepted_export_pack_schema",
+  "version": 1,
+  "principle": "Les contenus adoptés sont regroupés en packs exportables vers la bibliothèque commune sans toucher au code Kotlin.",
+  "packShape": {
+    "packId": "clochette_pack_YYYY_MM_DD",
+    "createdAt": "ISO-8601",
+    "source": "human | notion | gemini | mistral | mixed",
+    "status": "draft | reviewed | accepted | archived",
+    "targetLibrary": "shared_library",
+    "entries": []
+  },
+  "entryShape": {
+    "id": "stable_entry_id",
+    "text": "phrase courte adoptée",
+    "contexts": [],
+    "tones": [],
+    "intensity": 0.5,
+    "intrusion": 0.4,
+    "kindness": 0.8,
+    "absurdity": 0.2,
+    "language": "fr",
+    "preferredFor": [],
+    "blockedFor": [],
+    "requires": [],
+    "notes": "optional"
+  },
+  "importRules": [
+    "Importer uniquement les packs status=accepted ou reviewed en debug.",
+    "Rejeter les phrases sans contexte.",
+    "Rejeter les phrases trop longues.",
+    "Passer chaque entrée par Guardian avant ajout au pool.",
+    "Ne pas écraser les entrées existantes ayant le même id sans version."
+  ],
+  "userFacingChangelog": {
+    "title": "Clochette a appris quelques choses",
+    "line": "J'ai trié quelques nouvelles idées. Certaines étaient catastrophiques. J'ai gardé les plus présentables.",
+    "actions": ["Voir", "Plus tard", "Adopter"]
+  }
+}
