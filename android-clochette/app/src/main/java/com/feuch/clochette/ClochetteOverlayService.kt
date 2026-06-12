@@ -240,7 +240,7 @@ class ClochetteOverlayService : Service() {
                 result = "spoken_from_overlay",
             ),
         )
-        ClochetteWidget.updateAll(this, line)
+        ClochetteWidget.updateAll(this, line, PhraseSource.CLOCHETTE_ENGINE)
         ClochetteVoice.speak(this, line)
         updateLine(line)
     }

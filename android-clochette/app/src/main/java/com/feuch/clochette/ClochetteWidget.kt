@@ -20,23 +20,29 @@ class ClochetteWidget : AppWidgetProvider() {
             val voiceConfig = ClochetteVoiceSettings.read(context)
             val activity = UsageObserver(context).snapshot()
             val recentMemory = memory.recent(24)
-            val state = ContextRemarkEngine(context).buildState(activity)
+            val contextEngine = ContextRemarkEngine(context)
+            val state = contextEngine.buildState(activity)
             val journal = ObservationJournal(context)
             val relationshipMode = RelationshipModeSettings.selected(context)
             val effectiveConfig = RelationshipModeSettings.effectiveConfig(context)
             val askQuestion = effectiveConfig.spontaneousQuestions &&
                 (activity.recentSwitchCount >= 4 || System.currentTimeMillis() / 60_000L % 4L == 0L)
+            var source = if (askQuestion) PhraseSource.PROACTIVE_QUESTION else PhraseSource.UNKNOWN
             val candidateLine = if (askQuestion) {
                 ProactiveQuestionEngine.question(state, journal.recent(12))
             } else {
-                ContextRemarkEngine(context).remark(activity, recentMemory) ?: ClochetteEngine.remark(
+                contextEngine.remark(activity, recentMemory)?.also {
+                    source = contextEngine.lastSource()
+                } ?: ClochetteEngine.remark(
                     activity = activity,
                     sensors = SensorSnapshot(),
                     energy = null,
                     project = ProjectKnowledge.projects.firstOrNull()?.name,
                     memory = recentMemory,
                     phraseLength = voiceConfig.phraseLength,
-                )
+                ).also {
+                    source = PhraseSource.CLOCHETTE_ENGINE
+                }
             }
             val decision = GuardianRulesLoader(context).approve(
                 candidate = candidateLine,
@@ -47,6 +53,9 @@ class ClochetteWidget : AppWidgetProvider() {
                 wantsVoice = true,
             )
             val line = decision.line ?: return
+            if (line != candidateLine || decision.reason != "approved") {
+                source = PhraseSource.GUARDIAN_FALLBACK
+            }
             memory.add(
                 ClochetteMemoryEntry(
                     context = "home_widget",
@@ -66,7 +75,7 @@ class ClochetteWidget : AppWidgetProvider() {
                     result = "shown",
                 ),
             )
-            updateAll(context, line)
+            updateAll(context, line, source)
             if (decision.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
         }
     }
@@ -74,8 +83,12 @@ class ClochetteWidget : AppWidgetProvider() {
     companion object {
         const val ACTION_REMARK = "com.feuch.clochette.ACTION_WIDGET_REMARK"
 
-        fun updateAll(context: Context, line: String = latestLine(context)) {
-            ClochetteRemarkStore.announce(context, line)
+        fun updateAll(
+            context: Context,
+            line: String = latestLine(context),
+            source: PhraseSource = PhraseSource.UNKNOWN,
+        ) {
+            ClochetteRemarkStore.announce(context, line, source)
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, ClochetteWidget::class.java)
             manager.getAppWidgetIds(component).forEach { update(context, manager, it, line) }

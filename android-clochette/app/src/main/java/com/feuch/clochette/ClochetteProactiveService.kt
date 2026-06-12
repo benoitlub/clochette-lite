@@ -79,21 +79,27 @@ class ClochetteProactiveService : Service() {
         if (!config.voiceInterventions && !config.spontaneousQuestions) return
 
         val activity = usageObserver.snapshot()
-        val state = ContextRemarkEngine(this).buildState(activity)
+        val contextEngine = ContextRemarkEngine(this)
+        val state = contextEngine.buildState(activity)
         val recentMemory = memory.recent(24)
         val question = config.spontaneousQuestions &&
             Random.nextInt(100) < questionChance(relationshipMode.questionFrequency)
+        var source = if (question) PhraseSource.PROACTIVE_QUESTION else PhraseSource.UNKNOWN
         val candidateLine = if (question) {
             ProactiveQuestionEngine.question(state, journal.recent(12))
         } else {
-            ContextRemarkEngine(this).remark(activity, recentMemory) ?: ClochetteEngine.remark(
+            contextEngine.remark(activity, recentMemory)?.also {
+                source = contextEngine.lastSource()
+            } ?: ClochetteEngine.remark(
                 activity = activity,
                 sensors = SensorSnapshot(),
                 energy = null,
                 project = null,
                 memory = recentMemory,
                 phraseLength = ClochetteVoiceSettings.read(this).phraseLength,
-            )
+            ).also {
+                source = PhraseSource.CLOCHETTE_ENGINE
+            }
         }
         val decision = GuardianRulesLoader(this).approve(
             candidate = candidateLine,
@@ -104,9 +110,11 @@ class ClochetteProactiveService : Service() {
             wantsVoice = config.voiceInterventions,
         )
         val line = decision.line ?: return
+        if (line != candidateLine || decision.reason != "approved") {
+            source = PhraseSource.GUARDIAN_FALLBACK
+        }
 
-        ClochetteRemarkStore.announce(this, line)
-        ClochetteWidget.updateAll(this, line)
+        ClochetteWidget.updateAll(this, line, source)
         if (decision.shouldSpeak) ClochetteVoice.speakAfterRemark(this, line)
 
         memory.add(

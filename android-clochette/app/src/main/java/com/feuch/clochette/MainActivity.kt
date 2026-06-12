@@ -101,20 +101,26 @@ private fun ClochetteApp(startSection: String?) {
     fun generateLine(autoSpeak: Boolean = true): String {
         val activity = UsageObserver(context).snapshot()
         val recentMemory = memory.recent(24)
-        val rawLine = ContextRemarkEngine(context).remark(
+        val contextEngine = ContextRemarkEngine(context)
+        var source = PhraseSource.UNKNOWN
+        val rawLine = contextEngine.remark(
             activity = activity,
             memory = recentMemory,
             sensors = SensorSnapshot(),
             energy = energy,
-        ) ?: ClochetteEngine.remark(
+        )?.also {
+            source = contextEngine.lastSource()
+        } ?: ClochetteEngine.remark(
             activity = activity,
                 sensors = SensorSnapshot(),
                 energy = energy,
                 project = project,
                 memory = recentMemory,
                 phraseLength = voiceConfig.phraseLength,
-            )
-            val state = ContextRemarkEngine(context).buildState(activity, energy = energy)
+            ).also {
+                source = PhraseSource.CLOCHETTE_ENGINE
+            }
+            val state = contextEngine.buildState(activity, energy = energy)
             val guardian = GuardianRulesLoader(context).approve(
                 candidate = rawLine,
                 state = state,
@@ -124,6 +130,9 @@ private fun ClochetteApp(startSection: String?) {
                 wantsVoice = autoSpeak,
             )
             val line = guardian.line ?: return ClochetteRemarkStore.latest(context)
+            if (line != rawLine || guardian.reason != "approved") {
+                source = PhraseSource.GUARDIAN_FALLBACK
+            }
             currentLine = line
             memory.add(
             ClochetteMemoryEntry(
@@ -136,7 +145,7 @@ private fun ClochetteApp(startSection: String?) {
                 result = "shown",
                 ),
             )
-            ClochetteWidget.updateAll(context, line)
+            ClochetteWidget.updateAll(context, line, source)
             if (autoSpeak && guardian.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
             return line
         }

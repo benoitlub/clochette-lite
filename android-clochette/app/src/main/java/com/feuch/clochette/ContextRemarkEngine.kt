@@ -10,6 +10,9 @@ import kotlin.math.abs
 
 class ContextRemarkEngine(context: Context) {
     private val appContext = context.applicationContext
+    private var lastSource: PhraseSource = PhraseSource.UNKNOWN
+
+    fun lastSource(): PhraseSource = lastSource
 
     fun remark(
         activity: ActivitySnapshot,
@@ -18,7 +21,7 @@ class ContextRemarkEngine(context: Context) {
         energy: String? = null,
     ): String? {
         val state = buildState(activity = activity, sensors = sensors, energy = energy)
-        val model = loadModel() ?: return builtInFallback(state, memory)
+        val model = loadModel() ?: return builtInFallback(state, memory).also { lastSource = PhraseSource.GUARDIAN_FALLBACK }
         val mood = MoodManager.moodFor(state, memory)
         val candidates = rankedCandidates(model, state, mood)
         val chosen = candidates
@@ -26,6 +29,7 @@ class ContextRemarkEngine(context: Context) {
             .maxWithOrNull(compareBy<RemarkCandidate> { it.score }.thenBy { seededTieBreaker(it.line, state, memory) })
 
         return if (chosen != null && chosen.score >= MIN_RELEVANCE_SCORE) {
+            lastSource = chosen.source
             chosen.line.withVisibleFrenchAccents()
         } else {
             simpleFallback(model, state, memory)
@@ -76,28 +80,29 @@ class ContextRemarkEngine(context: Context) {
                     results += RemarkCandidate(
                         line = line.withMood(mood),
                         score = 100 + state.durationMinutes.coerceAtMost(180) / 10,
+                        source = app.source,
                     )
                 }
             }
         }
 
         if (state.durationMinutes >= 120) {
-            model.states["duration_long"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 70) }
+            model.states["duration_long"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 70, PhraseSource.CONTEXT_LINES) }
         }
         if (state.dayPeriod == DayPeriod.NIGHT || state.hourOfDay >= 22) {
-            model.states["night"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 60) }
+            model.states["night"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 60, PhraseSource.CONTEXT_LINES) }
         }
         if (state.batteryPercent != null && state.batteryPercent <= 18 && !state.isCharging) {
-            model.states["battery_low"].orEmpty().forEach { results += RemarkCandidate(it.withMood(ClochetteMood.CONCERNED), 55) }
+            model.states["battery_low"].orEmpty().forEach { results += RemarkCandidate(it.withMood(ClochetteMood.CONCERNED), 55, PhraseSource.CONTEXT_LINES) }
         }
         if (state.movementState == MovementState.WALKING) {
-            model.states["walking"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 45) }
+            model.states["walking"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 45, PhraseSource.CONTEXT_LINES) }
         }
         if (state.movementState == MovementState.STILL && state.durationMinutes >= 45) {
-            model.states["still_long"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 40) }
+            model.states["still_long"].orEmpty().forEach { results += RemarkCandidate(it.withMood(mood), 40, PhraseSource.CONTEXT_LINES) }
         }
         if (state.recentAppSwitches >= 5) {
-            model.states["switching"].orEmpty().forEach { results += RemarkCandidate(it.withMood(ClochetteMood.PLAYFUL), 35) }
+            model.states["switching"].orEmpty().forEach { results += RemarkCandidate(it.withMood(ClochetteMood.PLAYFUL), 35, PhraseSource.CONTEXT_LINES) }
         }
 
         return results
@@ -110,10 +115,13 @@ class ContextRemarkEngine(context: Context) {
     ): String {
         val hints = MemoryHints.hintsFor(state, memory)
         if (hints.isNotEmpty() && state.currentAppName.isNullOrBlank()) {
+            lastSource = PhraseSource.GUARDIAN_FALLBACK
             return (hints.pick(state, memory) ?: builtInFallback(state, memory)).withVisibleFrenchAccents()
         }
-        val lines = model.fallbackLines.filterNot(::isForbidden)
-        return (lines.pick(state, memory) ?: builtInFallback(state, memory)).withVisibleFrenchAccents()
+        val lines = model.fallbackLines.filterNot { isForbidden(it.line) }
+        val picked = lines.pickSourceLine(state, memory)
+        lastSource = picked?.source ?: PhraseSource.GUARDIAN_FALLBACK
+        return (picked?.line ?: builtInFallback(state, memory)).withVisibleFrenchAccents()
     }
 
     private fun builtInFallback(state: ContextState, memory: List<ClochetteMemoryEntry>): String {
@@ -142,6 +150,7 @@ class ContextRemarkEngine(context: Context) {
     private fun parseModel(path: String): ContextLinesModel {
         val raw = appContext.assets.open(path).bufferedReader().use { it.readText() }
         val json = JSONObject(raw)
+        val source = sourceForPath(path)
         val apps = json.optJSONArray("apps").toObjectList { item ->
             val linesJson = item.optJSONObject("lines")
             val displayName = item.optString("displayName").takeIf { it.isNotBlank() }
@@ -150,6 +159,7 @@ class ContextRemarkEngine(context: Context) {
                 id = item.optString("id"),
                 names = names,
                 packageHints = item.optJSONArray("packageHints").toStringList(),
+                source = source,
                 lines = linesJson?.keys()?.asSequence()?.associateWith { key ->
                     linesJson.optJSONArray(key).toStringList()
                 }.orEmpty(),
@@ -162,8 +172,14 @@ class ContextRemarkEngine(context: Context) {
         return ContextLinesModel(
             apps = apps,
             states = states,
-            fallbackLines = json.optJSONArray("fallbackLines").toStringList(),
+            fallbackLines = json.optJSONArray("fallbackLines").toStringList().map { SourceLine(it, source) },
         )
+    }
+
+    private fun sourceForPath(path: String): PhraseSource = when {
+        path.endsWith("app_context_lines.json") -> PhraseSource.APP_CONTEXT_LINES
+        path.endsWith("context_lines.json") -> PhraseSource.CONTEXT_LINES
+        else -> PhraseSource.UNKNOWN
     }
 
     private fun batteryState(): BatteryState {
@@ -216,6 +232,15 @@ class ContextRemarkEngine(context: Context) {
         return this[abs(seed) % size]
     }
 
+    private fun List<SourceLine>.pickSourceLine(state: ContextState, memory: List<ClochetteMemoryEntry>): SourceLine? {
+        if (isEmpty()) return null
+        val seed = state.currentAppName.orEmpty().sumOf { it.code } +
+            state.durationMinutes +
+            state.recentAppSwitches +
+            memory.fold(0) { total, entry -> total + (entry.timestamp % 29).toInt() }
+        return this[abs(seed) % size]
+    }
+
     private fun seededTieBreaker(line: String, state: ContextState, memory: List<ClochetteMemoryEntry>): Int {
         return abs(line.sumOf { it.code } + state.durationMinutes + memory.size)
     }
@@ -236,19 +261,26 @@ class ContextRemarkEngine(context: Context) {
     private data class ContextLinesModel(
         val apps: List<ContextAppLines>,
         val states: Map<String, List<String>>,
-        val fallbackLines: List<String>,
+        val fallbackLines: List<SourceLine>,
     )
 
     private data class ContextAppLines(
         val id: String,
         val names: List<String>,
         val packageHints: List<String>,
+        val source: PhraseSource,
         val lines: Map<String, List<String>>,
     )
 
     private data class RemarkCandidate(
         val line: String,
         val score: Int,
+        val source: PhraseSource,
+    )
+
+    private data class SourceLine(
+        val line: String,
+        val source: PhraseSource,
     )
 
     private data class BatteryState(
