@@ -1,0 +1,49 @@
+{
+  "id": "octopus_chameleon_contract",
+  "version": 1,
+  "principle": "Le Caméléon permet à plusieurs personnages d'utiliser le même Octopus Core, la même bibliothèque commune et des traits distincts.",
+  "registry": [
+    {
+      "id": "clochette",
+      "name": "Clochette",
+      "role": "présence espiègle du téléphone",
+      "traitsPath": "personas/clochette/persona_traits.json",
+      "defaultMode": "companion"
+    },
+    {
+      "id": "natasha",
+      "name": "Natasha",
+      "role": "guide narrative Blacklace",
+      "traitsPath": "personas/natasha/persona_traits.json",
+      "defaultMode": "discrete"
+    },
+    {
+      "id": "pattou",
+      "name": "Pattou",
+      "role": "présence tendre et lunaire",
+      "traitsPath": "personas/pattou/persona_traits.json",
+      "defaultMode": "discrete"
+    },
+    {
+      "id": "aloisia",
+      "name": "Aloisia",
+      "role": "mémoire et logique de l'île",
+      "traitsPath": "personas/aloisia/persona_traits.json",
+      "defaultMode": "manual"
+    }
+  ],
+  "rules": [
+    "Un personnage n'est pas une application séparée.",
+    "Un personnage est un ensemble de traits, de voix, de comportement et de présentation.",
+    "Clochette reste le personnage par défaut de cette APK.",
+    "Les autres personnages peuvent rester déclarés sans être activés.",
+    "Le changement de personnage ne doit jamais casser l'overlay ni la mémoire locale."
+  ],
+  "futureCapabilities": [
+    "sélecteur de personnage",
+    "traits rechargeables",
+    "voix par personnage",
+    "avatars par personnage",
+    "bibliothèque commune enrichie"
+  ]
+}
