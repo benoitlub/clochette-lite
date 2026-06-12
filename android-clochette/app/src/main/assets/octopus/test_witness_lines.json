@@ -1,0 +1,83 @@
+{
+  "id": "octopus_test_witness_lines",
+  "version": 1,
+  "purpose": "Phrases témoins permettant de vérifier visuellement quelle source alimente Clochette pendant les tests.",
+  "rules": [
+    "Ces phrases sont réservées au debug.",
+    "Elles peuvent afficher un préfixe source explicite.",
+    "Elles ne doivent pas apparaître en production publique sauf mode debug activé.",
+    "Chaque bras du poulpe doit pouvoir produire au moins une phrase témoin reconnaissable."
+  ],
+  "witnesses": [
+    {
+      "id": "witness_shared_library_chatgpt",
+      "source": "shared_library",
+      "context": "ChatGPT",
+      "debugPrefix": "[LIBRARY]",
+      "line": "[LIBRARY] Trois heures avec ChatGPT. Je viens clairement de la bibliothèque commune."
+    },
+    {
+      "id": "witness_persona_traits_clochette",
+      "source": "persona_traits",
+      "context": "ChatGPT",
+      "debugPrefix": "[TRAITS:CLOCHETTE]",
+      "line": "[TRAITS:CLOCHETTE] Je suis la même idée, mais passée dans le filtre espiègle de Clochette."
+    },
+    {
+      "id": "witness_guardian_softened",
+      "source": "guardian",
+      "context": "too_intrusive",
+      "debugPrefix": "[GUARDIAN]",
+      "line": "[GUARDIAN] J'ai adouci cette phrase avant qu'elle ne devienne pénible."
+    },
+    {
+      "id": "witness_relationship_discrete",
+      "source": "relationship_mode",
+      "context": "discrete",
+      "debugPrefix": "[MODE:DISCRETE]",
+      "line": "[MODE:DISCRETE] Je passe en mode petit bruit de chaussette sur parquet."
+    },
+    {
+      "id": "witness_relationship_alive",
+      "source": "relationship_mode",
+      "context": "alive",
+      "debugPrefix": "[MODE:VIVANTE]",
+      "line": "[MODE:VIVANTE] J'ai le droit d'être plus présente, mais je garde une laisse en velours."
+    },
+    {
+      "id": "witness_spontaneous_question",
+      "source": "spontaneous_questions",
+      "context": "question",
+      "debugPrefix": "[QUESTION]",
+      "line": "[QUESTION] Je pose une vraie question courte, pas une énigme de vieux hibou."
+    },
+    {
+      "id": "witness_dreamer_private",
+      "source": "dreamer",
+      "context": "private_moment",
+      "debugPrefix": "[DREAMER]",
+      "line": "[DREAMER] Je vais rêvasser. Si je reviens avec une mauvaise blague, ce sera documenté."
+    },
+    {
+      "id": "witness_archivist_memory",
+      "source": "archivist",
+      "context": "memory_hint",
+      "debugPrefix": "[ARCHIVIST]",
+      "line": "[ARCHIVIST] Je transforme une réponse en souvenir court, pas en roman judiciaire."
+    },
+    {
+      "id": "witness_diplomat_local",
+      "source": "diplomat_local_noop",
+      "context": "provider_stub",
+      "debugPrefix": "[DIPLOMAT:LOCAL]",
+      "line": "[DIPLOMAT:LOCAL] Aucun fournisseur externe. Je fais semblant proprement en local."
+    },
+    {
+      "id": "witness_legacy_engine",
+      "source": "legacy_engine",
+      "context": "fallback",
+      "debugPrefix": "[LEGACY]",
+      "line": "[LEGACY] Si tu me vois, c'est que l'ancien moteur parle encore."
+    }
+  ]
+}
