@@ -1,0 +1,36 @@
+{
+  "id": "clochette_library_schema",
+  "version": 1,
+  "principle": "La bibliothèque sert à préparer, valider et exporter les contenus de Clochette sans modifier l'APK à chaque idée.",
+  "notionDatabase": {
+    "title": "Clochette Library",
+    "purpose": "Phrases, rêves, contextes, prompts, changelogs et contenus acceptés.",
+    "columns": [
+      { "name": "Name", "type": "title" },
+      { "name": "Type", "type": "select", "values": ["Line", "Dream", "Context", "Prompt", "Changelog"] },
+      { "name": "Persona", "type": "select", "values": ["Clochette", "Natasha", "Pattou", "Aloisia"] },
+      { "name": "Status", "type": "select", "values": ["Draft", "Candidate", "Accepted", "Rejected", "Archived"] },
+      { "name": "Provider", "type": "select", "values": ["Human", "Gemini", "Mistral", "OpenAI", "Ollama"] },
+      { "name": "Context", "type": "multi_select" },
+      { "name": "Line", "type": "rich_text" },
+      { "name": "Input summary", "type": "rich_text" },
+      { "name": "Tone", "type": "select", "values": ["Espiègle", "Douce", "Taquine", "Calme", "Badass"] },
+      { "name": "Accepted", "type": "checkbox" },
+      { "name": "Score", "type": "number" },
+      { "name": "Created", "type": "created_time" }
+    ]
+  },
+  "exportRules": [
+    "Exporter uniquement les entrées Status=Accepted ou Accepted=true.",
+    "Ne jamais exporter les prompts bruts dans les lignes utilisateur.",
+    "Grouper par Persona puis par Context.",
+    "Conserver une phrase courte et directement utilisable par l'overlay.",
+    "Valider chaque phrase par Guardian avant usage."
+  ],
+  "targetJsonFiles": [
+    "app_context_lines.json",
+    "dreams.json",
+    "spontaneous_questions.json",
+    "relationship_modes.json"
+  ]
+}
