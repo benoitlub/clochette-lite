@@ -1,8 +1,9 @@
 package com.feuch.clochette
 
-enum class Provider {
-    MISTRAL,
-    GEMINI,
-    OPENAI,
-    OLLAMA,
+enum class Provider(val id: String) {
+    MISTRAL("mistral"),
+    GEMINI("gemini"),
+    OPENAI("openai"),
+    OLLAMA("ollama"),
+    LOCAL("local"),
 }
