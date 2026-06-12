@@ -5,4 +5,5 @@ data class SharedLibraryModel(
     val version: Int = 1,
     val targetJsonFiles: List<String> = emptyList(),
     val rules: List<String> = emptyList(),
+    val selectionFlow: List<String> = emptyList(),
 )

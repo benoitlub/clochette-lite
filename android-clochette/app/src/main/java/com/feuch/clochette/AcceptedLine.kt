@@ -9,6 +9,10 @@ data class AcceptedLine(
     val intrusion: Double = 0.4,
     val kindness: Double = 0.8,
     val absurdity: Double = 0.2,
+    val requires: List<String> = emptyList(),
     val preferredFor: List<String> = emptyList(),
     val blockedFor: List<String> = emptyList(),
+    val language: String = "fr",
+    val source: String = "local_json",
+    val status: String = "accepted",
 )
