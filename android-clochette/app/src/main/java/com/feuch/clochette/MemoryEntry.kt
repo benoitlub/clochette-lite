@@ -7,4 +7,13 @@ data class MemoryEntry(
     val userIntent: String? = null,
     val reaction: String? = null,
     val result: String? = null,
+    val confidence: MemorySignal = MemorySignal.LOW,
+    val usefulness: MemorySignal = MemorySignal.LOW,
+    val expiresInDays: Int = 1,
 )
+
+enum class MemorySignal {
+    LOW,
+    MEDIUM,
+    HIGH,
+}

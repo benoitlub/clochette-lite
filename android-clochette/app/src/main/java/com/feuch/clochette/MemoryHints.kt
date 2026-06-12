@@ -12,8 +12,9 @@ object MemoryHints {
 
     fun hintsFor(state: ContextState, memory: List<ClochetteMemoryEntry> = emptyList()): List<String> {
         val app = state.currentAppName.orEmpty().lowercase()
-        val text = memory.joinToString(" ") { listOfNotNull(it.context, it.project, it.observedSignal, it.clochetteLine).joinToString(" ") }
-            .lowercase()
+        val text = memory.joinToString(" ") {
+            listOfNotNull(it.context, it.project, it.observedSignal, it.clochetteLine).joinToString(" ")
+        }.lowercase()
         val hints = mutableListOf<String>()
         if (app.contains("clochette") || text.contains("clochette")) {
             hints += "Je remarque que Clochette revient souvent dans l'atelier."
