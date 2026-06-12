@@ -1,0 +1,4 @@
+Runtime TODO:
+- Merge context_lines.json and app_context_lines.json in ContextRemarkEngine.
+- Return withVisibleFrenchAccents() from ranked and fallback lines.
+- Keep GuardianRulesLoader as final safety pass.
