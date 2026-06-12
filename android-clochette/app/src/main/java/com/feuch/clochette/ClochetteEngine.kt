@@ -15,13 +15,13 @@ object ClochetteEngine {
         val candidates = buildList {
             if (activity.recentSwitchCount >= 3) {
                 add(
-                "Trois bascules d'app. Le mammifere creatif cherche une sortie de secours."
+                "Trois bascules d'app. Le mammifère créatif cherche une sortie de secours."
                 )
                 add("Je remarque : ça saute d'app en app. Hypothèse : tu cherches une porte sans toucher la poignée.")
             }
             if (sensors.lowLight && sensors.walkingPossible) {
                 add(
-                "Telephone en foret. Decision structurelle interdite. Marche, note une idee, reviens avec une proie."
+                "Téléphone en forêt. Décision structurelle interdite. Marche, note une idée, reviens avec une proie."
                 )
                 add("J'imagine dehors et presque sans lumière. Garde les grandes décisions pour une chaise et un verre d'eau.")
             }
@@ -29,11 +29,11 @@ object ClochetteEngine {
                 add(
                 "Je remarque seulement ceci : téléphone immobile, app ouverte. Hypothèse : le premier geste attend son majordome."
                 )
-                add("Telephone immobile. Je suppose que le cerveau negocie. Fais une action trop petite pour etre noble.")
+                add("Téléphone immobile. Je suppose que le cerveau négocie. Fais une action trop petite pour être noble.")
             }
             if (projectInfo?.name == "Pro.Hibited Online") {
                 add(
-                "Pro.Hibited n'est pas un site. C'est une table en poche. Lisibilite d'abord, tournevis interdit."
+                "Pro.Hibited n'est pas un site. C'est une table en poche. Lisibilité d'abord, tournevis interdit."
                 )
                 add("Je remarque le projet : cartes, table, doigts. Hypothèse : si mobile flanche, tout le jeu tousse.")
             }
@@ -45,16 +45,16 @@ object ClochetteEngine {
             }
             if (memory.any { it.result == "utile" }) {
                 add(
-                "Je suppose que la derniere morsure a aide. On recommence petit, sans discours."
+                "Je suppose que la dernière morsure a aidé. On recommence petit, sans discours."
                 )
             }
             add(
                 "Hypothèse : tu évites le début, pas la tâche. Je peux me tromper. Un peu."
             )
             add("J'imagine un seuil minuscule devant toi. Ne l'analyse pas. Enjambe-le mal, mais enjambe.")
-            add("Je sais peu. Je soupconne beaucoup. Commence par la version brouillon, celle qui ferait rire ton futur toi.")
-            add("Supposition locale : l'elan attend une permission officielle. Refuse-lui le guichet. Fais le premier geste.")
-            add("Je peux me tromper : ce n'est pas le plan qui manque, c'est l'entree de service.")
+            add("Je sais peu. Je soupçonne beaucoup. Commence par la version brouillon, celle qui ferait rire ton futur toi.")
+            add("Supposition locale : l’élan attend une permission officielle. Refuse-lui le guichet. Fais le premier geste.")
+            add("Je peux me tromper : ce n'est pas le plan qui manque, c'est l'entrée de service.")
             add("Hypothèse : tu veux la bonne forme avant la première trace. Mauvais contrat. Trace d'abord.")
         }
         val recentLines = memory.mapNotNull { it.clochetteLine }.takeLast(6).toSet()

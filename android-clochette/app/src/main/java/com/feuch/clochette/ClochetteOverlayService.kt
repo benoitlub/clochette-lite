@@ -28,6 +28,7 @@ class ClochetteOverlayService : Service() {
     private lateinit var memory: ClochetteMemory
     private var overlay: View? = null
     private var lineView: TextView? = null
+    private var sourceView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
     private val lineReceiver = object : BroadcastReceiver() {
@@ -70,6 +71,7 @@ class ClochetteOverlayService : Service() {
         overlay?.let { runCatching { windowManager.removeView(it) } }
         overlay = null
         lineView = null
+        sourceView = null
         layoutParams = null
         super.onDestroy()
     }
@@ -96,6 +98,9 @@ class ClochetteOverlayService : Service() {
             gravity = Gravity.BOTTOM or Gravity.END
             setPadding(6.dp(), 6.dp(), 6.dp(), 6.dp())
         }
+        val bubbleMaxWidth = (resources.displayMetrics.widthPixels * 0.68f)
+            .toInt()
+            .coerceIn(220.dp(), 340.dp())
 
         val bubble = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -106,12 +111,23 @@ class ClochetteOverlayService : Service() {
         }
 
         lineView = TextView(this).apply {
-            text = ClochetteRemarkStore.latest(this@ClochetteOverlayService)
+            text = ClochetteRemarkStore.latest(this@ClochetteOverlayService).withVisibleFrenchAccents()
             textSize = 13f
             setTextColor(Color.rgb(44, 24, 63))
-            maxWidth = 196.dp()
-            maxLines = 3
+            maxWidth = bubbleMaxWidth
+            maxLines = 6
+            ellipsize = null
+            isSingleLine = false
             setPadding(0, 0, 0, 6.dp())
+        }
+
+        sourceView = TextView(this).apply {
+            text = "source : ${ClochetteRemarkStore.latestSource(this@ClochetteOverlayService).id}"
+            textSize = 9f
+            setTextColor(Color.rgb(105, 82, 122))
+            maxWidth = bubbleMaxWidth
+            maxLines = 1
+            setPadding(0, 0, 0, 4.dp())
         }
 
         val buttonRow = LinearLayout(this).apply {
@@ -123,6 +139,7 @@ class ClochetteOverlayService : Service() {
         buttonRow.addView(actionButton("Réglages") { openMainActivity("settings") })
 
         bubble.addView(lineView)
+        bubble.addView(sourceView)
         bubble.addView(buttonRow)
 
         val sprite = ImageView(this).apply {
@@ -146,7 +163,7 @@ class ClochetteOverlayService : Service() {
             rightMargin = 6.dp()
             bottomMargin = 20.dp()
         }
-        val spriteParams = LinearLayout.LayoutParams(86.dp(), 150.dp()).apply {
+        val spriteParams = LinearLayout.LayoutParams(78.dp(), 140.dp()).apply {
             gravity = Gravity.BOTTOM
         }
 
@@ -246,7 +263,8 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun updateLine(line: String) {
-        lineView?.text = line
+        lineView?.text = line.withVisibleFrenchAccents()
+        sourceView?.text = "source : ${ClochetteRemarkStore.latestSource(this).id}"
     }
 
     private fun pauseOverlay() {
