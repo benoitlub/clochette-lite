@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.TextUtils
 import android.widget.Toast
@@ -50,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlin.concurrent.thread
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,10 +78,13 @@ private fun ClochetteApp(startSection: String?) {
     var responseText by remember { mutableStateOf("") }
     var voiceConfig by remember { mutableStateOf(ClochetteVoiceSettings.read(context)) }
     var proactiveConfig by remember { mutableStateOf(ProactiveSettings.read(context)) }
+    var aiConfig by remember { mutableStateOf(AiGatewaySettings.read(context)) }
+    var aiTestLine by remember { mutableStateOf<String?>(null) }
     var relationshipModeId by remember { mutableStateOf(RelationshipModeSettings.selectedId(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val relationshipModes = remember(refresh) { RelationshipModeSettings.modes(context) }
     val usageSnapshot = remember(refresh) { UsageObserver(context).snapshot() }
+    val nowPlayingSnapshot = remember(refresh) { NowPlayingObserver.snapshot(context) }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
@@ -93,9 +99,73 @@ private fun ClochetteApp(startSection: String?) {
         ProactiveSettings.save(context, config)
     }
 
+    fun updateAiConfig(config: AiGatewayConfig) {
+        aiConfig = config
+        AiGatewaySettings.save(context, config)
+    }
+
     fun updateRelationshipMode(modeId: String) {
         relationshipModeId = modeId
         RelationshipModeSettings.saveSelectedId(context, modeId)
+    }
+
+    fun aiRequest(activity: ActivitySnapshot, recentMemory: List<ClochetteMemoryEntry>, userReply: String? = null): AiRemarkRequest {
+        val state = ContextRemarkEngine(context).buildState(activity, energy = energy)
+        val nowPlaying = NowPlayingObserver.snapshot(context)
+        return AiRemarkRequest(
+            relationshipMode = RelationshipModeSettings.selected(context).id,
+            preferredProvider = aiConfig.preferredProvider,
+            styleLevel = aiConfig.styleLevel,
+            foregroundApp = state.currentAppName,
+            durationMinutes = state.durationMinutes,
+            appSwitchCount = state.recentAppSwitches,
+            sensorSummary = "movement=${state.movementState.name.lowercase()} battery=${state.batteryPercent ?: "unknown"}",
+            energy = energy,
+            recentMemorySummary = recentMemory.mapNotNull { it.clochetteLine }.takeLast(3).joinToString(" | "),
+            userLastReply = userReply,
+            nowPlayingAppName = nowPlaying.appName,
+            nowPlayingTitle = nowPlaying.title,
+            nowPlayingArtist = nowPlaying.artist,
+        )
+    }
+
+    fun acceptLine(
+        rawLine: String,
+        rawSource: PhraseSource,
+        autoSpeak: Boolean,
+        shouldSpeakHint: Boolean = autoSpeak,
+    ): String {
+        val activity = UsageObserver(context).snapshot()
+        val recentMemory = memory.recent(24)
+        val state = ContextRemarkEngine(context).buildState(activity, energy = energy)
+        var source = rawSource
+        val guardian = GuardianRulesLoader(context).approve(
+            candidate = rawLine.withVisibleFrenchAccents(),
+            state = state,
+            recentLines = recentMemory.mapNotNull { it.clochetteLine },
+            recentEntries = recentMemory,
+            relationshipMode = RelationshipModeSettings.selected(context),
+            wantsVoice = autoSpeak && shouldSpeakHint,
+        )
+        val line = guardian.line?.withVisibleFrenchAccents() ?: return ClochetteRemarkStore.latest(context)
+        if (line != rawLine.withVisibleFrenchAccents() || guardian.reason != "approved") {
+            source = PhraseSource.GUARDIAN_FALLBACK
+        }
+        currentLine = line
+        memory.add(
+            ClochetteMemoryEntry(
+                context = "main_activity",
+                observedSignal = "manual_line",
+                project = project,
+                energy = energy,
+                clochetteLine = line,
+                userReaction = null,
+                result = "shown",
+            ),
+        )
+        ClochetteWidget.updateAll(context, line, source)
+        if (autoSpeak && guardian.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
+        return line
     }
 
     fun generateLine(autoSpeak: Boolean = true): String {
@@ -120,35 +190,41 @@ private fun ClochetteApp(startSection: String?) {
             ).also {
                 source = PhraseSource.CLOCHETTE_ENGINE
             }
-            val state = contextEngine.buildState(activity, energy = energy)
-            val guardian = GuardianRulesLoader(context).approve(
-                candidate = rawLine,
-                state = state,
-                recentLines = recentMemory.mapNotNull { it.clochetteLine },
-                recentEntries = recentMemory,
-                relationshipMode = RelationshipModeSettings.selected(context),
-                wantsVoice = autoSpeak,
-            )
-            val line = guardian.line ?: return ClochetteRemarkStore.latest(context)
-            if (line != rawLine || guardian.reason != "approved") {
-                source = PhraseSource.GUARDIAN_FALLBACK
-            }
-            currentLine = line
-            memory.add(
-            ClochetteMemoryEntry(
-                context = "main_activity",
-                observedSignal = "manual_line",
-                project = project,
-                energy = energy,
-                clochetteLine = line,
-                userReaction = null,
-                result = "shown",
-                ),
-            )
-            ClochetteWidget.updateAll(context, line, source)
-            if (autoSpeak && guardian.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
-            return line
+            return acceptLine(rawLine, source, autoSpeak)
         }
+
+    fun generateLineWithAi(autoSpeak: Boolean = true, testOnly: Boolean = false) {
+        val config = AiGatewaySettings.read(context)
+        aiConfig = config
+        if (!config.enabled) {
+            val line = generateLine(autoSpeak)
+            if (testOnly) aiTestLine = line
+            return
+        }
+        val appContext = context.applicationContext
+        val mainHandler = Handler(Looper.getMainLooper())
+        val activity = UsageObserver(context).snapshot()
+        val recentMemory = memory.recent(24)
+        val request = aiRequest(activity, recentMemory)
+        thread(name = "clochette-ai-gateway") {
+            val aiResult = AiGatewayClient(appContext).generateRemark(request)
+            mainHandler.post {
+                val line = if (aiResult != null) {
+                    acceptLine(
+                        rawLine = aiResult.line,
+                        rawSource = aiResult.source,
+                        autoSpeak = autoSpeak,
+                        shouldSpeakHint = aiResult.shouldSpeak,
+                    )
+                } else {
+                    AiGatewaySettings.record(appContext, "fallback", "fallback local")
+                    generateLine(autoSpeak)
+                }
+                aiConfig = AiGatewaySettings.read(context)
+                if (testOnly) aiTestLine = line
+            }
+        }
+    }
 
     MaterialTheme {
         Surface(
@@ -227,12 +303,20 @@ private fun ClochetteApp(startSection: String?) {
                     onRelationshipMode = { updateRelationshipMode(it) },
                 )
 
+                AiGatewayPanel(
+                    config = aiConfig,
+                    latestSource = ClochetteRemarkStore.latestSource(context).id,
+                    testLine = aiTestLine,
+                    onConfig = { updateAiConfig(it) },
+                    onTest = { generateLineWithAi(autoSpeak = false, testOnly = true) },
+                )
+
                 SelectorPanel(
                     project = project,
                     energy = energy,
                     onProject = { project = it },
                     onEnergy = { energy = it },
-                    onLine = { generateLine() },
+                    onLine = { generateLineWithAi() },
                     onSpeak = {
                         val line = currentLine ?: generateLine(autoSpeak = false)
                         ClochetteVoice.speak(context, line)
@@ -286,6 +370,11 @@ private fun ClochetteApp(startSection: String?) {
                     hasPermission = UsageObserver(context).hasPermission(),
                     activity = usageSnapshot,
                     onOpenSettings = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                )
+                NowPlayingPanel(
+                    hasPermission = NowPlayingObserver.hasPermission(context),
+                    snapshot = nowPlayingSnapshot,
+                    onOpenSettings = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
                 )
                 PermissionCard(
                     title = "Surimpression",
@@ -535,6 +624,69 @@ private fun VoiceSettingsPanel(
 }
 
 @Composable
+private fun AiGatewayPanel(
+    config: AiGatewayConfig,
+    latestSource: String,
+    testLine: String?,
+    onConfig: (AiGatewayConfig) -> Unit,
+    onTest: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("IA de Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("IA distante activée")
+                Switch(
+                    checked = config.enabled,
+                    onCheckedChange = { onConfig(config.copy(enabled = it)) },
+                )
+            }
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = config.gatewayUrl,
+                onValueChange = { onConfig(config.copy(gatewayUrl = it)) },
+                singleLine = true,
+                label = { Text("Gateway URL") },
+            )
+            VoiceChoice(
+                title = "Provider préféré",
+                value = config.preferredProvider,
+                options = listOf(
+                    AiGatewaySettings.PROVIDER_AUTO,
+                    AiGatewaySettings.PROVIDER_MISTRAL,
+                    AiGatewaySettings.PROVIDER_GEMINI,
+                    AiGatewaySettings.PROVIDER_LOCAL,
+                ),
+                onValue = { onConfig(config.copy(preferredProvider = it)) },
+            )
+            VoiceChoice(
+                title = "Style",
+                value = config.styleLevel,
+                options = listOf(
+                    AiGatewaySettings.STYLE_NATUREL,
+                    AiGatewaySettings.STYLE_ESPIEGLE,
+                    AiGatewaySettings.STYLE_FEUCH,
+                ),
+                onValue = { onConfig(config.copy(styleLevel = it)) },
+            )
+            Text("Dernier provider : ${config.lastProviderUsed ?: "aucun"}")
+            Text("Dernier statut : ${config.lastStatus ?: "non testé"}")
+            Text("Dernière latence : ${config.lastLatencyMs?.let { "$it ms" } ?: "-"}")
+            Text("Dernière source : $latestSource")
+            Button(onClick = onTest) {
+                Text("Tester l’IA")
+            }
+            testLine?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+@Composable
 private fun VoiceChoice(
     title: String,
     value: String,
@@ -593,6 +745,27 @@ private fun UsageAccessPanel(
             Text("Changements d'apps : ${activity.recentSwitchCount}")
             Button(onClick = onOpenSettings) {
                 Text("Ouvrir les paramètres Android")
+            }
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingPanel(
+    hasPermission: Boolean,
+    snapshot: NowPlayingSnapshot,
+    onOpenSettings: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Now Playing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(if (hasPermission) "État : autorisé" else "État : autorisation requise")
+            Text("App : ${snapshot.appName ?: "non détectée"}")
+            Text("Titre : ${snapshot.title ?: "-"}")
+            Text("Artiste / chaîne : ${snapshot.artist ?: "-"}")
+            Text("Lecture : ${snapshot.playing?.let { if (it) "active" else "pause" } ?: "inconnue"}")
+            Button(onClick = onOpenSettings) {
+                Text("Ouvrir les paramètres Notification Listener")
             }
         }
     }

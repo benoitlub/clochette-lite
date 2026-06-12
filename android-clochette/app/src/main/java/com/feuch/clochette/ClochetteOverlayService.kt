@@ -8,7 +8,9 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -26,10 +28,13 @@ import kotlin.math.abs
 class ClochetteOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var memory: ClochetteMemory
+    private val handler = Handler(Looper.getMainLooper())
     private var overlay: View? = null
+    private var bubbleView: View? = null
     private var lineView: TextView? = null
     private var sourceView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
+    private val hideBubbleRunnable = Runnable { bubbleView?.visibility = View.GONE }
 
     private val lineReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -68,8 +73,10 @@ class ClochetteOverlayService : Service() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(lineReceiver) }
+        handler.removeCallbacksAndMessages(null)
         overlay?.let { runCatching { windowManager.removeView(it) } }
         overlay = null
+        bubbleView = null
         lineView = null
         sourceView = null
         layoutParams = null
@@ -109,6 +116,7 @@ class ClochetteOverlayService : Service() {
             background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), 20.dp())
             elevation = 10f
         }
+        bubbleView = bubble
 
         lineView = TextView(this).apply {
             text = ClochetteRemarkStore.latest(this@ClochetteOverlayService).withVisibleFrenchAccents()
@@ -148,7 +156,10 @@ class ClochetteOverlayService : Service() {
             adjustViewBounds = true
             setPadding(0, 0, 0, 0)
             elevation = 14f
-            setOnClickListener { speakNextLine() }
+            setOnClickListener {
+                showBubbleTemporarily()
+                speakNextLine()
+            }
             setOnLongClickListener {
                 pauseOverlay()
                 true
@@ -176,6 +187,7 @@ class ClochetteOverlayService : Service() {
         Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
         overlay = root
         layoutParams = params
+        scheduleBubbleHide()
     }
 
     private fun actionButton(label: String, onClick: () -> Unit): Button = Button(this).apply {
@@ -202,6 +214,7 @@ class ClochetteOverlayService : Service() {
         view.setOnTouchListener { touched, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    showBubbleTemporarily()
                     startX = params.x
                     startY = params.y
                     touchX = event.rawX
@@ -225,6 +238,8 @@ class ClochetteOverlayService : Service() {
                     val pressDuration = System.currentTimeMillis() - downAt
                     if (!moved && pressDuration >= 2_500L) {
                         pauseOverlay()
+                    } else {
+                        scheduleBubbleHide()
                     }
                     true
                 }
@@ -265,6 +280,17 @@ class ClochetteOverlayService : Service() {
     private fun updateLine(line: String) {
         lineView?.text = line.withVisibleFrenchAccents()
         sourceView?.text = "source : ${ClochetteRemarkStore.latestSource(this).id}"
+        showBubbleTemporarily()
+    }
+
+    private fun showBubbleTemporarily() {
+        bubbleView?.visibility = View.VISIBLE
+        scheduleBubbleHide()
+    }
+
+    private fun scheduleBubbleHide() {
+        handler.removeCallbacks(hideBubbleRunnable)
+        handler.postDelayed(hideBubbleRunnable, BUBBLE_AUTO_HIDE_MS)
     }
 
     private fun pauseOverlay() {
@@ -312,5 +338,6 @@ class ClochetteOverlayService : Service() {
         const val ACTION_SHOW = "com.feuch.clochette.overlay.SHOW"
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
+        private const val BUBBLE_AUTO_HIDE_MS = 25_000L
     }
 }

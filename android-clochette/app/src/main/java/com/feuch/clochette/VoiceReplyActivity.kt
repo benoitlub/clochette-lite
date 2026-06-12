@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlin.concurrent.thread
 
 class VoiceReplyActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
@@ -166,9 +167,7 @@ class VoiceReplyActivity : ComponentActivity() {
                 ?.firstOrNull()
                 .orEmpty()
             transcript = text
-            clochetteReply = replyTo(text)
-            saveReply(text, clochetteReply)
-            if (clochetteReply.isNotBlank()) ClochetteVoice.speak(this@VoiceReplyActivity, clochetteReply)
+            replyWithAi(text)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
@@ -190,6 +189,64 @@ class VoiceReplyActivity : ComponentActivity() {
             "bloqu" in lower || "bug" in lower -> "Je soupçonne un blocage. On nomme le monstre, puis on lui vole ses chaussures."
             else -> "Je note. Je peux me tromper, mais il y a une piste exploitable là-dedans."
         }
+    }
+
+    private fun replyWithAi(text: String) {
+        status = "Clochette réfléchit."
+        val appContext = applicationContext
+        val activity = UsageObserver(this).snapshot()
+        val memory = ClochetteMemory(this).recent(12)
+        val state = ContextRemarkEngine(this).buildState(activity)
+        val config = AiGatewaySettings.read(this)
+        val nowPlaying = NowPlayingObserver.snapshot(this)
+        if (!config.enabled) {
+            finishReply(text, replyTo(text), "local_fallback")
+            return
+        }
+        val request = AiRemarkRequest(
+            relationshipMode = RelationshipModeSettings.selected(this).id,
+            preferredProvider = config.preferredProvider,
+            styleLevel = config.styleLevel,
+            foregroundApp = state.currentAppName,
+            durationMinutes = state.durationMinutes,
+            appSwitchCount = state.recentAppSwitches,
+            sensorSummary = "voice_reply",
+            energy = null,
+            recentMemorySummary = memory.mapNotNull { it.clochetteLine }.takeLast(3).joinToString(" | "),
+            userLastReply = text,
+            nowPlayingAppName = nowPlaying.appName,
+            nowPlayingTitle = nowPlaying.title,
+            nowPlayingArtist = nowPlaying.artist,
+        )
+        thread(name = "clochette-voice-reply-ai") {
+            val aiResult = AiGatewayClient(appContext).generateRemark(request)
+            handler.post {
+                if (aiResult != null) {
+                    val guardian = GuardianRulesLoader(this).approve(
+                        candidate = aiResult.line,
+                        state = state,
+                        recentLines = memory.mapNotNull { it.clochetteLine },
+                        recentEntries = memory,
+                        relationshipMode = RelationshipModeSettings.selected(this),
+                        wantsVoice = true,
+                    )
+                    finishReply(
+                        text,
+                        guardian.line?.withVisibleFrenchAccents() ?: replyTo(text),
+                        aiResult.providerUsed,
+                    )
+                } else {
+                    finishReply(text, replyTo(text), "local_fallback")
+                }
+            }
+        }
+    }
+
+    private fun finishReply(userText: String, reply: String, provider: String) {
+        clochetteReply = reply.withVisibleFrenchAccents()
+        status = "Réponse prête · provider : $provider"
+        saveReply(userText, clochetteReply)
+        if (clochetteReply.isNotBlank()) ClochetteVoice.speak(this@VoiceReplyActivity, clochetteReply)
     }
 
     private fun saveReply(userReply: String, reply: String) {

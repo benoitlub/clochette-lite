@@ -34,6 +34,10 @@ object ClochetteVoice {
         speak(context, text, automatic = true)
     }
 
+    fun speakProactive(context: Context, text: String) {
+        speak(context, text, automatic = false)
+    }
+
     fun stop() {
         tts?.stop()
     }

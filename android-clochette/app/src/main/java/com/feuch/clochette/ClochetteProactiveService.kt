@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import kotlin.concurrent.thread
 import kotlin.random.Random
 
 class ClochetteProactiveService : Service() {
@@ -84,6 +85,61 @@ class ClochetteProactiveService : Service() {
         val recentMemory = memory.recent(24)
         val question = config.spontaneousQuestions &&
             Random.nextInt(100) < questionChance(relationshipMode.questionFrequency)
+
+        val aiConfig = AiGatewaySettings.read(this)
+        val mayUseAi = aiConfig.enabled &&
+            !question &&
+            (relationshipMode.id == "alive" || config.frequency == ProactiveFrequency.BAVARDE)
+        if (mayUseAi) {
+            val nowPlaying = NowPlayingObserver.snapshot(this)
+            val request = AiRemarkRequest(
+                relationshipMode = relationshipMode.id,
+                preferredProvider = aiConfig.preferredProvider,
+                styleLevel = aiConfig.styleLevel,
+                foregroundApp = state.currentAppName,
+                durationMinutes = state.durationMinutes,
+                appSwitchCount = state.recentAppSwitches,
+                sensorSummary = "movement=${state.movementState.name.lowercase()} battery=${state.batteryPercent ?: "unknown"}",
+                energy = null,
+                recentMemorySummary = recentMemory.mapNotNull { it.clochetteLine }.takeLast(3).joinToString(" | "),
+                nowPlayingAppName = nowPlaying.appName,
+                nowPlayingTitle = nowPlaying.title,
+                nowPlayingArtist = nowPlaying.artist,
+            )
+            thread(name = "clochette-proactive-ai") {
+                val aiResult = AiGatewayClient(this@ClochetteProactiveService).generateRemark(request)
+                handler.post {
+                    if (aiResult != null) {
+                        handleCandidate(
+                            candidateLine = aiResult.line,
+                            source = aiResult.source,
+                            question = aiResult.shouldOpenMic && aiResult.line.contains("?"),
+                            state = state,
+                            recentMemory = recentMemory,
+                            relationshipMode = relationshipMode,
+                            wantsVoice = config.voiceInterventions && aiResult.shouldSpeak,
+                            openMicAfter = aiResult.shouldOpenMic,
+                        )
+                    } else {
+                        handleLocalCandidate(question, state, recentMemory, relationshipMode, config)
+                    }
+                }
+            }
+            return
+        }
+
+        handleLocalCandidate(question, state, recentMemory, relationshipMode, config)
+    }
+
+    private fun handleLocalCandidate(
+        question: Boolean,
+        state: ContextState,
+        recentMemory: List<ClochetteMemoryEntry>,
+        relationshipMode: RelationshipMode,
+        config: ProactiveConfig,
+    ) {
+        val activity = usageObserver.snapshot()
+        val contextEngine = ContextRemarkEngine(this)
         var source = if (question) PhraseSource.PROACTIVE_QUESTION else PhraseSource.UNKNOWN
         val candidateLine = if (question) {
             ProactiveQuestionEngine.question(state, journal.recent(12))
@@ -101,21 +157,50 @@ class ClochetteProactiveService : Service() {
                 source = PhraseSource.CLOCHETTE_ENGINE
             }
         }
+        handleCandidate(
+            candidateLine = candidateLine,
+            source = source,
+            question = question,
+            state = state,
+            recentMemory = recentMemory,
+            relationshipMode = relationshipMode,
+            wantsVoice = config.voiceInterventions,
+            openMicAfter = question,
+        )
+    }
+
+    private fun handleCandidate(
+        candidateLine: String,
+        source: PhraseSource,
+        question: Boolean,
+        state: ContextState,
+        recentMemory: List<ClochetteMemoryEntry>,
+        relationshipMode: RelationshipMode,
+        wantsVoice: Boolean,
+        openMicAfter: Boolean,
+    ) {
+        var effectiveSource = source
         val decision = GuardianRulesLoader(this).approve(
             candidate = candidateLine,
             state = state,
             recentLines = recentMemory.mapNotNull { it.clochetteLine },
             recentEntries = recentMemory,
             relationshipMode = relationshipMode,
-            wantsVoice = config.voiceInterventions,
+            wantsVoice = wantsVoice,
         )
         val line = decision.line ?: return
         if (line != candidateLine || decision.reason != "approved") {
-            source = PhraseSource.GUARDIAN_FALLBACK
+            effectiveSource = PhraseSource.GUARDIAN_FALLBACK
         }
 
-        ClochetteWidget.updateAll(this, line, source)
-        if (decision.shouldSpeak) ClochetteVoice.speakAfterRemark(this, line)
+        ClochetteWidget.updateAll(this, line, effectiveSource)
+        if (decision.shouldSpeak) ClochetteVoice.speakProactive(this, line)
+        if (openMicAfter && question && line.contains("?")) {
+            startActivity(
+                Intent(this, VoiceReplyActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
 
         memory.add(
             ClochetteMemoryEntry(

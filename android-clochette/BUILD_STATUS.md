@@ -1,7 +1,7 @@
 # Android Clochette Build Status
 
 - Date: 2026-06-12
-- Commit tested: `3caba2e` (`Merge Clochette context phrase libraries`)
+- Commit tested: working tree after `602a00c` (`Fix Clochette overlay text wrapping and accents`)
 - Persona asset validation: `python android-clochette/tools/validate_persona_assets.py`
 - Build command: `cd android-clochette && ./gradlew assembleDebug --stacktrace`
 - Result: success
@@ -11,3 +11,6 @@ Notes:
 - `ContextRemarkEngine` loads both `personas/clochette/context_lines.json` and `personas/clochette/app_context_lines.json`.
 - Generated lines pass through `withVisibleFrenchAccents()`.
 - GitHub Actions validates persona JSON assets before `assembleDebug`.
+- Overlay text wraps up to six lines with dynamic width and source debug.
+- AI gateway is optional, has no embedded API key, and falls back locally.
+- Now Playing uses Android notification listener metadata only when the user grants permission.
