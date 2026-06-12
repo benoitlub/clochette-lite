@@ -22,6 +22,7 @@ Notes:
   - local natural fallback is used when no gateway URL is configured.
   - `Diagnostic Clochette vivante` explains why proactive speech is silent or spoken;
   - `Tester parole proactive maintenant` calls `ClochetteProactiveService.ACTION_TEST_INTERVENTION`;
+  - forced proactive test bypasses old silence history (`pause/refus/overlay_closed`) so it can verify TTS immediately;
   - first proactive attempt after `Observer` is scheduled after 10 seconds;
   - prototype fast proactive mode is enabled with `DEBUG_FAST_PROACTIVE = true`.
 

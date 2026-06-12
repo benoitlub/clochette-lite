@@ -344,6 +344,10 @@ private fun ClochetteApp(startSection: String?) {
                                 .setAction(ClochetteProactiveService.ACTION_OBSERVE),
                         )
                         Toast.makeText(context, "Observation active", Toast.LENGTH_SHORT).show()
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            runtimeStatus = ClochetteRuntimeStatus.read(context)
+                            refresh++
+                        }, 500L)
                         refresh++
                     }) {
                         Text("Observer")
@@ -601,10 +605,13 @@ private fun ClochetteControlPanel(
             if (aiConfig.enabled && aiConfig.gatewayUrl.isBlank()) {
                 Text("IA distante non configurée · fallback local actif", color = Color(0xFF8A4B25))
             }
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onTestLiving,
+            ) {
+                Text("Tester parole proactive maintenant")
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = onTestLiving) {
-                    Text("Tester intervention vivante")
-                }
                 OutlinedButton(onClick = {
                     onNeedLine()
                     onRefresh()

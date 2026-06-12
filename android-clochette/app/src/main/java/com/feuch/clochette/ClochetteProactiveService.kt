@@ -54,6 +54,7 @@ class ClochetteProactiveService : Service() {
 
     override fun onDestroy() {
         running = false
+        ClochetteRuntimeStatus.recordProactiveActive(this, false)
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
@@ -220,7 +221,7 @@ class ClochetteProactiveService : Service() {
             candidate = candidateLine,
             state = state,
             recentLines = recentMemory.mapNotNull { it.clochetteLine },
-            recentEntries = recentMemory,
+            recentEntries = if (force) emptyList() else recentMemory,
             relationshipMode = guardianMode,
             wantsVoice = wantsVoice,
         )
