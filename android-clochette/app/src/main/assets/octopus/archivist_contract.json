@@ -1,0 +1,48 @@
+{
+  "id": "octopus_archivist_contract",
+  "version": 1,
+  "principle": "L'Archiviste transforme les interactions en souvenirs courts, utiles et temporaires. Il ne conserve pas de verbatim sensible.",
+  "inputs": [
+    "context_state",
+    "clochette_line",
+    "user_reply_optional",
+    "interaction_outcome",
+    "relationship_mode"
+  ],
+  "outputs": [
+    "memory_hint",
+    "cooldown_adjustment",
+    "tone_adjustment",
+    "forget_after_days"
+  ],
+  "memoryHintShape": {
+    "id": "local unique id",
+    "summary": "phrase courte, non verbatim",
+    "contextTags": ["ChatGPT", "Codex", "Fatigue", "Creation"],
+    "confidence": "low | medium | high",
+    "usefulness": "low | medium | high",
+    "expiresInDays": 1
+  },
+  "rules": [
+    "Ne jamais stocker la transcription brute du micro.",
+    "Ne jamais stocker le contenu d'une autre application.",
+    "Préférer les résumés d'intention aux citations exactes.",
+    "Oublier vite les signaux faibles.",
+    "Augmenter la discrétion après plusieurs silences ou refus.",
+    "Autoriser davantage de présence après des réponses positives répétées."
+  ],
+  "examples": [
+    {
+      "input": "L'utilisateur répond qu'il travaille sur Clochette.",
+      "memoryHint": "Travaille actuellement sur Clochette. Éviter les interruptions longues."
+    },
+    {
+      "input": "Silence après question spontanée.",
+      "memoryHint": "Question ignorée. Augmenter le cooldown."
+    },
+    {
+      "input": "Réponse courte positive.",
+      "memoryHint": "Interaction acceptée. Présence modérée possible."
+    }
+  ]
+}
