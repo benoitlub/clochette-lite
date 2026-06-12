@@ -1,0 +1,24 @@
+name: Android Clochette Assets
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android-clochette/app/src/main/assets/**'
+      - 'android-clochette/tools/validate_persona_assets.py'
+      - '.github/workflows/android-clochette-assets.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-persona-assets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate persona JSON assets
+        run: python android-clochette/tools/validate_persona_assets.py
