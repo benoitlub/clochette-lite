@@ -1,0 +1,55 @@
+{
+  "id": "octopus_connectors_config_template",
+  "version": 1,
+  "purpose": "Préparer les connexions de test Notion, Gemini et Mistral sans les activer par défaut.",
+  "defaultMode": "local_only",
+  "modes": [
+    "local_only",
+    "android_private_test",
+    "gateway_production"
+  ],
+  "androidPrivateTest": {
+    "description": "Mode prototype personnel. Les clés peuvent être saisies dans les réglages locaux du téléphone pour tester vite, mais elles ne doivent pas être commitées.",
+    "storage": "EncryptedSharedPreferences_or_local_settings",
+    "allowedFor": ["debug", "personal_test"],
+    "notFor": ["public_release", "commercial_distribution"]
+  },
+  "gatewayProduction": {
+    "description": "Mode durable. Android appelle une passerelle, et les secrets restent hors de l'APK.",
+    "recommended": true
+  },
+  "connectors": [
+    {
+      "id": "notion",
+      "label": "Notion Library",
+      "enabledByDefault": false,
+      "role": "bibliothèque éditoriale, candidates, accepted lines, changelog",
+      "requires": ["notion_token", "database_id_or_page_id"],
+      "testAction": "fetch_library_status"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini Harvest",
+      "enabledByDefault": false,
+      "role": "récolte ponctuelle de phrases candidates",
+      "requires": ["gemini_key_or_gateway"],
+      "testAction": "generate_small_candidate_batch"
+    },
+    {
+      "id": "mistral",
+      "label": "Mistral Quick Lines",
+      "enabledByDefault": false,
+      "role": "génération courte, reformulation, résumé léger",
+      "requires": ["mistral_key_or_gateway"],
+      "testAction": "generate_one_contextual_line"
+    }
+  ],
+  "rules": [
+    "Aucun connecteur actif par défaut.",
+    "Aucun secret dans le dépôt.",
+    "Toujours prévoir un bouton Tester la connexion.",
+    "Toujours afficher le dernier résultat de test.",
+    "Toujours garder un fallback local.",
+    "Les réponses externes passent par Guardian avant adoption."
+  ]
+}
