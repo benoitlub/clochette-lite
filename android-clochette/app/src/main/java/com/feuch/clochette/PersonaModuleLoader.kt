@@ -12,34 +12,43 @@ data class PersonaModuleStatus(
 class PersonaModuleLoader(context: Context) {
     private val assets = context.applicationContext.assets
 
-    fun loadStatuses(): List<PersonaModuleStatus> = MODULE_FILES.map { fileName ->
-        val path = "$MODULE_DIR/$fileName"
+    fun loadStatuses(): List<PersonaModuleStatus> = MODULE_FILES.map { module ->
         runCatching {
-            val raw = assets.open(path).bufferedReader().use { it.readText() }
+            val raw = assets.open(module.path).bufferedReader().use { it.readText() }
             PersonaModuleStatus(
-                fileName = fileName,
+                fileName = module.label,
                 detected = true,
                 validJson = runCatching { JSONObject(raw) }.isSuccess,
             )
         }.getOrElse {
-            PersonaModuleStatus(fileName = fileName, detected = false, validJson = false)
+            PersonaModuleStatus(fileName = module.label, detected = false, validJson = false)
         }
     }
 
     companion object {
         private const val MODULE_DIR = "personas/clochette"
 
-        val MODULE_FILES = listOf(
-            "interaction.json",
-            "sensor_profiles.json",
-            "memory_rules.json",
-            "ai_gateway.json",
-            "notion_sync.json",
-            "dreams.json",
-            "octopus_core.json",
-            "guardian_rules.json",
-            "relationship_modes.json",
-            "library_schema.json",
+        private data class ModuleFile(
+            val label: String,
+            val path: String,
+        )
+
+        private fun clochetteModule(fileName: String): ModuleFile =
+            ModuleFile(fileName, "$MODULE_DIR/$fileName")
+
+        private val MODULE_FILES = listOf(
+            clochetteModule("interaction.json"),
+            clochetteModule("sensor_profiles.json"),
+            clochetteModule("memory_rules.json"),
+            clochetteModule("ai_gateway.json"),
+            clochetteModule("notion_sync.json"),
+            clochetteModule("dreams.json"),
+            clochetteModule("octopus_core.json"),
+            clochetteModule("guardian_rules.json"),
+            clochetteModule("relationship_modes.json"),
+            clochetteModule("library_schema.json"),
+            clochetteModule("persona_traits.json"),
+            ModuleFile("shared_library_model.json", "personas/shared_library_model.json"),
         )
     }
 }

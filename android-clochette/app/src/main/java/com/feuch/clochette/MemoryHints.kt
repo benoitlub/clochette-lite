@@ -1,6 +1,15 @@
 package com.feuch.clochette
 
 object MemoryHints {
+    fun fromSummary(summary: MemorySummary): List<String> = summary.hints.mapNotNull { hint ->
+        when {
+            hint == "intent:silence" -> "Je remarque que le silence compte comme une réponse."
+            hint == "intent:pause_requested" -> "Je remarque qu'il faut baisser la présence."
+            hint == "intent:resume_possible" -> "Je remarque qu'une reprise est possible."
+            else -> null
+        }
+    }
+
     fun hintsFor(state: ContextState, memory: List<ClochetteMemoryEntry> = emptyList()): List<String> {
         val app = state.currentAppName.orEmpty().lowercase()
         val text = memory.joinToString(" ") { listOfNotNull(it.context, it.project, it.observedSignal, it.clochetteLine).joinToString(" ") }
