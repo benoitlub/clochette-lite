@@ -18,23 +18,41 @@ class ClochetteWidget : AppWidgetProvider() {
         if (intent.action == ACTION_REMARK) {
             val memory = ClochetteMemory(context)
             val voiceConfig = ClochetteVoiceSettings.read(context)
-            val line = ClochetteEngine.remark(
-                activity = UsageObserver(context).snapshot(),
-                sensors = SensorSnapshot(),
-                energy = null,
-                project = ProjectKnowledge.projects.firstOrNull()?.name,
-                memory = memory.recent(24),
-                phraseLength = voiceConfig.phraseLength,
-            )
+            val activity = UsageObserver(context).snapshot()
+            val recentMemory = memory.recent(24)
+            val state = ContextRemarkEngine(context).buildState(activity)
+            val journal = ObservationJournal(context)
+            val askQuestion = ProactiveSettings.read(context).spontaneousQuestions &&
+                (activity.recentSwitchCount >= 4 || System.currentTimeMillis() / 60_000L % 4L == 0L)
+            val line = if (askQuestion) {
+                ProactiveQuestionEngine.question(state, journal.recent(12))
+            } else {
+                ContextRemarkEngine(context).remark(activity, recentMemory) ?: ClochetteEngine.remark(
+                    activity = activity,
+                    sensors = SensorSnapshot(),
+                    energy = null,
+                    project = ProjectKnowledge.projects.firstOrNull()?.name,
+                    memory = recentMemory,
+                    phraseLength = voiceConfig.phraseLength,
+                )
+            }
             memory.add(
                 ClochetteMemoryEntry(
                     context = "home_widget",
-                    observedSignal = "widget_tap",
+                    observedSignal = if (askQuestion) "widget_question" else "widget_tap",
                     project = ProjectKnowledge.projects.firstOrNull()?.name,
                     energy = null,
                     clochetteLine = line,
                     userReaction = "tap",
                     result = "spoken_from_widget",
+                ),
+            )
+            journal.add(
+                ObservationJournalEntry(
+                    activity = state.currentAppName,
+                    question = line.takeIf { askQuestion },
+                    reaction = "widget_tap",
+                    result = "shown",
                 ),
             )
             updateAll(context, line)
