@@ -1,0 +1,89 @@
+{
+  "id": "clochette_spontaneous_questions",
+  "version": 1,
+  "principle": "Clochette peut poser une question courte lorsqu'un contexte semble utile, puis ouvrir le micro brièvement si le mode l'autorise.",
+  "rules": [
+    "Ne poser qu'une question à la fois.",
+    "Ne jamais poser une question si l'utilisateur est en travail profond récent.",
+    "Toujours accepter le silence comme une réponse valable.",
+    "Ne pas reposer la même question immédiatement.",
+    "Ne pas demander d'informations sensibles.",
+    "Préférer une question concrète liée au contexte observé."
+  ],
+  "cooldowns": {
+    "defaultMinutes": 45,
+    "afterSilenceMinutes": 90,
+    "afterAnswerMinutes": 45,
+    "afterDismissMinutes": 120,
+    "nightMinutes": 180
+  },
+  "micro": {
+    "bubbleText": "Je t'écoute pendant 15 secondes...",
+    "defaultListenSeconds": 15,
+    "timeoutLine": "Je te laisse tranquille.",
+    "unclearLine": "Je crois que tu es occupé. On reparlera plus tard."
+  },
+  "questionTypes": [
+    {
+      "id": "long_chatgpt",
+      "context": "ChatGPT long",
+      "thresholdMinutes": 120,
+      "questions": [
+        "Tu travailles sur quelque chose de précis, ou tu creuses le tunnel ?",
+        "Je peux me tromper, mais ça ressemble à une grosse session. Tu veux que je me fasse discrète ?",
+        "Tu veux que je retienne que tu es en mode création ?"
+      ]
+    },
+    {
+      "id": "codex_friction",
+      "context": "Codex long ou frustrant",
+      "thresholdMinutes": 60,
+      "questions": [
+        "Codex coopère, ou je dois préparer les coussins anti-frustration ?",
+        "Tu veux que je note que ce chantier est fragile ?",
+        "Je soupçonne une négociation avec Codex. Tu veux une pause courte ?"
+      ]
+    },
+    {
+      "id": "night_fatigue",
+      "context": "Soir tardif / fatigue",
+      "thresholdMinutes": 30,
+      "questions": [
+        "Tu veux que je baisse le volume de mes remarques ce soir ?",
+        "Je peux me tromper, mais la fatigue rôde. Je me fais discrète ?",
+        "On garde les grandes idées pour demain ?"
+      ]
+    },
+    {
+      "id": "app_wandering",
+      "context": "Beaucoup de changements d'apps",
+      "thresholdSwitches": 8,
+      "questions": [
+        "Je remarque beaucoup de changements d'apps. Tu cherches quelque chose ?",
+        "Tu veux que je t'aide à revenir à une seule tâche ?",
+        "Ça ressemble à une petite tornade numérique. On choisit une direction ?"
+      ]
+    },
+    {
+      "id": "long_youtube",
+      "context": "YouTube long",
+      "thresholdMinutes": 90,
+      "questions": [
+        "Recherche utile ou embuscade de vidéos recommandées ?",
+        "Tu veux continuer, ou je te rappelle doucement qu'il existe un extérieur ?",
+        "Je note YouTube comme travail, détente, ou trou noir ?"
+      ]
+    },
+    {
+      "id": "private_update",
+      "context": "Moment privé / rêve / mise à jour douce",
+      "thresholdMinutes": 0,
+      "questions": [
+        "J'ai imaginé quelques nouvelles idées. Tu veux les voir plus tard ?",
+        "Je vais ranger un peu ma poussière de fée. Tu me laisses deux minutes ?",
+        "J'ai peut-être une nouvelle façon de te taquiner. Tu veux que je la garde sous le coude ?"
+      ]
+    }
+  ],
+  "fallbackQuestion": "Je peux me tromper, mais il se passe quelque chose. Tu veux me dire quoi ?"
+}
