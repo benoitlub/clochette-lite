@@ -31,14 +31,19 @@ class PersonaLineSelector {
         traits: PersonaTraits,
         guardian: GuardianRulesLoader,
         recentLines: List<String>,
+        debugTracer: DebugSourceTracer? = null,
+        debug: Boolean = false,
     ): String? {
         val selected = select(lines, traits, contextState) ?: return null
         val candidate = adapt(selected, traits)
-        return guardian.approve(
+        val approved = guardian.approve(
             candidate = candidate,
             state = contextState,
             recentLines = recentLines,
         ).line
+        return approved?.let {
+            debugTracer?.prefixFor(DebugSource.PERSONA_TRAITS, debug).orEmpty() + it
+        }
     }
 
     private fun score(line: AcceptedLine, traits: PersonaTraits, state: ContextState): Double {

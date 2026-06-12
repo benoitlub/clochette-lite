@@ -51,6 +51,13 @@ class PersonaModuleLoader(context: Context) {
             clochetteModule("library_schema.json"),
             clochetteModule("persona_traits.json"),
             ModuleFile("shared_library_model.json", "personas/shared_library_model.json"),
+            ModuleFile("octopus/archivist_contract.json", "octopus/archivist_contract.json"),
+            ModuleFile("octopus/dreamer_contract.json", "octopus/dreamer_contract.json"),
+            ModuleFile("octopus/librarian_contract.json", "octopus/librarian_contract.json"),
+            ModuleFile("octopus/diplomat_contract.json", "octopus/diplomat_contract.json"),
+            ModuleFile("octopus/chameleon_contract.json", "octopus/chameleon_contract.json"),
+            ModuleFile("octopus/test_witness_lines.json", "octopus/test_witness_lines.json"),
+            ModuleFile("octopus/debug_test_plan.json", "octopus/debug_test_plan.json"),
         )
     }
 }
