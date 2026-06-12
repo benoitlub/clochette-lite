@@ -119,7 +119,7 @@ class ClochetteOverlayService : Service() {
             gravity = Gravity.END
         }
         buttonRow.addView(actionButton("Parler") { speakNextLine() })
-        buttonRow.addView(actionButton("Répondre") { openMainActivity("response") })
+        buttonRow.addView(actionButton("Répondre") { openVoiceReply() })
         buttonRow.addView(actionButton("Réglages") { openMainActivity("settings") })
 
         bubble.addView(lineView)
@@ -270,6 +270,13 @@ class ClochetteOverlayService : Service() {
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(MainActivity.EXTRA_START_SECTION, section),
+        )
+    }
+
+    private fun openVoiceReply() {
+        startActivity(
+            Intent(this, VoiceReplyActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }
 
