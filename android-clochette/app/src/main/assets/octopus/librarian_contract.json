@@ -1,0 +1,45 @@
+{
+  "id": "octopus_librarian_contract",
+  "version": 1,
+  "principle": "Le Bibliothécaire relie la bibliothèque commune, les contenus acceptés, les traits de persona et les exports JSON. Il ne crée pas de bibliothèque séparée par persona.",
+  "responsibilities": [
+    "Charger la bibliothèque commune.",
+    "Filtrer les contenus acceptés.",
+    "Préparer les candidates pour PersonaLineSelector.",
+    "Garder la séparation entre contenu commun et traits de persona.",
+    "Préparer l'export futur depuis Notion ou autre source éditoriale."
+  ],
+  "inputs": [
+    "shared_library_model",
+    "persona_traits",
+    "accepted_lines",
+    "context_state",
+    "guardian_feedback"
+  ],
+  "outputs": [
+    "candidate_pool",
+    "accepted_line_pack",
+    "library_health_report",
+    "missing_tags_report"
+  ],
+  "acceptedLineShape": {
+    "id": "stable line id",
+    "text": "phrase courte",
+    "contexts": [],
+    "tones": [],
+    "intensity": 0.5,
+    "intrusion": 0.4,
+    "kindness": 0.8,
+    "absurdity": 0.2,
+    "language": "fr",
+    "source": "human | generated | imported",
+    "status": "accepted"
+  },
+  "rules": [
+    "Une phrase acceptée doit rester utilisable par plusieurs personas.",
+    "Les traits de persona ne doivent pas modifier la source commune sauf adaptation légère au moment de parler.",
+    "Les phrases sans contexte concret doivent être marquées faibles.",
+    "Les exports doivent rester lisibles et versionnés.",
+    "Le Bibliothécaire ne décide pas seul : Guardian valide avant usage."
+  ]
+}
