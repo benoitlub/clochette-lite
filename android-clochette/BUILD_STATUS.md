@@ -20,8 +20,11 @@ Correction:
 - Overlay diagnostics include source, voice status, Guardian decision and provider.
 - If Guardian blocks or voice is skipped, the overlay diagnostic bubble remains visible for 60 seconds.
 - The overlay includes a visible `Micro` button.
+- The `Micro` button now opens a compact voice reply panel inside the overlay instead of navigating to the full `VoiceReplyActivity` page when microphone permission is already granted.
+- Proactive questions that open the mic now ask the overlay to open its mic panel.
 - The sprite can be dragged even when the text bubble is hidden.
 - Prototype fast proactive mode is enabled. In `BAVARDE`, the next attempts are roughly 35 to 60 seconds apart after the first 10-second attempt.
+- Local proactive questions are varied, and local `anti_repeat` blocks can be softened as `approved_repeat_softened` so Clochette does not become mute just because she asked a nearby question recently.
 
 Phone test procedure:
 1. Install the debug APK.
@@ -43,7 +46,8 @@ Phone test procedure:
 17. Tap `Tester parole proactive maintenant`.
 18. Confirm it no longer lands on `guardian_fallback` by default.
 19. Hide the bubble, then drag Clochette by the sprite.
-20. Tap `Micro` in the overlay and confirm `VoiceReplyActivity` opens visibly.
+20. Tap `Micro` in the overlay and confirm the reply UI stays in the overlay instead of opening a full page.
+21. If microphone permission is missing, confirm Android is sent to the visible permission path instead of opening a hidden microphone.
 
 Notion/API status:
 - Notion sync and external AI providers are still not active in this APK.

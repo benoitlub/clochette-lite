@@ -52,9 +52,13 @@ object ProactiveInterventionRunner {
             allowTestOverride = safeTest,
         )
 
-        val approved = decision.line != null && decision.reason == "approved"
+        val repeatSoftened = decision.reason == "anti_repeat" &&
+            generated.source in setOf(PhraseSource.LOCAL_PROACTIVE, PhraseSource.PROACTIVE_QUESTION) &&
+            proactiveConfig.voiceInterventions
+        val approved = decision.line != null && decision.reason == "approved" || repeatSoftened
         val bypassForSafeTest = force && safeTest && !approved
         val finalLine = when {
+            repeatSoftened -> generated.line
             approved -> decision.line.orEmpty()
             bypassForSafeTest -> generated.line
             decision.line != null -> decision.line
@@ -62,12 +66,17 @@ object ProactiveInterventionRunner {
         }.withVisibleFrenchAccents()
         val finalSource = when {
             bypassForSafeTest -> PhraseSource.LOCAL_PROACTIVE_TEST
+            repeatSoftened -> generated.source
             decision.line != null && decision.reason != "approved" -> PhraseSource.GUARDIAN_FALLBACK
             else -> generated.source
         }
-        val guardianReason = if (bypassForSafeTest) "approved_test_bypass_${decision.reason}" else decision.reason
+        val guardianReason = when {
+            bypassForSafeTest -> "approved_test_bypass_${decision.reason}"
+            repeatSoftened -> "approved_repeat_softened"
+            else -> decision.reason
+        }
         val shouldSpeak = ClochetteVoiceSettings.read(appContext).enabled &&
-            (decision.shouldSpeak || force || bypassForSafeTest)
+            (decision.shouldSpeak || force || bypassForSafeTest || repeatSoftened)
         val shouldOpenMic = openMic && finalLine.contains("?") && relationshipMode.id == "alive"
 
         ClochetteRuntimeStatus.recordDecision(appContext, guardianReason, shouldSpeak)
@@ -100,9 +109,9 @@ object ProactiveInterventionRunner {
 
         if (shouldOpenMic) {
             ClochetteRuntimeStatus.recordAction(appContext, "micro ouvert")
-            appContext.startActivity(
-                Intent(appContext, VoiceReplyActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            appContext.startService(
+                Intent(appContext, ClochetteOverlayService::class.java)
+                    .setAction(ClochetteOverlayService.ACTION_OPEN_MIC),
             )
         }
 
@@ -138,7 +147,7 @@ object ProactiveInterventionRunner {
         val question = RelationshipModeSettings.effectiveConfig(context).spontaneousQuestions
         if (question) {
             return GeneratedLine(
-                "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?",
+                localQuestionLine(state),
                 PhraseSource.LOCAL_PROACTIVE,
             )
         }
@@ -161,6 +170,17 @@ object ProactiveInterventionRunner {
             else ->
                 "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?"
         }.withVisibleFrenchAccents()
+    }
+
+    private fun localQuestionLine(state: ContextState): String {
+        val app = state.currentAppName?.takeIf { it.isNotBlank() } ?: "cette appli"
+        return listOf(
+            "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?",
+            "Je remarque $app depuis un moment. Tu continues ou tu veux une pause propre ?",
+            "Je peux me tromper, mais tu tournes autour du sujet. Tu veux nommer le prochain geste ?",
+            "Tu veux répondre maintenant, ou je garde mon nez dans mes affaires trente secondes ?",
+            "Hypothèse : tu cherches l’élan. Je lance le micro ou je te laisse respirer ?",
+        ).random().withVisibleFrenchAccents()
     }
 
     private data class GeneratedLine(

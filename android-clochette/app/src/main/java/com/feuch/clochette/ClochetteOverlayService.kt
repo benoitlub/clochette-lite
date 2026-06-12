@@ -1,17 +1,23 @@
 package com.feuch.clochette
 
 import android.app.Service
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -33,8 +39,14 @@ class ClochetteOverlayService : Service() {
     private var bubbleView: View? = null
     private var lineView: TextView? = null
     private var sourceView: TextView? = null
+    private var replyPanel: LinearLayout? = null
+    private var replyStatusView: TextView? = null
+    private var replyTranscriptView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
+    private var recognizer: SpeechRecognizer? = null
+    private var listening = false
     private val hideBubbleRunnable = Runnable { bubbleView?.visibility = View.GONE }
+    private val stopListeningRunnable = Runnable { stopVoiceReply("Temps écoulé.") }
 
     private val lineReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -66,6 +78,10 @@ class ClochetteOverlayService : Service() {
                 updateLine(intent.getStringExtra(ClochetteRemarkStore.EXTRA_LINE) ?: ClochetteRemarkStore.latest(this))
             }
             ACTION_NEXT_LINE -> speakNextLine()
+            ACTION_OPEN_MIC -> {
+                if (Settings.canDrawOverlays(this) && overlay == null) showOverlay()
+                showVoiceReplyOverlay()
+            }
             else -> updateLine(ClochetteRemarkStore.latest(this))
         }
         return START_STICKY
@@ -74,11 +90,16 @@ class ClochetteOverlayService : Service() {
     override fun onDestroy() {
         runCatching { unregisterReceiver(lineReceiver) }
         handler.removeCallbacksAndMessages(null)
+        recognizer?.destroy()
+        recognizer = null
         overlay?.let { runCatching { windowManager.removeView(it) } }
         overlay = null
         bubbleView = null
         lineView = null
         sourceView = null
+        replyPanel = null
+        replyStatusView = null
+        replyTranscriptView = null
         layoutParams = null
         super.onDestroy()
     }
@@ -143,12 +164,13 @@ class ClochetteOverlayService : Service() {
             gravity = Gravity.END
         }
         buttonRow.addView(actionButton("Parler") { speakNextLine() })
-        buttonRow.addView(actionButton("Micro") { openVoiceReply() })
+        buttonRow.addView(actionButton("Micro") { showVoiceReplyOverlay() })
         buttonRow.addView(actionButton("Réglages") { openMainActivity("settings") })
 
         bubble.addView(lineView)
         bubble.addView(sourceView)
         bubble.addView(buttonRow)
+        bubble.addView(buildReplyPanel())
 
         val sprite = ImageView(this).apply {
             setImageResource(R.drawable.clochette_overlay_model)
@@ -201,6 +223,36 @@ class ClochetteOverlayService : Service() {
         setPadding(6.dp(), 3.dp(), 6.dp(), 3.dp())
         setOnClickListener { onClick() }
     }
+
+    private fun buildReplyPanel(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, 8.dp(), 0, 0)
+            replyPanel = this
+
+            replyStatusView = TextView(this@ClochetteOverlayService).apply {
+                text = "Micro fermé"
+                textSize = 12f
+                setTextColor(Color.rgb(44, 24, 63))
+            }
+            replyTranscriptView = TextView(this@ClochetteOverlayService).apply {
+                text = "Appuie sur Micro pour parler 15 secondes."
+                textSize = 12f
+                setTextColor(Color.rgb(72, 56, 88))
+                maxLines = 4
+            }
+            val replyButtons = LinearLayout(this@ClochetteOverlayService).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END
+                addView(actionButton("Parler 15 s") { startVoiceReply() })
+                addView(actionButton("Fermer") { closeVoiceReplyPanel() })
+            }
+
+            addView(replyStatusView)
+            addView(replyTranscriptView)
+            addView(replyButtons)
+        }
 
     private fun installDragBehavior(root: View, sprite: View, params: WindowManager.LayoutParams) {
         var startX = 0
@@ -339,11 +391,135 @@ class ClochetteOverlayService : Service() {
         )
     }
 
-    private fun openVoiceReply() {
-        startActivity(
-            Intent(this, VoiceReplyActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    private fun showVoiceReplyOverlay() {
+        showBubbleTemporarily()
+        replyPanel?.visibility = View.VISIBLE
+        replyStatusView?.text = "Micro prêt"
+        replyTranscriptView?.text = "Le micro s’ouvre ici, sans changer d’écran."
+        startVoiceReply()
+    }
+
+    private fun startVoiceReply() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            replyPanel?.visibility = View.VISIBLE
+            replyStatusView?.text = "Permission micro requise"
+            replyTranscriptView?.text = "Android demande l’autorisation depuis l’app. J’ouvre juste l’écran de permission."
+            Toast.makeText(this, "Autorise le micro pour répondre à Clochette.", Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, VoiceReplyActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            replyPanel?.visibility = View.VISIBLE
+            replyStatusView?.text = "Micro indisponible"
+            replyTranscriptView?.text = "Reconnaissance vocale Android indisponible sur ce téléphone."
+            return
+        }
+        listening = true
+        replyPanel?.visibility = View.VISIBLE
+        replyStatusView?.text = "J’écoute. 15 secondes maximum."
+        replyTranscriptView?.text = "..."
+        ClochetteRuntimeStatus.recordAction(this, "micro ouvert overlay")
+        recognizer?.destroy()
+        recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(replyListener)
+            startListening(
+                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
+                    .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1),
+            )
+        }
+        handler.removeCallbacks(stopListeningRunnable)
+        handler.postDelayed(stopListeningRunnable, MAX_LISTEN_MS)
+    }
+
+    private fun stopVoiceReply(message: String) {
+        if (!listening) return
+        listening = false
+        replyStatusView?.text = message
+        ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
+        recognizer?.stopListening()
+    }
+
+    private fun closeVoiceReplyPanel() {
+        stopVoiceReply("Micro fermé")
+        replyPanel?.visibility = View.GONE
+        scheduleBubbleHide()
+    }
+
+    private val replyListener = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) {
+            replyStatusView?.text = "J’écoute."
+        }
+
+        override fun onBeginningOfSpeech() = Unit
+        override fun onRmsChanged(rmsdB: Float) = Unit
+        override fun onBufferReceived(buffer: ByteArray?) = Unit
+
+        override fun onEndOfSpeech() {
+            listening = false
+            replyStatusView?.text = "Je transforme ça en mots."
+        }
+
+        override fun onError(error: Int) {
+            listening = false
+            handler.removeCallbacks(stopListeningRunnable)
+            replyStatusView?.text = "Je n’ai pas bien attrapé la phrase."
+            replyTranscriptView?.text = "Réessaie depuis le bouton Micro."
+            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro fermé overlay")
+        }
+
+        override fun onResults(results: Bundle?) {
+            listening = false
+            handler.removeCallbacks(stopListeningRunnable)
+            val text = results
+                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+                .orEmpty()
+            replyTranscriptView?.text = if (text.isBlank()) "Je n’ai rien entendu." else text
+            finishOverlayReply(text)
+        }
+
+        override fun onPartialResults(partialResults: Bundle?) {
+            replyTranscriptView?.text = partialResults
+                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+                .orEmpty()
+        }
+
+        override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    private fun finishOverlayReply(userText: String) {
+        ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
+        val reply = localReplyTo(userText).withVisibleFrenchAccents()
+        replyStatusView?.text = "Réponse prête"
+        lineView?.text = reply
+        ClochetteWidget.updateAll(this, reply, PhraseSource.LOCAL_FALLBACK)
+        ClochetteMemory(this).add(
+            ClochetteMemoryEntry(
+                context = "overlay_voice_reply",
+                observedSignal = "voice_reply_overlay",
+                project = null,
+                energy = null,
+                clochetteLine = reply,
+                userReaction = userText,
+                result = "answered_overlay",
+            ),
         )
+        ClochetteVoice.speak(this, reply)
+        sourceView?.text = debugLine()
+    }
+
+    private fun localReplyTo(text: String): String {
+        if (text.isBlank()) return "Je peux me tromper, mais le silence avait l’air très occupé."
+        val lower = text.lowercase()
+        return when {
+            "pause" in lower || "fatigu" in lower -> "Je remarque la fatigue. On réduit la voilure, pas la dignité."
+            "reprendre" in lower || "continuer" in lower -> "Hypothèse : tu veux reprendre. Très bien. Un petit geste, puis on parade."
+            "bloqu" in lower || "bug" in lower -> "Je soupçonne un blocage. On le nomme, puis on lui vole ses chaussures."
+            else -> "Je note. Je peux me tromper, mais il y a une piste exploitable là-dedans."
+        }
     }
 
     private fun roundedBackground(fill: Int, stroke: Int, radius: Int): GradientDrawable =
@@ -360,7 +536,9 @@ class ClochetteOverlayService : Service() {
         const val ACTION_SHOW = "com.feuch.clochette.overlay.SHOW"
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
+        const val ACTION_OPEN_MIC = "com.feuch.clochette.overlay.OPEN_MIC"
         private const val BUBBLE_AUTO_HIDE_MS = 25_000L
         private const val DIAGNOSTIC_BUBBLE_HIDE_MS = 60_000L
+        private const val MAX_LISTEN_MS = 15_000L
     }
 }
