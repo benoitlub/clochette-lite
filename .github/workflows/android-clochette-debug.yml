@@ -17,6 +17,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate persona JSON assets
+        run: python android-clochette/tools/validate_persona_assets.py
+
       - name: Make gradlew executable
         working-directory: android-clochette
         run: chmod +x gradlew

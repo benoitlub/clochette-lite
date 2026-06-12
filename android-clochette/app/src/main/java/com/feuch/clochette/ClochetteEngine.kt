@@ -68,7 +68,7 @@ object ClochetteEngine {
             ClochetteVoiceSettings.LENGTH_CHATTY -> 36
             else -> 25
         }
-        return line.limitWords(maxWords)
+        return line.limitWords(maxWords).withVisibleFrenchAccents()
     }
 
     private fun String.limitWords(maxWords: Int): String {

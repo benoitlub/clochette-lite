@@ -43,6 +43,8 @@ class PersonaModuleLoader(context: Context) {
             clochetteModule("ai_gateway.json"),
             clochetteModule("notion_sync.json"),
             clochetteModule("dreams.json"),
+            clochetteModule("context_lines.json"),
+            clochetteModule("app_context_lines.json"),
             clochetteModule("octopus_core.json"),
             clochetteModule("guardian_rules.json"),
             clochetteModule("relationship_modes.json"),
