@@ -3,27 +3,39 @@ package com.feuch.clochette
 import android.content.Context
 import org.json.JSONObject
 
-data class PersonaDescriptor(
-    val id: String,
-    val publicName: String,
-)
-
 class PersonaManager(context: Context) {
     private val appContext = context.applicationContext
 
-    fun availablePersonas(): List<PersonaDescriptor> = listOf(
-        PersonaDescriptor("clochette", "Clochette"),
-        PersonaDescriptor("natasha", "Natasha"),
-        PersonaDescriptor("pattou", "Pattou"),
-        PersonaDescriptor("aloisia", "Aloisia"),
-    )
+    fun registry(): PersonaRegistry = runCatching {
+        val raw = appContext.assets.open(CHAMELEON_CONTRACT_PATH).bufferedReader().use { it.readText() }
+        val json = JSONObject(raw)
+        val items = json.optJSONArray("registry")
+        val personas = (0 until (items?.length() ?: 0)).mapNotNull { index ->
+            items?.optJSONObject(index)?.let { item ->
+                PersonaDescriptor(
+                    id = item.optString("id"),
+                    publicName = item.optString("name", item.optString("id")),
+                    role = item.optString("role"),
+                    traitsPath = item.optString("traitsPath").takeIf { it.isNotBlank() },
+                    defaultMode = item.optString("defaultMode", "discrete"),
+                    active = item.optString("id") == DEFAULT_PERSONA_ID,
+                )
+            }
+        }.ifEmpty { fallbackPersonas() }
+        PersonaRegistry(personas = personas, defaultPersonaId = DEFAULT_PERSONA_ID)
+    }.getOrDefault(PersonaRegistry(fallbackPersonas(), DEFAULT_PERSONA_ID))
 
-    fun activePersonaId(): String = "clochette"
+    fun availablePersonas(): List<PersonaDescriptor> = registry().personas
+
+    fun activePersonaId(): String = registry().defaultPersonaId
 
     fun traits(personaId: String = activePersonaId()): PersonaTraits {
-        if (personaId != "clochette") return fallbackTraits(personaId)
+        val descriptor = availablePersonas().firstOrNull { it.id == personaId }
+        if (personaId != DEFAULT_PERSONA_ID) return fallbackTraits(descriptor ?: fallbackDescriptor(personaId))
         return runCatching {
-            val raw = appContext.assets.open("personas/clochette/persona_traits.json").bufferedReader().use { it.readText() }
+            val raw = appContext.assets.open(descriptor?.traitsPath ?: "personas/clochette/persona_traits.json")
+                .bufferedReader()
+                .use { it.readText() }
             val json = JSONObject(raw)
             val limits = json.optJSONObject("limits")
             PersonaTraits(
@@ -38,13 +50,30 @@ class PersonaManager(context: Context) {
                 preferredPhrasing = json.optJSONArray("preferredPhrasing").toPersonaStringList(),
                 blockedPhrasing = json.optJSONArray("blockedPhrasing").toPersonaStringList(),
             )
-        }.getOrDefault(fallbackTraits("clochette"))
+        }.getOrDefault(fallbackTraits(descriptor ?: fallbackDescriptor(DEFAULT_PERSONA_ID)))
     }
 
-    private fun fallbackTraits(personaId: String): PersonaTraits = PersonaTraits(
-        personaId = personaId,
+    private fun fallbackTraits(descriptor: PersonaDescriptor): PersonaTraits = PersonaTraits(
+        personaId = descriptor.id,
+        publicName = descriptor.publicName,
+    )
+
+    private fun fallbackDescriptor(personaId: String): PersonaDescriptor = PersonaDescriptor(
+        id = personaId,
         publicName = personaId.replaceFirstChar { it.uppercase() },
     )
+
+    private fun fallbackPersonas(): List<PersonaDescriptor> = listOf(
+        PersonaDescriptor("clochette", "Clochette", "présence espiègle du téléphone", "personas/clochette/persona_traits.json", "companion", true),
+        PersonaDescriptor("natasha", "Natasha", "guide narrative Blacklace", "personas/natasha/persona_traits.json"),
+        PersonaDescriptor("pattou", "Pattou", "présence tendre et lunaire", "personas/pattou/persona_traits.json"),
+        PersonaDescriptor("aloisia", "Aloisia", "mémoire et logique de l'île", "personas/aloisia/persona_traits.json", "manual"),
+    )
+
+    companion object {
+        private const val DEFAULT_PERSONA_ID = "clochette"
+        private const val CHAMELEON_CONTRACT_PATH = "octopus/chameleon_contract.json"
+    }
 }
 
 private fun JSONObject?.toDoubleMap(): Map<String, Double> {
