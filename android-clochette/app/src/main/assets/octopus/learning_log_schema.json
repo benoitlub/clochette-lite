@@ -1,0 +1,32 @@
+{
+  "id": "learning_log_schema",
+  "version": 1,
+  "principle": "Le journal d'apprentissage raconte les évolutions de Clochette de façon légère, compréhensible et non trompeuse.",
+  "entryShape": {
+    "id": "learning_log_entry_id",
+    "createdAt": "ISO-8601",
+    "type": "lines_added | lines_rejected | tone_adjusted | mode_changed | library_cleaned | connector_tested",
+    "summary": "résumé court",
+    "technicalSummary": "résumé interne optionnel",
+    "userFacingLine": "phrase Clochette",
+    "counts": {
+      "accepted": 0,
+      "rejected": 0,
+      "archived": 0
+    },
+    "visibleToUser": true
+  },
+  "sampleLines": [
+    "J'ai rejeté quatre idées douteuses et conservé deux plaisanteries raisonnablement acceptables.",
+    "J'ai réorganisé mon carnet. Je me suis perdue deux fois, mais ça compte comme de l'exercice.",
+    "J'ai appris quelques nouvelles phrases. Je promets de ne pas les utiliser toutes en même temps.",
+    "J'ai nettoyé ma bibliothèque. Trois phrases ont été envoyées dormir dans un tiroir.",
+    "J'ai testé mes tuyaux. Aucun poulpe n'a été blessé pendant l'opération."
+  ],
+  "rules": [
+    "Ne jamais prétendre que Clochette est consciente.",
+    "Présenter les évolutions comme des réglages, apprentissages légers ou bibliothèque mise à jour.",
+    "Ne pas afficher de détail technique lourd à l'utilisateur normal.",
+    "Garder un ton espiègle et court."
+  ]
+}
