@@ -286,7 +286,7 @@ class ClochetteOverlayService : Service() {
     private fun debugLine(): String {
         val ai = AiGatewaySettings.read(this)
         val runtime = ClochetteRuntimeStatus.read(this)
-        return "source : ${ClochetteRemarkStore.latestSource(this).id} · provider : ${ai.lastProviderUsed ?: "aucun"} · action : ${runtime.lastAction}"
+        return "source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · provider : ${ai.lastProviderUsed ?: "aucun"}"
     }
 
     private fun showBubbleTemporarily() {

@@ -26,7 +26,9 @@ class ClochetteProactiveService : Service() {
             maybeIntervene()
             val config = RelationshipModeSettings.effectiveConfig(this@ClochetteProactiveService)
             val mode = RelationshipModeSettings.selected(this@ClochetteProactiveService)
-            handler.postDelayed(this, nextDelayMillis(config.frequency, mode.cooldownMultiplier))
+            val delay = nextDelayMillis(config.frequency, mode.cooldownMultiplier)
+            ClochetteRuntimeStatus.recordNextAttempt(this@ClochetteProactiveService, delay)
+            handler.postDelayed(this, delay)
         }
     }
 
@@ -41,6 +43,10 @@ class ClochetteProactiveService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PAUSE -> pause()
+            ACTION_TEST_INTERVENTION -> {
+                observe()
+                maybeIntervene(force = true)
+            }
             else -> observe()
         }
         return START_STICKY
@@ -60,37 +66,48 @@ class ClochetteProactiveService : Service() {
         val config = RelationshipModeSettings.effectiveConfig(this, savedConfig)
         val relationshipMode = RelationshipModeSettings.selected(this)
         running = true
+        ClochetteRuntimeStatus.recordProactiveActive(this, true)
         startForeground(NOTIFICATION_ID, buildNotification(config, relationshipMode))
         handler.removeCallbacksAndMessages(null)
-        handler.postDelayed(tick, nextDelayMillis(config.frequency, relationshipMode.cooldownMultiplier))
+        ClochetteRuntimeStatus.recordNextAttempt(this, FIRST_ATTEMPT_MS)
+        handler.postDelayed(tick, FIRST_ATTEMPT_MS)
     }
 
     private fun pause() {
         ProactiveSettings.save(this, ProactiveSettings.read(this).copy(mode = ProactiveMode.PAUSE))
         running = false
+        ClochetteRuntimeStatus.recordProactiveActive(this, false)
+        ClochetteRuntimeStatus.recordVoiceAction(this, "skipped_mode")
         handler.removeCallbacksAndMessages(null)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    private fun maybeIntervene() {
+    private fun maybeIntervene(force: Boolean = false) {
+        ClochetteRuntimeStatus.recordTick(this)
         val config = RelationshipModeSettings.effectiveConfig(this)
         val relationshipMode = RelationshipModeSettings.selected(this)
-        if (config.mode != ProactiveMode.OBSERVE) return
-        if (!config.voiceInterventions && !config.spontaneousQuestions) return
+        if (config.mode != ProactiveMode.OBSERVE && !force) {
+            ClochetteRuntimeStatus.recordVoiceAction(this, "skipped_mode")
+            return
+        }
+        if (!config.voiceInterventions && !config.spontaneousQuestions && !force) {
+            ClochetteRuntimeStatus.recordVoiceAction(this, "skipped_mode")
+            return
+        }
 
         val activity = usageObserver.snapshot()
         val contextEngine = ContextRemarkEngine(this)
         val state = contextEngine.buildState(activity)
         val recentMemory = memory.recent(24)
-        val question = config.spontaneousQuestions &&
+        val question = force || config.spontaneousQuestions &&
             Random.nextInt(100) < questionChance(relationshipMode.questionFrequency)
 
         val aiConfig = AiGatewaySettings.read(this)
         val mayUseAi = aiConfig.enabled &&
             !question &&
             (relationshipMode.id == "alive" || config.frequency == ProactiveFrequency.BAVARDE)
-        if (mayUseAi) {
+        if (mayUseAi && !force) {
             val nowPlaying = NowPlayingObserver.snapshot(this)
             val request = AiRemarkRequest(
                 relationshipMode = relationshipMode.id,
@@ -119,16 +136,17 @@ class ClochetteProactiveService : Service() {
                             relationshipMode = relationshipMode,
                             wantsVoice = config.voiceInterventions && aiResult.shouldSpeak,
                             openMicAfter = aiResult.shouldOpenMic,
+                            force = false,
                         )
                     } else {
-                        handleLocalCandidate(question, state, recentMemory, relationshipMode, config)
+                        handleLocalCandidate(question, state, recentMemory, relationshipMode, config, force)
                     }
                 }
             }
             return
         }
 
-        handleLocalCandidate(question, state, recentMemory, relationshipMode, config)
+        handleLocalCandidate(question, state, recentMemory, relationshipMode, config, force)
     }
 
     private fun handleLocalCandidate(
@@ -137,11 +155,14 @@ class ClochetteProactiveService : Service() {
         recentMemory: List<ClochetteMemoryEntry>,
         relationshipMode: RelationshipMode,
         config: ProactiveConfig,
+        force: Boolean = false,
     ) {
         val activity = usageObserver.snapshot()
         val contextEngine = ContextRemarkEngine(this)
-        var source = if (question) PhraseSource.PROACTIVE_QUESTION else PhraseSource.UNKNOWN
-        val candidateLine = if (question) {
+        var source = if (force) PhraseSource.LOCAL_PROACTIVE else if (question) PhraseSource.PROACTIVE_QUESTION else PhraseSource.UNKNOWN
+        val candidateLine = if (force) {
+            localProactiveLine(state)
+        } else if (question) {
             ProactiveQuestionEngine.question(state, journal.recent(12))
         } else {
             contextEngine.remark(activity, recentMemory)?.also {
@@ -164,9 +185,22 @@ class ClochetteProactiveService : Service() {
             state = state,
             recentMemory = recentMemory,
             relationshipMode = relationshipMode,
-            wantsVoice = config.voiceInterventions,
-            openMicAfter = question,
+            wantsVoice = force || config.voiceInterventions,
+            openMicAfter = question && relationshipMode.id == "alive",
+            force = force,
         )
+    }
+
+    private fun localProactiveLine(state: ContextState): String {
+        val app = state.currentAppName?.takeIf { it.isNotBlank() } ?: "cette appli"
+        return when {
+            state.recentAppSwitches >= 4 ->
+                "Tu changes souvent d’application. Tu cherches quelque chose ou tu évites quelque chose ?"
+            state.durationMinutes >= 20 ->
+                "Je vois que tu es sur $app depuis un moment. Tu veux continuer ou faire une pause ?"
+            else ->
+                "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?"
+        }.withVisibleFrenchAccents()
     }
 
     private fun handleCandidate(
@@ -178,29 +212,34 @@ class ClochetteProactiveService : Service() {
         relationshipMode: RelationshipMode,
         wantsVoice: Boolean,
         openMicAfter: Boolean,
+        force: Boolean,
     ) {
         var effectiveSource = source
+        val guardianMode = if (force) relationshipMode.copy(voiceDefault = true) else relationshipMode
         val decision = GuardianRulesLoader(this).approve(
             candidate = candidateLine,
             state = state,
             recentLines = recentMemory.mapNotNull { it.clochetteLine },
             recentEntries = recentMemory,
-            relationshipMode = relationshipMode,
+            relationshipMode = guardianMode,
             wantsVoice = wantsVoice,
         )
         val line = decision.line ?: run {
-            ClochetteRuntimeStatus.recordAction(this, "silencieux")
+            ClochetteRuntimeStatus.recordDecision(this, decision.reason, false)
+            ClochetteRuntimeStatus.recordVoiceAction(this, "skipped_guardian")
             return
         }
+        val shouldSpeakNow = decision.shouldSpeak || (force && ClochetteVoiceSettings.read(this).enabled)
+        ClochetteRuntimeStatus.recordDecision(this, decision.reason, shouldSpeakNow)
         if (line != candidateLine || decision.reason != "approved") {
             effectiveSource = PhraseSource.GUARDIAN_FALLBACK
         }
 
         ClochetteWidget.updateAll(this, line, effectiveSource)
-        if (decision.shouldSpeak) {
+        if (shouldSpeakNow) {
             ClochetteVoice.speakProactive(this, line)
         } else {
-            ClochetteRuntimeStatus.recordAction(this, "silencieux")
+            ClochetteRuntimeStatus.recordVoiceAction(this, "skipped_guardian")
         }
         if (openMicAfter && question && line.contains("?")) {
             ClochetteRuntimeStatus.recordAction(this, "micro ouvert")
@@ -267,6 +306,14 @@ class ClochetteProactiveService : Service() {
     }
 
     private fun nextDelayMillis(frequency: ProactiveFrequency, cooldownMultiplier: Double): Long {
+        if (DEBUG_FAST_PROACTIVE) {
+            val seconds = when (frequency) {
+                ProactiveFrequency.DISCRETE -> 240L
+                ProactiveFrequency.NORMALE -> 180L
+                ProactiveFrequency.BAVARDE -> Random.nextLong(120L, 241L)
+            }
+            return (seconds * 1000L * cooldownMultiplier).toLong().coerceAtLeast(60_000L)
+        }
         val minutes = when (frequency) {
             ProactiveFrequency.DISCRETE -> Random.nextLong(18L, 21L)
             ProactiveFrequency.NORMALE -> Random.nextLong(13L, 18L)
@@ -283,8 +330,11 @@ class ClochetteProactiveService : Service() {
     }
 
     companion object {
+        const val ACTION_TEST_INTERVENTION = "com.feuch.clochette.proactive.TEST_INTERVENTION"
         const val ACTION_OBSERVE = "com.feuch.clochette.proactive.OBSERVE"
         const val ACTION_PAUSE = "com.feuch.clochette.proactive.PAUSE"
+        const val DEBUG_FAST_PROACTIVE = true
+        private const val FIRST_ATTEMPT_MS = 10_000L
         private const val CHANNEL_ID = "clochette_proactive"
         private const val NOTIFICATION_ID = 41
     }

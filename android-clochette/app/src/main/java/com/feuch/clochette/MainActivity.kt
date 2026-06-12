@@ -259,45 +259,19 @@ private fun ClochetteApp(startSection: String?) {
     }
 
     fun testLivingIntervention() {
-        val config = AiGatewaySettings.read(context)
-        if (config.enabled && config.gatewayUrl.isNotBlank()) {
-            val appContext = context.applicationContext
-            val mainHandler = Handler(Looper.getMainLooper())
-            val activity = UsageObserver(context).snapshot()
-            val recentMemory = memory.recent(24)
-            thread(name = "clochette-test-living-ai") {
-                val result = AiGatewayClient(appContext).generateRemark(aiRequest(activity, recentMemory))
-                mainHandler.post {
-                    val line = if (result != null) {
-                        acceptLine(result.line, result.source, autoSpeak = false)
-                    } else {
-                        AiGatewaySettings.record(appContext, "fallback", "fallback local")
-                        acceptLine(naturalLocalTestLine(activity), PhraseSource.LOCAL_FALLBACK, autoSpeak = false)
-                    }
-                    ClochetteVoice.speakProactive(context, line)
-                    runtimeStatus = ClochetteRuntimeStatus.read(context)
-                    if (line.contains("?") && RelationshipModeSettings.selected(context).id == "alive") {
-                        recordAction("micro ouvert")
-                        context.startActivity(Intent(context, VoiceReplyActivity::class.java))
-                    }
-                    aiConfig = AiGatewaySettings.read(context)
-                    aiTestLine = line
-                }
-            }
-            return
-        } else {
-            AiGatewaySettings.record(context, "local", if (config.enabled) "fallback local" else "désactivée")
-        }
-        val activity = UsageObserver(context).snapshot()
-        val spokenLine = acceptLine(naturalLocalTestLine(activity), PhraseSource.LOCAL_FALLBACK, autoSpeak = false)
-        ClochetteVoice.speakProactive(context, spokenLine)
-        runtimeStatus = ClochetteRuntimeStatus.read(context)
-        if (spokenLine.contains("?") && RelationshipModeSettings.selected(context).id == "alive") {
-            recordAction("micro ouvert")
-            context.startActivity(Intent(context, VoiceReplyActivity::class.java))
-        }
-        aiConfig = AiGatewaySettings.read(context)
-        aiTestLine = spokenLine
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, ClochetteProactiveService::class.java)
+                .setAction(ClochetteProactiveService.ACTION_TEST_INTERVENTION),
+        )
+        Toast.makeText(context, "Test parole proactive lancé", Toast.LENGTH_SHORT).show()
+        Handler(Looper.getMainLooper()).postDelayed({
+            runtimeStatus = ClochetteRuntimeStatus.read(context)
+            aiConfig = AiGatewaySettings.read(context)
+            currentLine = ClochetteRemarkStore.latest(context)
+            aiTestLine = currentLine
+            refresh++
+        }, 2_500L)
     }
 
     MaterialTheme {
@@ -321,6 +295,14 @@ private fun ClochetteApp(startSection: String?) {
                 )
 
                 StatusPanel(context = context, refresh = refresh)
+
+                ProactiveDiagnosticPanel(
+                    runtimeStatus = runtimeStatus,
+                    relationshipMode = RelationshipModeSettings.selected(context),
+                    proactiveConfig = ProactiveSettings.read(context),
+                    voiceConfig = voiceConfig,
+                    latestSource = ClochetteRemarkStore.latestSource(context).id,
+                )
 
                 ClochetteControlPanel(
                     context = context,
@@ -564,6 +546,36 @@ private fun VisibleClochettePanel(
                 if (Settings.canDrawOverlays(context)) "Surimpression : autorisée" else "Surimpression : autorisation requise",
                 color = if (Settings.canDrawOverlays(context)) Color(0xFF2E7D5B) else Color(0xFF8A4B25),
             )
+        }
+    }
+}
+
+@Composable
+private fun ProactiveDiagnosticPanel(
+    runtimeStatus: ClochetteRuntimeSnapshot,
+    relationshipMode: RelationshipMode,
+    proactiveConfig: ProactiveConfig,
+    voiceConfig: ClochetteVoiceConfig,
+    latestSource: String,
+) {
+    val now = System.currentTimeMillis()
+    val nextDelay = (runtimeStatus.nextAttemptAt - now).coerceAtLeast(0L)
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F1EC))) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Diagnostic Clochette vivante", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Service proactif : ${if (runtimeStatus.proactiveActive) "actif" else "inactif"}")
+            Text("Mode relation : ${relationshipMode.id}")
+            Text("Fréquence : ${proactiveConfig.frequency.name.lowercase()}")
+            Text("Voix activée : ${voiceConfig.enabled.yesNo()}")
+            Text("Interventions vocales : ${proactiveConfig.voiceInterventions.yesNo()}")
+            Text("Questions spontanées : ${proactiveConfig.spontaneousQuestions.yesNo()}")
+            Text("Parler après chaque remarque : ${voiceConfig.autoSpeak.yesNo()}")
+            Text("Dernier tick proactif : ${runtimeStatus.lastTickAt.asClockOrNever()}")
+            Text("Dernière décision Guardian : ${runtimeStatus.lastGuardianDecision}")
+            Text("Dernier shouldSpeak : ${runtimeStatus.lastShouldSpeak}")
+            Text("Dernière source phrase : $latestSource")
+            Text("Dernière action voix : ${runtimeStatus.lastVoiceAction}")
+            Text("Prochaine tentative dans : ${nextDelay.toDelayLabel()}")
         }
     }
 }
@@ -992,6 +1004,26 @@ private fun SelectorPanel(
 private fun Float.formatOneDecimal(): String = ((this * 10).toInt() / 10f).toString()
 
 private fun Long.toMinutesForUi(): Int = (this / 60_000L).toInt().coerceAtLeast(0)
+
+private fun Boolean.yesNo(): String = if (this) "oui" else "non"
+
+private fun Long.asClockOrNever(): String {
+    if (this <= 0L) return "jamais"
+    val calendar = java.util.Calendar.getInstance().apply { timeInMillis = this@asClockOrNever }
+    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
+    val minute = calendar.get(java.util.Calendar.MINUTE).toString().padStart(2, '0')
+    val second = calendar.get(java.util.Calendar.SECOND).toString().padStart(2, '0')
+    return "$hour:$minute:$second"
+}
+
+private fun Long.toDelayLabel(): String {
+    val seconds = (this / 1000L).coerceAtLeast(0L)
+    return when {
+        seconds <= 0L -> "maintenant"
+        seconds < 60L -> "$seconds s"
+        else -> "${seconds / 60L} min ${seconds % 60L} s"
+    }
+}
 
 private fun Long.toApproximateLabel(): String {
     val minutes = (this / 60_000L).coerceAtLeast(0)

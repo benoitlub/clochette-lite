@@ -14,8 +14,12 @@ object ClochetteVoice {
 
     fun speak(context: Context, text: String, automatic: Boolean = false) {
         val config = ClochetteVoiceSettings.read(context)
-        if (!config.enabled || (automatic && !config.autoSpeak)) {
-            ClochetteRuntimeStatus.recordAction(context, "silencieux")
+        if (!config.enabled) {
+            ClochetteRuntimeStatus.recordVoiceAction(context, "skipped_voice_disabled")
+            return
+        }
+        if (automatic && !config.autoSpeak) {
+            ClochetteRuntimeStatus.recordVoiceAction(context, "skipped_auto_speak_disabled")
             return
         }
 
@@ -27,7 +31,9 @@ object ClochetteVoice {
                 configure(config)
                 if (ready) {
                     say(config, text)
-                    ClochetteRuntimeStatus.recordAction(appContext, "parlé")
+                    ClochetteRuntimeStatus.recordVoiceAction(appContext, "spoken")
+                } else {
+                    ClochetteRuntimeStatus.recordVoiceAction(appContext, "error_tts")
                 }
             }
             return
@@ -35,7 +41,9 @@ object ClochetteVoice {
         configure(config)
         if (ready) {
             say(config, text)
-            ClochetteRuntimeStatus.recordAction(appContext, "parlé")
+            ClochetteRuntimeStatus.recordVoiceAction(appContext, "spoken")
+        } else {
+            ClochetteRuntimeStatus.recordVoiceAction(appContext, "error_tts")
         }
     }
 

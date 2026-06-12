@@ -10,6 +10,7 @@ enum class PhraseSource(val id: String) {
     MISTRAL("mistral"),
     GEMINI("gemini"),
     LOCAL_FALLBACK("local_fallback"),
+    LOCAL_PROACTIVE("local_proactive"),
     NOW_PLAYING("now_playing"),
     UNKNOWN("unknown"),
 }
