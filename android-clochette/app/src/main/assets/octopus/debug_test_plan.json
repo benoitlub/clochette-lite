@@ -1,0 +1,56 @@
+{
+  "id": "octopus_debug_test_plan",
+  "version": 1,
+  "purpose": "Plan de test pour vérifier que chaque bras du poulpe est bien utilisé avant de tester une APK utilisateur.",
+  "debugRequirements": [
+    "Afficher la source de la phrase en mode debug seulement.",
+    "Pouvoir déclencher une phrase témoin par source.",
+    "Pouvoir voir le mode relationnel actif.",
+    "Pouvoir voir si Guardian a modifié, refusé ou laissé passer une phrase.",
+    "Pouvoir voir si l'ancien moteur legacy est encore utilisé."
+  ],
+  "testCases": [
+    {
+      "id": "library_pick",
+      "goal": "Vérifier la bibliothèque commune.",
+      "expectedPrefix": "[LIBRARY]",
+      "success": "Une phrase issue de test_witness_lines apparaît avec source shared_library."
+    },
+    {
+      "id": "traits_filter",
+      "goal": "Vérifier que Clochette applique ses traits.",
+      "expectedPrefix": "[TRAITS:CLOCHETTE]",
+      "success": "La phrase choisie est plus espiègle/taquine que la source neutre."
+    },
+    {
+      "id": "guardian_filter",
+      "goal": "Vérifier le Gardien.",
+      "expectedPrefix": "[GUARDIAN]",
+      "success": "Une phrase trop intrusive est adoucie ou remplacée."
+    },
+    {
+      "id": "relationship_discrete",
+      "goal": "Vérifier le mode Discrète.",
+      "expectedPrefix": "[MODE:DISCRETE]",
+      "success": "Fréquence et voix sont réduites."
+    },
+    {
+      "id": "relationship_alive",
+      "goal": "Vérifier le mode Vivante.",
+      "expectedPrefix": "[MODE:VIVANTE]",
+      "success": "Présence plus forte, mais toujours avec cooldown."
+    },
+    {
+      "id": "question_flow",
+      "goal": "Vérifier questions spontanées + micro consenti.",
+      "expectedPrefix": "[QUESTION]",
+      "success": "Question courte, micro 15 secondes max, silence accepté."
+    },
+    {
+      "id": "legacy_detection",
+      "goal": "Repérer l'ancien moteur local.",
+      "expectedPrefix": "[LEGACY]",
+      "success": "Si ce préfixe apparaît souvent, le nouveau sélecteur n'est pas assez branché."
+    }
+  ]
+}
