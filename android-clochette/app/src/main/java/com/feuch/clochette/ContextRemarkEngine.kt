@@ -26,7 +26,7 @@ class ContextRemarkEngine(context: Context) {
             .maxWithOrNull(compareBy<RemarkCandidate> { it.score }.thenBy { seededTieBreaker(it.line, state, memory) })
 
         return if (chosen != null && chosen.score >= MIN_RELEVANCE_SCORE) {
-            chosen.line
+            chosen.line.withVisibleFrenchAccents()
         } else {
             simpleFallback(model, state, memory)
         }
@@ -110,29 +110,45 @@ class ContextRemarkEngine(context: Context) {
     ): String {
         val hints = MemoryHints.hintsFor(state, memory)
         if (hints.isNotEmpty() && state.currentAppName.isNullOrBlank()) {
-            return hints.pick(state, memory) ?: builtInFallback(state, memory)
+            return (hints.pick(state, memory) ?: builtInFallback(state, memory)).withVisibleFrenchAccents()
         }
         val lines = model.fallbackLines.filterNot(::isForbidden)
-        return lines.pick(state, memory) ?: builtInFallback(state, memory)
+        return (lines.pick(state, memory) ?: builtInFallback(state, memory)).withVisibleFrenchAccents()
     }
 
     private fun builtInFallback(state: ContextState, memory: List<ClochetteMemoryEntry>): String {
         val fallback = listOf(
-            "Je remarque juste que ca dure. Pas un drame, mais je pose ma petite lampe dessus.",
+            "Je remarque juste que ça dure. Pas un drame, mais je pose ma petite lampe dessus.",
             "Je peux me tromper, mais ton attention fait des zigzags.",
             "J'ai l'impression que quelque chose cherche une sortie simple.",
         )
         return fallback.pick(state, memory) ?: fallback.first()
     }
 
-    private fun loadModel(): ContextLinesModel? = runCatching {
-        val raw = appContext.assets.open(ASSET_PATH).bufferedReader().use { it.readText() }
+    private fun loadModel(): ContextLinesModel? {
+        val models = ASSET_PATHS.mapNotNull { path -> runCatching { parseModel(path) }.getOrNull() }
+        if (models.isEmpty()) return null
+        val states = models
+            .flatMap { it.states.entries }
+            .groupBy({ it.key }, { it.value })
+            .mapValues { (_, values) -> values.flatten() }
+        return ContextLinesModel(
+            apps = models.flatMap { it.apps },
+            states = states,
+            fallbackLines = models.flatMap { it.fallbackLines },
+        )
+    }
+
+    private fun parseModel(path: String): ContextLinesModel {
+        val raw = appContext.assets.open(path).bufferedReader().use { it.readText() }
         val json = JSONObject(raw)
         val apps = json.optJSONArray("apps").toObjectList { item ->
             val linesJson = item.optJSONObject("lines")
+            val displayName = item.optString("displayName").takeIf { it.isNotBlank() }
+            val names = (item.optJSONArray("names").toStringList() + listOfNotNull(displayName)).distinct()
             ContextAppLines(
                 id = item.optString("id"),
-                names = item.optJSONArray("names").toStringList(),
+                names = names,
                 packageHints = item.optJSONArray("packageHints").toStringList(),
                 lines = linesJson?.keys()?.asSequence()?.associateWith { key ->
                     linesJson.optJSONArray(key).toStringList()
@@ -143,12 +159,12 @@ class ContextRemarkEngine(context: Context) {
         val states = statesJson?.keys()?.asSequence()?.associateWith { key ->
             statesJson.optJSONArray(key).toStringList()
         }.orEmpty()
-        ContextLinesModel(
+        return ContextLinesModel(
             apps = apps,
             states = states,
             fallbackLines = json.optJSONArray("fallbackLines").toStringList(),
         )
-    }.getOrNull()
+    }
 
     private fun batteryState(): BatteryState {
         val intent = appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -241,7 +257,10 @@ class ContextRemarkEngine(context: Context) {
     )
 
     private companion object {
-        const val ASSET_PATH = "personas/clochette/context_lines.json"
+        val ASSET_PATHS = listOf(
+            "personas/clochette/context_lines.json",
+            "personas/clochette/app_context_lines.json",
+        )
         const val MIN_RELEVANCE_SCORE = 30
     }
 }
