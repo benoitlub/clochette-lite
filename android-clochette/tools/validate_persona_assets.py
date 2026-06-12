@@ -35,6 +35,7 @@ REQUIRED_JSON = [
 
 def main() -> int:
     errors: list[str] = []
+    loaded = 0
     for relative in REQUIRED_JSON:
         path = ASSETS / relative
         if not path.exists():
@@ -42,6 +43,7 @@ def main() -> int:
             continue
         try:
             json.loads(path.read_text(encoding="utf-8-sig"))
+            loaded += 1
         except json.JSONDecodeError as exc:
             errors.append(f"invalid json: {relative}:{exc.lineno}:{exc.colno}: {exc.msg}")
 
@@ -51,7 +53,7 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print(f"OK: {len(REQUIRED_JSON)} Clochette persona JSON assets are present and valid.")
+    print(f"OK: {loaded} Clochette persona JSON assets are present and valid.")
     return 0
 
 
