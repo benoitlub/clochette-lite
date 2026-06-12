@@ -99,7 +99,7 @@ class ClochettePresenceService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_clochette)
             .setContentTitle("Clochette $state")
-            .setContentText("Presence visible active. Elle observe des signaux simples, pas le contenu.")
+            .setContentText("Présence visible active. Elle observe des signaux simples, pas le contenu.")
             .setOngoing(true)
             .setContentIntent(openIntent)
             .addAction(R.drawable.ic_stat_clochette, "Pause Clochette", pausePendingIntent)
@@ -110,7 +110,7 @@ class ClochettePresenceService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Presence Clochette",
+            "Présence Clochette",
             NotificationManager.IMPORTANCE_LOW,
         )
         manager.createNotificationChannel(channel)

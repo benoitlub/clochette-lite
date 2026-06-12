@@ -9,7 +9,7 @@ object ClochetteRemarkStore {
 
     private const val PREFS = "clochette_remark_store"
     private const val KEY_LINE = "latest_line"
-    private const val DEFAULT_LINE = "Clochette attend sur l'ecran d'accueil. C'est suspectement raisonnable."
+    private const val DEFAULT_LINE = "Clochette attend sur l'écran d'accueil. C'est suspectement raisonnable."
 
     fun latest(context: Context): String = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)

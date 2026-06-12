@@ -40,7 +40,7 @@ class ClochetteOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Toast.makeText(this, "Service cree", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Service créé", Toast.LENGTH_SHORT).show()
         memory = ClochetteMemory(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         ContextCompat.registerReceiver(
@@ -119,8 +119,8 @@ class ClochetteOverlayService : Service() {
             gravity = Gravity.END
         }
         buttonRow.addView(actionButton("Parler") { speakNextLine() })
-        buttonRow.addView(actionButton("Repondre") { openMainActivity("response") })
-        buttonRow.addView(actionButton("Reglages") { openMainActivity("settings") })
+        buttonRow.addView(actionButton("Répondre") { openMainActivity("response") })
+        buttonRow.addView(actionButton("Réglages") { openMainActivity("settings") })
 
         bubble.addView(lineView)
         bubble.addView(buttonRow)
@@ -156,7 +156,7 @@ class ClochetteOverlayService : Service() {
         installDragBehavior(root, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
-        Toast.makeText(this, "Overlay affiche", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
         overlay = root
         layoutParams = params
     }

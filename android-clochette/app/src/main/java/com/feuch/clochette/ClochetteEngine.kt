@@ -17,17 +17,17 @@ object ClochetteEngine {
                 add(
                 "Trois bascules d'app. Le mammifere creatif cherche une sortie de secours."
                 )
-                add("Je sais : ca saute d'app en app. Hypothese : tu cherches une porte sans toucher la poignee.")
+                add("Je remarque : ça saute d'app en app. Hypothèse : tu cherches une porte sans toucher la poignée.")
             }
             if (sensors.lowLight && sensors.walkingPossible) {
                 add(
                 "Telephone en foret. Decision structurelle interdite. Marche, note une idee, reviens avec une proie."
                 )
-                add("J'imagine dehors et presque sans lumiere. Garde les grandes decisions pour une chaise et un verre d'eau.")
+                add("J'imagine dehors et presque sans lumière. Garde les grandes décisions pour une chaise et un verre d'eau.")
             }
             if (sensors.phoneStill && activity.foregroundPackage != null) {
                 add(
-                "Je sais seulement ceci : telephone immobile, app ouverte. Hypothese : le premier geste attend son majordome."
+                "Je remarque seulement ceci : téléphone immobile, app ouverte. Hypothèse : le premier geste attend son majordome."
                 )
                 add("Telephone immobile. Je suppose que le cerveau negocie. Fais une action trop petite pour etre noble.")
             }
@@ -35,13 +35,13 @@ object ClochetteEngine {
                 add(
                 "Pro.Hibited n'est pas un site. C'est une table en poche. Lisibilite d'abord, tournevis interdit."
                 )
-                add("Je sais le projet : cartes, table, doigts. Hypothese : si mobile flanche, tout le jeu tousse.")
+                add("Je remarque le projet : cartes, table, doigts. Hypothèse : si mobile flanche, tout le jeu tousse.")
             }
             if (energy == "basse") {
                 add(
-                "Hypothese : energie basse. Je propose une action minuscule, presque humiliante, donc praticable."
+                "Hypothèse : énergie basse. Je propose une action minuscule, presque humiliante, donc praticable."
                 )
-                add("Energie basse declaree. Pas d'epopee. Une seule prise, un seul geste, puis on avise.")
+                add("Énergie basse déclarée. Pas d'épopée. Une seule prise, un seul geste, puis on avise.")
             }
             if (memory.any { it.result == "utile" }) {
                 add(
@@ -49,13 +49,13 @@ object ClochetteEngine {
                 )
             }
             add(
-                "Hypothese : tu evites le debut, pas la tache. Je peux me tromper. Un peu."
+                "Hypothèse : tu évites le début, pas la tâche. Je peux me tromper. Un peu."
             )
             add("J'imagine un seuil minuscule devant toi. Ne l'analyse pas. Enjambe-le mal, mais enjambe.")
             add("Je sais peu. Je soupconne beaucoup. Commence par la version brouillon, celle qui ferait rire ton futur toi.")
             add("Supposition locale : l'elan attend une permission officielle. Refuse-lui le guichet. Fais le premier geste.")
             add("Je peux me tromper : ce n'est pas le plan qui manque, c'est l'entree de service.")
-            add("Hypothese : tu veux la bonne forme avant la premiere trace. Mauvais contrat. Trace d'abord.")
+            add("Hypothèse : tu veux la bonne forme avant la première trace. Mauvais contrat. Trace d'abord.")
         }
         val recentLines = memory.mapNotNull { it.clochetteLine }.takeLast(6).toSet()
         val freshCandidates = candidates.filterNot { it in recentLines }

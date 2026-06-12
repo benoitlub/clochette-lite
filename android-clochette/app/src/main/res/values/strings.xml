@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Clochette</string>
     <string name="accessibility_service_label">Assistive Clochette</string>
-    <string name="accessibility_service_description">Mode avance, desactive par defaut, pour aider Clochette a lire certains signaux decran uniquement avec consentement explicite.</string>
-    <string name="widget_description">Clochette sur ecran accueil : remarque courte, presence locale et voix Android au toucher.</string>
+    <string name="accessibility_service_description">Mode avancé, désactivé par défaut, pour aider Clochette à lire certains signaux d’écran uniquement avec consentement explicite.</string>
+    <string name="widget_description">Clochette sur écran d’accueil : remarque courte, présence locale et voix Android au toucher.</string>
 </resources>

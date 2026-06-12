@@ -1,4 +1,4 @@
-package com.feuch.clochette
+﻿package com.feuch.clochette
 
 import android.Manifest
 import android.appwidget.AppWidgetHost
@@ -134,7 +134,7 @@ private fun ClochetteApp(startSection: String?) {
             ) {
                 Text("Clochette native", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Phase 1 : Clochette habite l'ecran d'accueil. Widget local, remarque courte, voix Android.",
+                    "Phase 1 : Clochette habite l'écran d'accueil. Widget local, remarque courte, voix Android.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
@@ -211,9 +211,9 @@ private fun ClochetteApp(startSection: String?) {
                     }
                 }
 
-                Text("Widget ecran d'accueil", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("Widget écran d'accueil", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 PermissionCard(
-                    title = "Widget ecran d'accueil",
+                    title = "Widget écran d'accueil",
                     explanation = "Ajoute Clochette depuis les widgets Android. Le widget affiche une remarque et peut parler quand tu le touches.",
                     enabled = true,
                     onEnable = {
@@ -243,7 +243,7 @@ private fun ClochetteApp(startSection: String?) {
                 )
                 PermissionCard(
                     title = "Surimpression",
-                    explanation = "Affiche Clochette par-dessus les apps, en petite presence visible et stoppable.",
+                    explanation = "Affiche Clochette par-dessus les apps, en petite présence visible et stoppable.",
                     enabled = Settings.canDrawOverlays(context),
                     onEnable = {
                         context.startActivity(
@@ -257,27 +257,27 @@ private fun ClochetteApp(startSection: String?) {
                 )
                 PermissionCard(
                     title = "Usage Access",
-                    explanation = "Permet de savoir quelles apps sont utilisees, sans lire leur contenu : package, duree approximative, bascules.",
+                    explanation = "Permet de savoir quelles apps sont utilisées, sans lire leur contenu : package, durée approximative, bascules.",
                     enabled = UsageObserver(context).hasPermission(),
                     onEnable = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
                     onDecline = { memory.decline("usage_access") },
                 )
                 PermissionCard(
                     title = "Capteurs",
-                    explanation = "Utilise mouvement, orientation et lumiere si disponible pour produire des signaux sobres : marche possible, telephone immobile, basse lumiere, ecran actif.",
+                    explanation = "Utilise mouvement, orientation et lumière si disponible pour produire des signaux sobres : marche possible, téléphone immobile, basse lumière, écran actif.",
                     enabled = true,
                     onEnable = { refresh++ },
                     onDecline = { memory.decline("sensors") },
                 )
                 PermissionCard(
                     title = "Assistive Clochette",
-                    explanation = "Mode avance, desactive par defaut. Isole derriere AccessibilityService. Il ne recupere pas le contenu des fenetres dans ce prototype.",
+                    explanation = "Mode avancé, désactivé par défaut. Isolé derrière AccessibilityService. Il ne récupère pas le contenu des fenêtres dans ce prototype.",
                     enabled = isAccessibilityServiceEnabled(context),
                     onEnable = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
                     onDecline = { memory.decline("assistive_clochette") },
                 )
 
-                Text("Memoire locale", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("Mémoire locale", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 MemoryPreview(memory = memory, refresh = refresh)
             }
         }
@@ -290,9 +290,9 @@ private fun StatusPanel(context: Context, refresh: Int) {
         .getString("state", ClochetteState.ASLEEP.name)
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F1EC))) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Etat : ${stateLabel(state)}", fontWeight = FontWeight.SemiBold)
-            Text("Carnet d'indices local. Aucun appel reseau, aucune cle API en dur.")
-            Text("Rafraichissement $refresh", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+            Text("État : ${stateLabel(state)}", fontWeight = FontWeight.SemiBold)
+            Text("Carnet d'indices local. Aucun appel réseau, aucune clé API en dur.")
+            Text("Rafraîchissement $refresh", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
         }
     }
 }
@@ -307,7 +307,7 @@ private fun VisibleClochettePanel(
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Clochette visible", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text("Affiche une petite Clochette en bas de l'ecran, avec bulle de texte et boutons rapides.")
+            Text("Affiche une petite Clochette en bas de l'écran, avec bulle de texte et boutons rapides.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
                     Toast.makeText(context, "Afficher Clochette appuyé", Toast.LENGTH_SHORT).show()
@@ -344,7 +344,7 @@ private fun VisibleClochettePanel(
                 }
             }
             Text(
-                if (Settings.canDrawOverlays(context)) "Surimpression : autorisee" else "Surimpression : autorisation requise",
+                if (Settings.canDrawOverlays(context)) "Surimpression : autorisée" else "Surimpression : autorisation requise",
                 color = if (Settings.canDrawOverlays(context)) Color(0xFF2E7D5B) else Color(0xFF8A4B25),
             )
         }
@@ -359,7 +359,7 @@ private fun ResponsePanel(
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = if (highlighted) Color(0xFFFFF9E6) else Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Reponse a Clochette", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Réponse à Clochette", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 value = responseText,
@@ -383,7 +383,7 @@ private fun VoiceSettingsPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Voix activee")
+                Text("Voix activée")
                 Switch(
                     checked = config.enabled,
                     onCheckedChange = { onConfig(config.copy(enabled = it)) },
@@ -393,7 +393,7 @@ private fun VoiceSettingsPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Parler apres chaque remarque")
+                Text("Parler après chaque remarque")
                 Switch(
                     checked = config.autoSpeak,
                     onCheckedChange = { onConfig(config.copy(autoSpeak = it)) },
@@ -480,7 +480,7 @@ private fun ModulesClochettePanel(modules: List<PersonaModuleStatus>) {
             Text("Modules Clochette", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             modules.forEach { module ->
                 val status = when {
-                    module.detected && module.validJson -> "detecte"
+                    module.detected && module.validJson -> "détecté"
                     module.detected -> "invalide"
                     else -> "manquant"
                 }
@@ -499,12 +499,12 @@ private fun UsageAccessPanel(
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Usage Access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(if (hasPermission) "Etat : autorise" else "Etat : autorisation requise")
-            Text("Application : ${activity.foregroundDisplayName ?: activity.foregroundPackage ?: "non detectee"}")
+            Text(if (hasPermission) "État : autorisé" else "État : autorisation requise")
+            Text("Application : ${activity.foregroundDisplayName ?: activity.foregroundPackage ?: "non détectée"}")
             Text("Temps approximatif : ${activity.approximateDurationMs.toApproximateLabel()}")
             Text("Changements d'apps : ${activity.recentSwitchCount}")
             Button(onClick = onOpenSettings) {
-                Text("Ouvrir les parametres Android")
+                Text("Ouvrir les paramètres Android")
             }
         }
     }
@@ -524,7 +524,7 @@ private fun SelectorPanel(
 
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Contexte declare", fontWeight = FontWeight.SemiBold)
+            Text("Contexte déclaré", fontWeight = FontWeight.SemiBold)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column {
                     OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { projectOpen = true }) {
@@ -544,7 +544,7 @@ private fun SelectorPanel(
                 }
                 Column {
                     OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { energyOpen = true }) {
-                        Text("Energie: $energy")
+                        Text("Énergie : $energy")
                     }
                     DropdownMenu(expanded = energyOpen, onDismissRequest = { energyOpen = false }) {
                         listOf("basse", "moyenne", "haute").forEach {
@@ -668,3 +668,4 @@ private fun isAccessibilityServiceEnabled(context: Context): Boolean {
     return !enabledServices.isNullOrBlank() &&
         enabledServices.split(':').any { TextUtils.equals(it, expected) }
 }
+

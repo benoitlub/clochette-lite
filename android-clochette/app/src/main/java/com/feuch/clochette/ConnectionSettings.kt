@@ -13,7 +13,7 @@ data class ConnectionConfig(
 )
 
 object ConnectionSettings {
-    const val MODE_OFF = "Desactivee"
+    const val MODE_OFF = "Désactivée"
     const val MODE_SOFT = "Douce"
     const val MODE_NORMAL = "Normale"
     const val MODE_TEASING = "Taquine"
@@ -62,5 +62,5 @@ object ConnectionSettings {
     }
 
     fun privacyNote(): String =
-        "Clochette ne lit jamais le contenu des applications. Elle observe uniquement le nom des apps et leur duree d'utilisation locale."
+        "Clochette ne lit jamais le contenu des applications. Elle observe uniquement le nom des apps et leur durée d'utilisation locale."
 }
