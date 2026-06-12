@@ -1,0 +1,39 @@
+{
+  "id": "octopus_diplomat_contract",
+  "version": 1,
+  "principle": "Le Diplomate choisit plus tard un fournisseur externe via une passerelle. Android reste local par défaut.",
+  "providers": [
+    { "id": "mistral", "role": "default_future", "enabledByDefault": false },
+    { "id": "gemini", "role": "candidate_harvest_future", "enabledByDefault": false },
+    { "id": "openai", "role": "premium_future", "enabledByDefault": false },
+    { "id": "ollama", "role": "private_local_future", "enabledByDefault": false }
+  ],
+  "androidPolicy": {
+    "localByDefault": true,
+    "externalCallsOffByDefault": true,
+    "productionUsesGateway": true,
+    "fallbackRequired": true
+  },
+  "requestShape": {
+    "personaId": "clochette",
+    "task": "generate_lines | summarize_memory | suggest_tone | harvest_candidates",
+    "contextSummary": "short local summary",
+    "personaTraits": "optional compact trait object",
+    "examplesAccepted": [],
+    "examplesRejected": [],
+    "language": "fr"
+  },
+  "responseShape": {
+    "providerUsed": "gemini | mistral | openai | ollama | local",
+    "candidates": [],
+    "summary": "optional",
+    "notes": [],
+    "cooldownSuggestionMinutes": 0
+  },
+  "rules": [
+    "Ne rien activer sans réglage explicite.",
+    "Android peut simuler les réponses avec un fournisseur local no-op.",
+    "Les réponses passent par Guardian avant affichage.",
+    "La bibliothèque commune reçoit seulement des candidates validables."
+  ]
+}
