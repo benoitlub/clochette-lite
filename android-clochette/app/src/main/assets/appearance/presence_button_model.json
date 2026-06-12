@@ -1,0 +1,49 @@
+{
+  "id": "presence_button_model",
+  "version": 1,
+  "principle": "Quand Clochette n'est pas affichée, un petit bouton discret permet de l'appeler. Clochette peut aussi apparaître seule si le mode et le contexte l'autorisent.",
+  "states": [
+    "hidden",
+    "call_button",
+    "entering",
+    "visible_idle",
+    "talking",
+    "listening",
+    "retreating",
+    "paused"
+  ],
+  "defaultState": "call_button",
+  "callButton": {
+    "label": "Appeler Clochette",
+    "shape": "small_round_floating_button",
+    "anchor": "bottom_end",
+    "edgeSnap": true,
+    "opacity": 0.82,
+    "sizeDp": 48,
+    "icon": "spark_or_tiny_avatar",
+    "tapAction": "show_clochette_full",
+    "longPressAction": "open_quick_controls"
+  },
+  "behavior": {
+    "manualCallAlwaysAllowed": true,
+    "autoAppearRequiresGuardian": true,
+    "autoAppearRequiresRelationshipMode": true,
+    "returnToButtonAfterSeconds": 25,
+    "returnToButtonAfterSilence": true,
+    "hideAllOnPause": true
+  },
+  "relationshipRules": {
+    "manual": { "autoAppear": false, "buttonVisible": true },
+    "discrete": { "autoAppear": false, "buttonVisible": true },
+    "companion": { "autoAppear": "rare", "buttonVisible": true },
+    "alive": { "autoAppear": "occasional", "buttonVisible": true },
+    "quiet_night": { "autoAppear": false, "buttonVisible": true }
+  },
+  "rules": [
+    "Le bouton d'appel n'est pas Clochette complète.",
+    "Le bouton doit être beaucoup moins intrusif que l'avatar complet.",
+    "Un tap utilisateur peut toujours faire apparaître Clochette si l'overlay est autorisé.",
+    "Clochette ne doit pas rester affichée indéfiniment sans raison.",
+    "Le mode Pause masque tout."
+  ]
+}
