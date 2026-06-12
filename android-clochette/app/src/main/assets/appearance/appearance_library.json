@@ -1,0 +1,65 @@
+{
+  "id": "appearance_library",
+  "version": 1,
+  "principle": "L'apparence est séparée du persona. Clochette, Natasha ou Aloisia peuvent partager le même moteur Octopus tout en ayant des avatars, tailles, positions et animations différentes.",
+  "defaultAppearanceId": "clochette_png_edge",
+  "assetsRoot": "app/src/main/assets/appearance/",
+  "types": [
+    "png_static",
+    "png_sequence",
+    "webp_sequence",
+    "video_alpha_future",
+    "lottie_future"
+  ],
+  "appearances": [
+    {
+      "id": "clochette_png_edge",
+      "personaId": "clochette",
+      "type": "png_static",
+      "label": "Clochette PNG bord téléphone",
+      "assetPath": "appearance/clochette/clochette_base.png",
+      "fallbackAssetPath": "personas/clochette.png",
+      "states": {
+        "idle": { "assetPath": "appearance/clochette/clochette_base.png", "breathing": true },
+        "talking": { "assetPath": "appearance/clochette/clochette_base.png", "bubble": true },
+        "listening": { "assetPath": "appearance/clochette/clochette_base.png", "bubbleText": "Je t'écoute pendant 15 secondes..." },
+        "sleeping": { "assetPath": "appearance/clochette/clochette_base.png", "opacity": 0.65 },
+        "dreaming": { "assetPath": "appearance/clochette/clochette_base.png", "opacity": 0.75 }
+      },
+      "layout": {
+        "anchor": "bottom_end",
+        "edgeSnap": true,
+        "defaultScale": 1.15,
+        "minScale": 0.75,
+        "maxScale": 1.6,
+        "offsetDp": { "x": -2, "y": 12 },
+        "allowUserResize": true,
+        "allowUserMove": true
+      }
+    },
+    {
+      "id": "clochette_video_alpha_future",
+      "personaId": "clochette",
+      "type": "video_alpha_future",
+      "label": "Clochette vidéo alpha future",
+      "notes": "Prévu pour séquences Kling ou autre génération vidéo avec fond transparent ou masque alpha.",
+      "preferredFormats": ["webm_alpha", "mov_prores_4444_source", "png_sequence"],
+      "androidFallbackFormats": ["png_sequence", "webp_sequence", "mp4_with_mask_sidecar"],
+      "states": {
+        "enter": { "assetPath": "appearance/clochette/video/enter.webm", "fallback": "png_static" },
+        "idle": { "assetPath": "appearance/clochette/video/idle.webm", "fallback": "png_static" },
+        "talking": { "assetPath": "appearance/clochette/video/talking.webm", "fallback": "png_static" },
+        "listening": { "assetPath": "appearance/clochette/video/listening.webm", "fallback": "png_static" },
+        "exit": { "assetPath": "appearance/clochette/video/exit.webm", "fallback": "png_static" }
+      }
+    }
+  ],
+  "rules": [
+    "Ne jamais mélanger personnalité et apparence.",
+    "Toujours prévoir fallback PNG si la vidéo alpha ne fonctionne pas.",
+    "Ne pas casser l'overlay existant.",
+    "Les vidéos alpha sont une option future, pas une dépendance.",
+    "Les assets lourds ne doivent pas être ajoutés au dépôt sans validation.",
+    "Les réglages de taille et position doivent être sauvegardés localement par persona et apparence."
+  ]
+}
