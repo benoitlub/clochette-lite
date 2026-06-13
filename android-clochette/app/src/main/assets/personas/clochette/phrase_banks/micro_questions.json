@@ -1,0 +1,41 @@
+{
+  "id": "micro_questions",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "question",
+  "entries": [
+    {
+      "id": "micro_question_next_001",
+      "line": "Tu veux me dire en une phrase ce qu’on fait maintenant ?",
+      "contexts": ["micro", "asking", "focus"],
+      "triggers": ["proactive_tick", "proactive_test", "overlay_reply"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.2,
+      "status": "accepted"
+    },
+    {
+      "id": "micro_question_pause_001",
+      "line": "Tu veux continuer, faire une pause, ou me laisser ranger la question dans ma poche ?",
+      "contexts": ["micro", "fatigue", "asking"],
+      "triggers": ["proactive_tick", "proactive_test"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "micro_question_focus_001",
+      "line": "Le prochain geste, c’est tester, écrire, nettoyer, ou fermer ?",
+      "contexts": ["micro", "focus", "codex"],
+      "triggers": ["manual_tap", "proactive_tick", "proactive_test"],
+      "relationshipModes": ["alive", "companion"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.1,
+      "status": "accepted"
+    }
+  ]
+}
