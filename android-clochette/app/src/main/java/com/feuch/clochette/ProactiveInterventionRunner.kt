@@ -77,7 +77,10 @@ object ProactiveInterventionRunner {
         }
         val shouldSpeak = ClochetteVoiceSettings.read(appContext).enabled &&
             (decision.shouldSpeak || force || bypassForSafeTest || repeatSoftened)
-        val shouldOpenMic = openMic && finalLine.contains("?") && relationshipMode.id == "alive"
+        val shouldOpenMic = openMic &&
+            generated.canOpenMic &&
+            finalLine.contains("?") &&
+            relationshipMode.id == "alive"
 
         ClochetteRuntimeStatus.recordDecision(appContext, guardianReason, shouldSpeak)
         ClochetteWidget.updateAll(appContext, finalLine, finalSource)
@@ -139,6 +142,7 @@ object ProactiveInterventionRunner {
             return GeneratedLine(
                 "Test vocal réussi. Je sais faire autre chose que décorer l’écran.",
                 PhraseSource.LOCAL_PROACTIVE_TEST,
+                canOpenMic = false,
             )
         }
 
@@ -154,24 +158,29 @@ object ProactiveInterventionRunner {
             recentMemory = recentMemory,
             preferQuestion = preferQuestion,
         )?.let { selection ->
-            return GeneratedLine(selection.line, selection.source)
+            return GeneratedLine(
+                line = selection.line,
+                source = selection.source,
+                canOpenMic = selection.canAskMic && selection.source == PhraseSource.PROACTIVE_QUESTION,
+            )
         }
 
         if (force) {
-            return GeneratedLine(localProactiveLine(state), PhraseSource.LOCAL_PROACTIVE)
+            return GeneratedLine(localProactiveLine(state), PhraseSource.LOCAL_PROACTIVE, canOpenMic = false)
         }
         if (proactiveConfig.spontaneousQuestions) {
             return GeneratedLine(
                 localQuestionLine(state),
                 PhraseSource.LOCAL_PROACTIVE,
+                canOpenMic = true,
             )
         }
         val activity = UsageObserver(context).snapshot()
         val line = contextEngine.remark(activity, recentMemory)
         return if (line != null) {
-            GeneratedLine(line, contextEngine.lastSource())
+            GeneratedLine(line, contextEngine.lastSource(), canOpenMic = false)
         } else {
-            GeneratedLine(localProactiveLine(state), PhraseSource.LOCAL_PROACTIVE)
+            GeneratedLine(localProactiveLine(state), PhraseSource.LOCAL_PROACTIVE, canOpenMic = false)
         }
     }
 
@@ -201,5 +210,6 @@ object ProactiveInterventionRunner {
     private data class GeneratedLine(
         val line: String,
         val source: PhraseSource,
+        val canOpenMic: Boolean,
     )
 }
