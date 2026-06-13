@@ -16,67 +16,11 @@ class ClochetteWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_REMARK) {
-            val memory = ClochetteMemory(context)
-            val voiceConfig = ClochetteVoiceSettings.read(context)
-            val activity = UsageObserver(context).snapshot()
-            val recentMemory = memory.recent(24)
-            val contextEngine = ContextRemarkEngine(context)
-            val state = contextEngine.buildState(activity)
-            val journal = ObservationJournal(context)
-            val relationshipMode = RelationshipModeSettings.selected(context)
-            val effectiveConfig = RelationshipModeSettings.effectiveConfig(context)
-            val askQuestion = effectiveConfig.spontaneousQuestions &&
-                (activity.recentSwitchCount >= 4 || System.currentTimeMillis() / 60_000L % 4L == 0L)
-            var source = if (askQuestion) PhraseSource.PROACTIVE_QUESTION else PhraseSource.UNKNOWN
-            val candidateLine = if (askQuestion) {
-                ProactiveQuestionEngine.question(state, journal.recent(12))
-            } else {
-                contextEngine.remark(activity, recentMemory)?.also {
-                    source = contextEngine.lastSource()
-                } ?: ClochetteEngine.remark(
-                    activity = activity,
-                    sensors = SensorSnapshot(),
-                    energy = null,
-                    project = ProjectKnowledge.projects.firstOrNull()?.name,
-                    memory = recentMemory,
-                    phraseLength = voiceConfig.phraseLength,
-                ).also {
-                    source = PhraseSource.CLOCHETTE_ENGINE
-                }
-            }
-            val decision = GuardianRulesLoader(context).approve(
-                candidate = candidateLine,
-                state = state,
-                recentLines = recentMemory.mapNotNull { it.clochetteLine },
-                recentEntries = recentMemory,
-                relationshipMode = relationshipMode,
-                wantsVoice = true,
+            OctopusCore.intervene(
+                context = context,
+                trigger = OctopusCore.TRIGGER_MANUAL_TAP,
+                forceSpeak = true,
             )
-            val line = decision.line ?: return
-            if (line != candidateLine || decision.reason != "approved") {
-                source = PhraseSource.GUARDIAN_FALLBACK
-            }
-            memory.add(
-                ClochetteMemoryEntry(
-                    context = "home_widget",
-                    observedSignal = if (askQuestion) "widget_question" else "widget_tap",
-                    project = ProjectKnowledge.projects.firstOrNull()?.name,
-                    energy = null,
-                    clochetteLine = line,
-                    userReaction = "tap",
-                    result = decision.reason,
-                ),
-            )
-            journal.add(
-                ObservationJournalEntry(
-                    activity = state.currentAppName,
-                    question = line.takeIf { askQuestion },
-                    reaction = decision.reason,
-                    result = "shown",
-                ),
-            )
-            updateAll(context, line, source)
-            if (decision.shouldSpeak) ClochetteVoice.speakAfterRemark(context, line)
         }
     }
 

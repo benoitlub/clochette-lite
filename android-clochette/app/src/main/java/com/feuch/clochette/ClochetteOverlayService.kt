@@ -332,29 +332,12 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun speakNextLine() {
-        val voiceConfig = ClochetteVoiceSettings.read(this)
-        val line = ClochetteEngine.remark(
-            activity = UsageObserver(this).snapshot(),
-            sensors = SensorSnapshot(),
-            energy = null,
-            project = null,
-            memory = memory.recent(24),
-            phraseLength = voiceConfig.phraseLength,
+        val decision = OctopusCore.intervene(
+            context = this,
+            trigger = OctopusCore.TRIGGER_MANUAL_TAP,
+            forceSpeak = true,
         )
-        memory.add(
-            ClochetteMemoryEntry(
-                context = "overlay",
-                observedSignal = "overlay_next_line",
-                project = null,
-                energy = null,
-                clochetteLine = line,
-                userReaction = "tap",
-                result = "spoken_from_overlay",
-            ),
-        )
-        ClochetteWidget.updateAll(this, line, PhraseSource.CLOCHETTE_ENGINE)
-        ClochetteVoice.speak(this, line)
-        updateLine(line)
+        updateLine(decision.finalLine)
     }
 
     private fun updateLine(line: String) {
@@ -578,34 +561,15 @@ class ClochetteOverlayService : Service() {
 
     private fun finishOverlayReply(userText: String) {
         ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
-        val reply = localReplyTo(userText).withVisibleFrenchAccents()
-        replyStatusView?.text = "Réponse prête"
-        lineView?.text = reply
-        ClochetteWidget.updateAll(this, reply, PhraseSource.LOCAL_FALLBACK)
-        ClochetteMemory(this).add(
-            ClochetteMemoryEntry(
-                context = "overlay_voice_reply",
-                observedSignal = "voice_reply_overlay",
-                project = null,
-                energy = null,
-                clochetteLine = reply,
-                userReaction = userText,
-                result = "answered_overlay",
-            ),
+        val decision = OctopusCore.intervene(
+            context = this,
+            trigger = OctopusCore.TRIGGER_VOICE_TRANSCRIPTION,
+            transcription = userText,
+            forceSpeak = true,
         )
-        ClochetteVoice.speak(this, reply)
+        replyStatusView?.text = "Réponse prête"
+        lineView?.text = decision.finalLine
         sourceView?.text = debugLine()
-    }
-
-    private fun localReplyTo(text: String): String {
-        if (text.isBlank()) return "Je peux me tromper, mais le silence avait l’air très occupé."
-        val lower = text.lowercase()
-        return when {
-            "pause" in lower || "fatigu" in lower -> "Je remarque la fatigue. On réduit la voilure, pas la dignité."
-            "reprendre" in lower || "continuer" in lower -> "Hypothèse : tu veux reprendre. Très bien. Un petit geste, puis on parade."
-            "bloqu" in lower || "bug" in lower -> "Je soupçonne un blocage. On le nomme, puis on lui vole ses chaussures."
-            else -> "Je note. Je peux me tromper, mais il y a une piste exploitable là-dedans."
-        }
     }
 
     private fun roundedBackground(fill: Int, stroke: Int, radius: Int): GradientDrawable =

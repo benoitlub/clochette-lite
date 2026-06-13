@@ -19,7 +19,10 @@ class ClochetteProactiveService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
-            ProactiveInterventionRunner.run(this@ClochetteProactiveService)
+            OctopusCore.intervene(
+                context = this@ClochetteProactiveService,
+                trigger = OctopusCore.TRIGGER_PROACTIVE_TICK,
+            )
             val config = RelationshipModeSettings.effectiveConfig(this@ClochetteProactiveService)
             val mode = RelationshipModeSettings.selected(this@ClochetteProactiveService)
             val delay = nextDelayMillis(config.frequency, mode.cooldownMultiplier)
@@ -38,11 +41,19 @@ class ClochetteProactiveService : Service() {
             ACTION_PAUSE -> pause()
             ACTION_TEST_INTERVENTION -> {
                 observe()
-                ProactiveInterventionRunner.run(this, force = true)
+                OctopusCore.intervene(
+                    context = this,
+                    trigger = OctopusCore.TRIGGER_PROACTIVE_TEST,
+                    forceSpeak = true,
+                )
             }
             ACTION_FORCE_SAFE_SPOKEN -> {
                 observe()
-                ProactiveInterventionRunner.run(this, force = true, safeTest = true, openMic = false)
+                OctopusCore.intervene(
+                    context = this,
+                    trigger = OctopusCore.TRIGGER_SAFE_VOICE_TEST,
+                    forceSpeak = true,
+                )
             }
             else -> observe()
         }

@@ -8,14 +8,7 @@ object LegacyFallback {
         project: String? = null,
         memory: List<ClochetteMemoryEntry> = emptyList(),
         phraseLength: String = ClochetteVoiceSettings.LENGTH_NORMAL,
-    ): String = ClochetteEngine.remark(
-        activity = activity,
-        sensors = sensors,
-        energy = energy,
-        project = project,
-        memory = memory,
-        phraseLength = phraseLength,
-    )
+    ): String = "Je reste en local. Octopus décide maintenant, les vieux couloirs sont fermés."
 
     fun sourceInfo(debug: Boolean, tracer: DebugSourceTracer? = null): String =
         tracer?.prefixFor(DebugSource.LEGACY, debug).orEmpty()

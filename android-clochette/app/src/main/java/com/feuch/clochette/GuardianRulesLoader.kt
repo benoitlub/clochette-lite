@@ -84,12 +84,12 @@ class GuardianRulesLoader(context: Context) {
         val line = candidate.lowercase()
         return line.contains("test vocal") ||
             line.contains("je peux parler maintenant") ||
-            line.contains("je suis là") ||
-            line.contains("je suis lÃ ")
+            line.contains("je suis l\u00e0") ||
+            line.contains("je suis la")
     }
 
     private fun String.words(): Set<String> =
-        split(Regex("[^a-zA-ZÀ-ÿ0-9']+")).filter { it.length > 3 }.toSet()
+        split(Regex("[^\\p{L}0-9']+")).filter { it.length > 3 }.toSet()
 
     private fun loadRules(): GuardianRules = runCatching {
         val raw = appContext.assets.open(ASSET_PATH).bufferedReader().use { it.readText() }

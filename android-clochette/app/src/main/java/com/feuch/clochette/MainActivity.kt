@@ -119,145 +119,28 @@ private fun ClochetteApp(startSection: String?) {
         refresh++
     }
 
-    fun aiRequest(activity: ActivitySnapshot, recentMemory: List<ClochetteMemoryEntry>, userReply: String? = null): AiRemarkRequest {
-        val state = ContextRemarkEngine(context).buildState(activity, energy = energy)
-        val nowPlaying = NowPlayingObserver.snapshot(context)
-        return AiRemarkRequest(
-            relationshipMode = RelationshipModeSettings.selected(context).id,
-            preferredProvider = aiConfig.preferredProvider,
-            styleLevel = aiConfig.styleLevel,
-            foregroundApp = state.currentAppName,
-            durationMinutes = state.durationMinutes,
-            appSwitchCount = state.recentAppSwitches,
-            sensorSummary = "movement=${state.movementState.name.lowercase()} battery=${state.batteryPercent ?: "unknown"}",
-            energy = energy,
-            recentMemorySummary = recentMemory.mapNotNull { it.clochetteLine }.takeLast(3).joinToString(" | "),
-            userLastReply = userReply,
-            nowPlayingAppName = nowPlaying.appName,
-            nowPlayingTitle = nowPlaying.title,
-            nowPlayingArtist = nowPlaying.artist,
-        )
-    }
-
-    fun acceptLine(
-        rawLine: String,
-        rawSource: PhraseSource,
-        autoSpeak: Boolean,
-        shouldSpeakHint: Boolean = autoSpeak,
-    ): String {
-        val activity = UsageObserver(context).snapshot()
-        val recentMemory = memory.recent(24)
-        val state = ContextRemarkEngine(context).buildState(activity, energy = energy)
-        var source = rawSource
-        val guardian = GuardianRulesLoader(context).approve(
-            candidate = rawLine.withVisibleFrenchAccents(),
-            state = state,
-            recentLines = recentMemory.mapNotNull { it.clochetteLine },
-            recentEntries = recentMemory,
-            relationshipMode = RelationshipModeSettings.selected(context),
-            wantsVoice = autoSpeak && shouldSpeakHint,
-        )
-        val line = guardian.line?.withVisibleFrenchAccents() ?: return ClochetteRemarkStore.latest(context)
-        if (line != rawLine.withVisibleFrenchAccents() || guardian.reason != "approved") {
-            source = PhraseSource.GUARDIAN_FALLBACK
-        }
-        currentLine = line
-        memory.add(
-            ClochetteMemoryEntry(
-                context = "main_activity",
-                observedSignal = "manual_line",
-                project = project,
-                energy = energy,
-                clochetteLine = line,
-                userReaction = null,
-                result = "shown",
-            ),
-        )
-        ClochetteWidget.updateAll(context, line, source)
-        if (autoSpeak && guardian.shouldSpeak) {
-            ClochetteVoice.speakAfterRemark(context, line)
-            recordAction("parlé")
-        } else {
-            recordAction("silencieux")
-        }
-        return line
-    }
-
     fun generateLine(autoSpeak: Boolean = true): String {
-        val activity = UsageObserver(context).snapshot()
-        val recentMemory = memory.recent(24)
-        val contextEngine = ContextRemarkEngine(context)
-        var source = PhraseSource.UNKNOWN
-        val rawLine = contextEngine.remark(
-            activity = activity,
-            memory = recentMemory,
-            sensors = SensorSnapshot(),
-            energy = energy,
-        )?.also {
-            source = contextEngine.lastSource()
-        } ?: ClochetteEngine.remark(
-            activity = activity,
-                sensors = SensorSnapshot(),
-                energy = energy,
-                project = project,
-                memory = recentMemory,
-                phraseLength = voiceConfig.phraseLength,
-            ).also {
-                source = PhraseSource.CLOCHETTE_ENGINE
-            }
-            return acceptLine(rawLine, source, autoSpeak)
-        }
-
-    fun naturalLocalTestLine(activity: ActivitySnapshot): String {
-        val app = activity.foregroundDisplayName ?: activity.foregroundPackage ?: "cette appli"
-        val minutes = activity.approximateDurationMs.toMinutesForUi()
-        return when {
-            activity.recentSwitchCount >= 4 ->
-                "Tu changes souvent d’application. Tu cherches quelque chose ou tu évites quelque chose ?"
-            minutes >= 20 ->
-                "Je vois que tu es sur $app depuis un moment. Tu veux faire une pause ou continuer ?"
-            RelationshipModeSettings.selected(context).id == "alive" ->
-                "Je peux poser une question courte, puis ouvrir le micro quinze secondes."
-            else ->
-                "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?"
-        }.withVisibleFrenchAccents()
+        val decision = OctopusCore.intervene(
+            context = context,
+            trigger = OctopusCore.TRIGGER_MANUAL_TAP,
+            forceSpeak = autoSpeak,
+        )
+        currentLine = decision.finalLine
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+        octopusDiagnostics = OctopusDiagnosticsStore.read(context)
+        refresh++
+        return decision.finalLine
     }
 
     fun generateLineWithAi(autoSpeak: Boolean = true, testOnly: Boolean = false) {
-        val config = AiGatewaySettings.read(context)
-        aiConfig = config
-        if (!config.enabled || config.gatewayUrl.isBlank() || config.preferredProvider == AiGatewaySettings.PROVIDER_LOCAL) {
-            val activity = UsageObserver(context).snapshot()
-            AiGatewaySettings.record(context, "local", if (config.enabled) "fallback local" else "désactivée")
-            val line = acceptLine(naturalLocalTestLine(activity), PhraseSource.LOCAL_FALLBACK, autoSpeak)
-            if (testOnly) aiTestLine = line
-            aiConfig = AiGatewaySettings.read(context)
-            return
-        }
-        val appContext = context.applicationContext
-        val mainHandler = Handler(Looper.getMainLooper())
-        val activity = UsageObserver(context).snapshot()
-        val recentMemory = memory.recent(24)
-        val request = aiRequest(activity, recentMemory)
-        thread(name = "clochette-ai-gateway") {
-            val aiResult = AiGatewayClient(appContext).generateRemark(request)
-            mainHandler.post {
-                val line = if (aiResult != null) {
-                    acceptLine(
-                        rawLine = aiResult.line,
-                        rawSource = aiResult.source,
-                        autoSpeak = autoSpeak,
-                        shouldSpeakHint = aiResult.shouldSpeak,
-                    )
-                } else {
-                    AiGatewaySettings.record(appContext, "fallback", "fallback local")
-                    generateLine(autoSpeak)
-                }
-                aiConfig = AiGatewaySettings.read(context)
-                if (testOnly) aiTestLine = line
-                runtimeStatus = ClochetteRuntimeStatus.read(context)
-            }
-        }
+        val trigger = if (testOnly) OctopusCore.TRIGGER_GATEWAY_TEST else OctopusCore.TRIGGER_MANUAL_TAP
+        val decision = OctopusCore.intervene(context, trigger, forceSpeak = autoSpeak)
+        currentLine = decision.finalLine
+        if (testOnly) aiTestLine = decision.finalLine
+        aiConfig = AiGatewaySettings.read(context)
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+        octopusDiagnostics = OctopusDiagnosticsStore.read(context)
+        refresh++
     }
 
     fun testLivingIntervention() {
@@ -482,10 +365,7 @@ private fun ClochetteApp(startSection: String?) {
                     onProject = { project = it },
                     onEnergy = { energy = it },
                     onLine = { generateLineWithAi() },
-                    onSpeak = {
-                        val line = currentLine ?: generateLine(autoSpeak = false)
-                        ClochetteVoice.speak(context, line)
-                    },
+                    onSpeak = { generateLine(autoSpeak = true) },
                 )
 
                 ResponsePanel(
@@ -499,8 +379,8 @@ private fun ClochetteApp(startSection: String?) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(it, style = MaterialTheme.typography.titleMedium)
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Button(onClick = { ClochetteVoice.speak(context, it) }) { Text("Parler") }
-                                OutlinedButton(onClick = { ClochetteWidget.updateAll(context, it) }) { Text("Envoyer au widget") }
+                                Button(onClick = { generateLine(autoSpeak = true) }) { Text("Parler via Octopus") }
+                                OutlinedButton(onClick = { generateLine(autoSpeak = false) }) { Text("Rafraîchir via Octopus") }
                             }
                         }
                     }
@@ -695,11 +575,15 @@ private fun OctopusDiagnosticPanel(
             Text("Octopus / diagnostic", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text("Dernier trigger : ${diagnostics.lastTrigger}")
             Text("Source phrase : ${diagnostics.lastPhraseSource}")
+            Text("Bank : ${diagnostics.lastPhraseBankId.ifBlank { "-" }}")
+            Text("Entry : ${diagnostics.lastPhraseEntryId.ifBlank { "-" }}")
+            Text("Tone : ${diagnostics.lastPhraseTone.ifBlank { "-" }}")
             Text("Provider : ${diagnostics.lastProviderUsed}")
             Text("Guardian : ${diagnostics.lastGuardianReason}")
             Text("Voix : ${diagnostics.lastVoiceStatus} · shouldSpeak=${diagnostics.lastShouldSpeak}")
             Text("Micro : ${diagnostics.lastMicStatus}")
             Text("Overlay : ${diagnostics.lastOverlayState}")
+            Text("Apparence : ${diagnostics.lastAppearance.ifBlank { "-" }}")
             Text("Gateway : ${diagnostics.lastGatewayStatus}")
             Text("Dernière transcription : ${diagnostics.lastTranscription.ifBlank { "-" }}")
             if (diagnostics.lastError.isNotBlank()) {

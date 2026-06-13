@@ -19,6 +19,9 @@ data class OctopusDecision(
     val phraseBankId: String = "",
     val phraseEntryId: String = "",
     val phraseTone: String = "",
+    val appearanceId: String = "",
+    val appearanceRole: String = "",
+    val appearancePath: String = "",
 )
 
 object OctopusCore {
@@ -47,9 +50,8 @@ object OctopusCore {
         val aiConfig = AiGatewaySettings.read(appContext)
         val relationshipMode = RelationshipModeSettings.selected(appContext)
 
-        val aiRequest = buildRequest(appContext, state, recentMemory, transcription)
-        val aiResult = if (aiConfig.enabled && aiConfig.gatewayUrl.isNotBlank() && aiConfig.preferredProvider != AiGatewaySettings.PROVIDER_LOCAL) {
-            runCatching { AiGatewayClient(appContext).generateRemark(aiRequest) }.getOrNull()
+        val aiResult = if (trigger == TRIGGER_GATEWAY_TEST && canUseGateway(aiConfig)) {
+            runCatching { AiGatewayClient(appContext).generateRemark(buildRequest(appContext, state, recentMemory, transcription)) }.getOrNull()
         } else {
             null
         }
@@ -134,7 +136,7 @@ object OctopusCore {
         }
 
         val bankDiagnostic = if (generated.bankId.isNotBlank()) {
-            " · bank=${generated.bankId} · entry=${generated.entryId} · tone=${generated.tone}"
+            " | bank=${generated.bankId} | entry=${generated.entryId} | tone=${generated.tone}"
         } else {
             ""
         }
@@ -150,10 +152,13 @@ object OctopusCore {
             listenSeconds = generated.listenSeconds,
             overlayState = if (shouldOpenMic) "micro" else "expanded",
             voiceStatus = voiceStatus,
-            diagnosticText = "trigger=$trigger · source=${source.id} · provider=${generated.provider} · guardian=${guardian.reason} · voix=$voiceStatus$bankDiagnostic",
+            diagnosticText = "trigger=$trigger | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus$bankDiagnostic",
             phraseBankId = generated.bankId,
             phraseEntryId = generated.entryId,
             phraseTone = generated.tone,
+            appearanceId = if (shouldOpenMic) "expanded_micro" else "expanded",
+            appearanceRole = if (shouldOpenMic) "listening" else "intervention",
+            appearancePath = "res/drawable-nodpi/clochette_overlay_model.png",
         )
         OctopusDiagnosticsStore.save(appContext, decision.toDiagnostics(trigger, transcription, aiConfig))
         return decision
@@ -175,6 +180,11 @@ object OctopusCore {
         )
         return result
     }
+
+    private fun canUseGateway(config: AiGatewayConfig): Boolean =
+        config.enabled &&
+            config.gatewayUrl.isNotBlank() &&
+            config.preferredProvider != AiGatewaySettings.PROVIDER_LOCAL
 
     private fun localGenerated(
         context: Context,
@@ -267,17 +277,15 @@ object OctopusCore {
         trigger: String,
         transcription: String?,
         aiConfig: AiGatewayConfig,
-    ): OctopusDiagnostics {
-        val sourceText = if (phraseBankId.isNotBlank()) {
-            "${phraseSource.id} · bank=$phraseBankId · id=$phraseEntryId · tone=$phraseTone"
-        } else {
-            phraseSource.id
-        }
-        return OctopusDiagnostics(
+    ): OctopusDiagnostics =
+        OctopusDiagnostics(
             lastTrigger = trigger,
             lastOriginalLine = originalLine,
             lastFinalLine = finalLine,
-            lastPhraseSource = sourceText,
+            lastPhraseSource = phraseSource.id,
+            lastPhraseBankId = phraseBankId,
+            lastPhraseEntryId = phraseEntryId,
+            lastPhraseTone = phraseTone,
             lastProviderUsed = providerUsed,
             lastGuardianReason = guardianReason,
             lastShouldSpeak = shouldSpeak,
@@ -286,10 +294,10 @@ object OctopusCore {
             lastMicStatus = if (shouldOpenMic) "ouvert" else "fermé",
             lastTranscription = transcription.orEmpty(),
             lastGatewayStatus = aiConfig.lastStatus ?: if (aiConfig.enabled) "non testé" else "désactivée",
+            lastAppearance = "$appearanceId/$appearanceRole/$appearancePath",
             lastError = aiConfig.lastError.orEmpty(),
             updatedAt = System.currentTimeMillis(),
         )
-    }
 
     private data class Generated(
         val line: String,
