@@ -141,11 +141,26 @@ object ProactiveInterventionRunner {
                 PhraseSource.LOCAL_PROACTIVE_TEST,
             )
         }
+
+        val relationshipMode = RelationshipModeSettings.selected(context)
+        val proactiveConfig = RelationshipModeSettings.effectiveConfig(context)
+        val preferQuestion = force || proactiveConfig.spontaneousQuestions
+        val bankTrigger = if (force) "proactive_test" else "proactive_tick"
+        PhraseBankSelector.select(
+            context = context,
+            trigger = bankTrigger,
+            state = state,
+            relationshipMode = relationshipMode,
+            recentMemory = recentMemory,
+            preferQuestion = preferQuestion,
+        )?.let { selection ->
+            return GeneratedLine(selection.line, selection.source)
+        }
+
         if (force) {
             return GeneratedLine(localProactiveLine(state), PhraseSource.LOCAL_PROACTIVE)
         }
-        val question = RelationshipModeSettings.effectiveConfig(context).spontaneousQuestions
-        if (question) {
+        if (proactiveConfig.spontaneousQuestions) {
             return GeneratedLine(
                 localQuestionLine(state),
                 PhraseSource.LOCAL_PROACTIVE,
