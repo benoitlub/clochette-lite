@@ -2,8 +2,8 @@
 
 - Date: 2026-06-13
 - Previous build command: `cd android-clochette && ./gradlew assembleDebug --stacktrace --no-daemon`
-- Previous result: success before phrase-bank wiring
-- Latest change: Notion-ready phrase banks + Octopus local selection
+- Previous result: success before phrase-bank wiring and simplified mic overlay
+- Latest change: Notion-ready phrase banks + Octopus local selection + simplified overlay microphone interaction
 - Latest validation to run: `python android-clochette/tools/validate_persona_assets.py`
 - Latest build to run: `cd android-clochette && ./gradlew assembleDebug --stacktrace --no-daemon`
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
@@ -20,8 +20,6 @@ Correction already present:
 - The safe test path uses `local_proactive_test`, `guardian : approved`, `voix : spoken`.
 - Overlay diagnostics include source, voice status, Guardian decision and provider.
 - If Guardian blocks or voice is skipped, the overlay diagnostic bubble remains visible for 60 seconds.
-- The overlay includes a visible `Micro` button.
-- The `Micro` button opens a compact voice reply panel inside the overlay instead of navigating to the full `VoiceReplyActivity` page when microphone permission is already granted.
 - Proactive questions that open the mic ask the overlay to open its mic panel.
 - The sprite can be dragged even when the text bubble is hidden.
 - At rest, the overlay folds into a small portrait bubble instead of leaving the full Clochette silhouette on screen.
@@ -53,6 +51,14 @@ Phrase bank wiring:
 - `OctopusCore` asks `PhraseBankSelector` before falling back to `ContextRemarkEngine` or local hardcoded lines.
 - Octopus diagnostics enrich `Source phrase` with `bank=...`, `id=...`, and `tone=...` when a phrase bank entry is used.
 
+Simplified overlay microphone:
+- The overlay no longer shows both `Micro` and `Parler 15 s`.
+- The main overlay now exposes one hold-to-talk button.
+- Holding the button opens the mic; releasing it stops capture and lets Android return the transcription.
+- When Octopus/proactive asks a question through `ACTION_OPEN_MIC`, the overlay opens the mic automatically for 15 seconds maximum.
+- The reply panel shows partial and final transcription with `J’entends : ...` and `J’ai entendu : ...`.
+- Micro errors now tell the user to hold the single reply button again instead of bouncing between two controls.
+
 Phone test procedure:
 1. Install the debug APK.
 2. Allow notifications.
@@ -74,8 +80,10 @@ Phone test procedure:
 18. Confirm it no longer lands on `guardian_fallback` by default.
 19. Tap `Tester Octopus local`.
 20. Confirm the Octopus panel shows a phrase source containing `bank=...`, `id=...`, and `tone=...`.
-21. Tap `Copier diagnostic` and paste it into a note/chat if needed.
-22. Leave Gateway URL empty, tap `Tester le relais`, and confirm the app shows fallback local instead of crashing.
+21. Hold the overlay reply button, speak, release, and confirm transcription appears.
+22. Let Clochette ask a proactive question and confirm the mic closes after 15 seconds.
+23. Tap `Copier diagnostic` and paste it into a note/chat if needed.
+24. Leave Gateway URL empty, tap `Tester le relais`, and confirm the app shows fallback local instead of crashing.
 
 Notion/API status:
 - Notion sync and external AI providers are still not required for local Clochette behavior.
