@@ -1,0 +1,41 @@
+{
+  "id": "soft",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "douce",
+  "entries": [
+    {
+      "id": "soft_fatigue_001",
+      "line": "Tu as déjà bien tiré sur le fil. On peut reprendre doucement, sans tout porter d’un coup.",
+      "contexts": ["fatigue", "night", "focus"],
+      "triggers": ["proactive_tick", "manual_tap", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 1.1,
+      "status": "accepted"
+    },
+    {
+      "id": "soft_silence_001",
+      "line": "Je reste près de la lampe. Pas besoin de répondre tout de suite.",
+      "contexts": ["silence", "collapsed", "night"],
+      "triggers": ["overlay_reply", "voice_transcription"],
+      "relationshipModes": ["discrete", "companion", "alive"],
+      "canSpeak": false,
+      "canAskMic": false,
+      "weight": 0.9,
+      "status": "accepted"
+    },
+    {
+      "id": "soft_micro_001",
+      "line": "Tu peux répondre court. Une phrase suffit, je ne demande pas un discours de ministre.",
+      "contexts": ["micro", "asking"],
+      "triggers": ["overlay_reply", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 0.95,
+      "status": "accepted"
+    }
+  ]
+}
