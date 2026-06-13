@@ -1,7 +1,7 @@
 # Android Clochette Build Status
 
 - Date: 2026-06-13
-- Commit tested: working tree for `Fix proactive Guardian blocking and voice diagnostics`
+- Commit tested: working tree for Octopus core + Clochette API relay
 - Persona asset validation: `python android-clochette/tools/validate_persona_assets.py`
 - Build command: `cd android-clochette && ./gradlew assembleDebug --stacktrace --no-daemon`
 - Result: success
@@ -26,6 +26,11 @@ Correction:
 - At rest, the overlay folds into a small portrait bubble instead of leaving the full Clochette silhouette on screen.
 - Clochette expands to the full silhouette only while a phrase, diagnostic, drag interaction, or voice reply panel is visible.
 - If the microphone times out without a reply, the overlay shows a neutral local line and does not reopen the microphone automatically.
+- `OctopusCore` can produce a single `OctopusDecision` used for line, source, provider, Guardian, voice, overlay, micro and diagnostic.
+- `Octopus / diagnostic` is visible in MainActivity with copyable diagnostic text.
+- `Relais API Clochette` is visible with Gateway URL, provider choice, style choice, health test, generation test, last status, latency, raw response and error.
+- Gateway calls use `/api/health` and `/api/generate-remark`.
+- `clochette-gateway/` contains a server scaffold with no real API key committed.
 - Prototype fast proactive mode is enabled. In `BAVARDE`, the next attempts are roughly 35 to 60 seconds apart after the first 10-second attempt.
 - Local proactive questions are varied, and local `anti_repeat` blocks can be softened as `approved_repeat_softened` so Clochette does not become mute just because she asked a nearby question recently.
 
@@ -53,8 +58,12 @@ Phone test procedure:
 21. If microphone permission is missing, confirm Android is sent to the visible permission path instead of opening a hidden microphone.
 22. Wait for inactivity and confirm Clochette folds into a small portrait bubble.
 23. Trigger a phrase or tap the portrait and confirm Clochette expands again.
+24. Tap `Tester Octopus local` and confirm the Octopus panel shows one final phrase/source/provider/Guardian decision.
+25. Tap `Copier diagnostic` and paste it into a note/chat if needed.
+26. Leave Gateway URL empty, tap `Tester le relais`, and confirm the app shows fallback local instead of crashing.
+27. Configure a gateway URL later and confirm `/api/health` changes the relay status.
 
 Notion/API status:
 - Notion sync and external AI providers are still not active in this APK.
-- Current priority is local proactive speech and visible diagnostics.
+- External providers are routed through `clochette-gateway/`; keys stay server-side.
 - No API key is stored in the repository or APK.

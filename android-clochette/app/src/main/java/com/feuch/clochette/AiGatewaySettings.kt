@@ -10,6 +10,8 @@ data class AiGatewayConfig(
     val lastProviderUsed: String? = null,
     val lastStatus: String? = null,
     val lastLatencyMs: Long? = null,
+    val lastError: String? = null,
+    val lastRawResponse: String? = null,
 )
 
 object AiGatewaySettings {
@@ -30,6 +32,8 @@ object AiGatewaySettings {
     private const val KEY_LAST_PROVIDER = "last_provider_used"
     private const val KEY_LAST_STATUS = "last_status"
     private const val KEY_LAST_LATENCY = "last_latency_ms"
+    private const val KEY_LAST_ERROR = "last_error"
+    private const val KEY_LAST_RAW_RESPONSE = "last_raw_response"
 
     fun read(context: Context): AiGatewayConfig {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -42,6 +46,8 @@ object AiGatewaySettings {
             lastProviderUsed = prefs.getString(KEY_LAST_PROVIDER, null),
             lastStatus = prefs.getString(KEY_LAST_STATUS, null),
             lastLatencyMs = latency,
+            lastError = prefs.getString(KEY_LAST_ERROR, null),
+            lastRawResponse = prefs.getString(KEY_LAST_RAW_RESPONSE, null),
         )
     }
 
@@ -55,10 +61,19 @@ object AiGatewaySettings {
             .putString(KEY_LAST_PROVIDER, config.lastProviderUsed)
             .putString(KEY_LAST_STATUS, config.lastStatus)
             .putLong(KEY_LAST_LATENCY, config.lastLatencyMs ?: -1L)
+            .putString(KEY_LAST_ERROR, config.lastError)
+            .putString(KEY_LAST_RAW_RESPONSE, config.lastRawResponse)
             .apply()
     }
 
-    fun record(context: Context, provider: String?, status: String, latencyMs: Long? = null) {
+    fun record(
+        context: Context,
+        provider: String?,
+        status: String,
+        latencyMs: Long? = null,
+        error: String? = null,
+        rawResponse: String? = null,
+    ) {
         val current = read(context)
         save(
             context,
@@ -66,7 +81,14 @@ object AiGatewaySettings {
                 lastProviderUsed = provider ?: current.lastProviderUsed,
                 lastStatus = status,
                 lastLatencyMs = latencyMs,
+                lastError = error,
+                lastRawResponse = rawResponse ?: current.lastRawResponse,
             ),
         )
+    }
+
+    fun recordAndRead(context: Context, provider: String?, status: String): AiGatewayConfig {
+        record(context, provider, status)
+        return read(context)
     }
 }

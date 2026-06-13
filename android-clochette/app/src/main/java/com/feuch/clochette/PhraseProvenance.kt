@@ -9,9 +9,11 @@ enum class PhraseSource(val id: String) {
     AI_GATEWAY("ai_gateway"),
     MISTRAL("mistral"),
     GEMINI("gemini"),
+    LOCAL_NATURAL("local_natural"),
     LOCAL_FALLBACK("local_fallback"),
     LOCAL_PROACTIVE("local_proactive"),
     LOCAL_PROACTIVE_TEST("local_proactive_test"),
+    OCTOPUS_SAFE_TEST("octopus_safe_test"),
     NOW_PLAYING("now_playing"),
     UNKNOWN("unknown"),
 }

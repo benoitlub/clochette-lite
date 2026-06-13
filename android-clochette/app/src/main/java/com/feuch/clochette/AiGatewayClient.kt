@@ -10,6 +10,36 @@ import kotlin.system.measureTimeMillis
 class AiGatewayClient(context: Context) {
     private val appContext = context.applicationContext
 
+    fun health(): GatewayHealthResult {
+        val config = AiGatewaySettings.read(appContext)
+        val baseUrl = config.gatewayUrl.trim().trimEnd('/')
+        if (!config.enabled) {
+            AiGatewaySettings.record(appContext, "aucun", "désactivée", 0L)
+            return GatewayHealthResult(false, "désactivée", "IA distante désactivée")
+        }
+        if (baseUrl.isBlank()) {
+            AiGatewaySettings.record(appContext, "fallback", "Non configuré", 0L, "Gateway URL vide")
+            return GatewayHealthResult(false, "Non configuré", "Gateway URL vide")
+        }
+        var result = GatewayHealthResult(false, "Erreur", "Réponse absente")
+        val latency = measureTimeMillis {
+            result = runCatching {
+                getHealth("$baseUrl/api/health")
+            }.getOrElse {
+                GatewayHealthResult(false, "Erreur", it.message ?: it.javaClass.simpleName)
+            }
+        }
+        AiGatewaySettings.record(
+            appContext,
+            result.service.takeIf { it.isNotBlank() } ?: config.preferredProvider,
+            if (result.ok) "OK" else "Erreur",
+            latency,
+            error = result.error,
+            rawResponse = result.rawResponse,
+        )
+        return result
+    }
+
     fun generateRemark(request: AiRemarkRequest): AiRemarkResult? {
         val config = AiGatewaySettings.read(appContext)
         if (!config.enabled) {
@@ -23,15 +53,18 @@ class AiGatewayClient(context: Context) {
         }
         val baseUrl = config.gatewayUrl.trim().trimEnd('/')
         if (baseUrl.isBlank()) {
-            AiGatewaySettings.record(appContext, "fallback", "missing_gateway_url")
+            AiGatewaySettings.record(appContext, "fallback", "missing_gateway_url", error = "Gateway URL vide")
             return null
         }
 
         var result: AiRemarkResult? = null
         val latency = measureTimeMillis {
             result = runCatching {
-                postJson("$baseUrl/generate-remark", payload(request, config))
-            }.getOrNull()
+                postJson("$baseUrl/api/generate-remark", payload(request, config))
+            }.getOrElse {
+                AiGatewaySettings.record(appContext, "fallback", "erreur", error = it.message ?: it.javaClass.simpleName)
+                null
+            }
         }
         val provider = result?.providerUsed ?: "fallback"
         AiGatewaySettings.record(
@@ -39,8 +72,35 @@ class AiGatewayClient(context: Context) {
             provider,
             if (result != null) "OK" else "fallback local",
             latency,
+            rawResponse = result?.line,
         )
         return result
+    }
+
+    private fun getHealth(endpoint: String): GatewayHealthResult {
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = TIMEOUT_MS
+            readTimeout = TIMEOUT_MS
+            doInput = true
+            setRequestProperty("Accept", "application/json")
+        }
+        return try {
+            val raw = if (connection.responseCode in 200..299) {
+                connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            } else {
+                connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            }
+            val json = runCatching { JSONObject(raw) }.getOrNull()
+            GatewayHealthResult(
+                ok = connection.responseCode in 200..299 && json?.optBoolean("ok", false) == true,
+                service = json?.optString("service", "clochette-gateway").orEmpty(),
+                error = json?.optString("error").orEmpty().ifBlank { null },
+                rawResponse = raw.take(240),
+            )
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun postJson(endpoint: String, payload: JSONObject): AiRemarkResult? {
@@ -59,6 +119,7 @@ class AiGatewayClient(context: Context) {
             }
             if (connection.responseCode !in 200..299) return null
             val raw = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            AiGatewaySettings.record(appContext, "gateway", "réponse reçue", rawResponse = raw.take(240))
             parseResult(JSONObject(raw))
         } finally {
             connection.disconnect()
@@ -138,3 +199,10 @@ class AiGatewayClient(context: Context) {
                 "Réponds en moins de 25 mots sauf demande contraire."
     }
 }
+
+data class GatewayHealthResult(
+    val ok: Boolean,
+    val service: String,
+    val error: String? = null,
+    val rawResponse: String? = null,
+)

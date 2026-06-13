@@ -81,6 +81,7 @@ private fun ClochetteApp(startSection: String?) {
     var aiConfig by remember { mutableStateOf(AiGatewaySettings.read(context)) }
     var aiTestLine by remember { mutableStateOf<String?>(null) }
     var runtimeStatus by remember { mutableStateOf(ClochetteRuntimeStatus.read(context)) }
+    var octopusDiagnostics by remember { mutableStateOf(OctopusDiagnosticsStore.read(context)) }
     var relationshipModeId by remember { mutableStateOf(RelationshipModeSettings.selectedId(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val relationshipModes = remember(refresh) { RelationshipModeSettings.modes(context) }
@@ -114,6 +115,7 @@ private fun ClochetteApp(startSection: String?) {
         ClochetteRuntimeStatus.recordAction(context, action)
         runtimeStatus = ClochetteRuntimeStatus.read(context)
         aiConfig = AiGatewaySettings.read(context)
+        octopusDiagnostics = OctopusDiagnosticsStore.read(context)
         refresh++
     }
 
@@ -290,6 +292,74 @@ private fun ClochetteApp(startSection: String?) {
         }, 2_500L)
     }
 
+    fun testOctopusLocal() {
+        val decision = OctopusCore.intervene(
+            context = context,
+            trigger = OctopusCore.TRIGGER_PROACTIVE_TEST,
+            forceSpeak = false,
+        )
+        currentLine = decision.finalLine
+        aiTestLine = decision.finalLine
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+        aiConfig = AiGatewaySettings.read(context)
+        octopusDiagnostics = OctopusDiagnosticsStore.read(context)
+        refresh++
+    }
+
+    fun testOctopusSafeVoice() {
+        val decision = OctopusCore.intervene(
+            context = context,
+            trigger = OctopusCore.TRIGGER_SAFE_VOICE_TEST,
+            forceSpeak = true,
+        )
+        currentLine = decision.finalLine
+        aiTestLine = decision.finalLine
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+        octopusDiagnostics = OctopusDiagnosticsStore.read(context)
+        refresh++
+    }
+
+    fun testRelayApi() {
+        aiConfig = AiGatewaySettings.recordAndRead(context, "gateway", "Test en cours")
+        thread(name = "clochette-gateway-health") {
+            val health = OctopusCore.gatewayHealth(context)
+            Handler(Looper.getMainLooper()).post {
+                aiConfig = AiGatewaySettings.read(context)
+                octopusDiagnostics = OctopusDiagnosticsStore.read(context)
+                aiTestLine = if (health.ok) {
+                    "Relais OK : ${health.service}"
+                } else {
+                    "Relais indisponible · fallback local actif"
+                }
+                refresh++
+            }
+        }
+    }
+
+    fun copyOctopusDiagnostic() {
+        val copied = OctopusDiagnosticsStore.copyToClipboard(context)
+        Toast.makeText(context, if (copied) "Diagnostic copié" else "Copie impossible", Toast.LENGTH_SHORT).show()
+    }
+
+    fun testOverlayAppearance() {
+        context.startService(
+            Intent(context, ClochetteOverlayService::class.java)
+                .setAction(ClochetteOverlayService.ACTION_SHOW)
+                .putExtra(ClochetteRemarkStore.EXTRA_LINE, currentLine ?: ClochetteRemarkStore.latest(context)),
+        )
+        ClochetteRuntimeStatus.recordAction(context, "overlay test")
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+    }
+
+    fun testOverlayMic() {
+        context.startService(
+            Intent(context, ClochetteOverlayService::class.java)
+                .setAction(ClochetteOverlayService.ACTION_OPEN_MIC),
+        )
+        ClochetteRuntimeStatus.recordAction(context, "micro overlay test")
+        runtimeStatus = ClochetteRuntimeStatus.read(context)
+    }
+
     MaterialTheme {
         Surface(
             modifier = Modifier
@@ -320,6 +390,15 @@ private fun ClochetteApp(startSection: String?) {
                     latestSource = ClochetteRemarkStore.latestSource(context).id,
                 )
 
+                OctopusDiagnosticPanel(
+                    diagnostics = octopusDiagnostics,
+                    onCopy = { copyOctopusDiagnostic() },
+                    onTestLocal = { testOctopusLocal() },
+                    onTestSafeVoice = { testOctopusSafeVoice() },
+                    onTestOverlay = { testOverlayAppearance() },
+                    onTestMic = { testOverlayMic() },
+                )
+
                 ClochetteControlPanel(
                     context = context,
                     currentLine = currentLine,
@@ -342,6 +421,7 @@ private fun ClochetteApp(startSection: String?) {
                     testLine = aiTestLine,
                     onConfig = { updateAiConfig(it) },
                     onTest = { generateLineWithAi(autoSpeak = false, testOnly = true) },
+                    onRelayTest = { testRelayApi() },
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -602,6 +682,54 @@ private fun ProactiveDiagnosticPanel(
 }
 
 @Composable
+private fun OctopusDiagnosticPanel(
+    diagnostics: OctopusDiagnostics,
+    onCopy: () -> Unit,
+    onTestLocal: () -> Unit,
+    onTestSafeVoice: () -> Unit,
+    onTestOverlay: () -> Unit,
+    onTestMic: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF0FF))) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Octopus / diagnostic", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Dernier trigger : ${diagnostics.lastTrigger}")
+            Text("Source phrase : ${diagnostics.lastPhraseSource}")
+            Text("Provider : ${diagnostics.lastProviderUsed}")
+            Text("Guardian : ${diagnostics.lastGuardianReason}")
+            Text("Voix : ${diagnostics.lastVoiceStatus} · shouldSpeak=${diagnostics.lastShouldSpeak}")
+            Text("Micro : ${diagnostics.lastMicStatus}")
+            Text("Overlay : ${diagnostics.lastOverlayState}")
+            Text("Gateway : ${diagnostics.lastGatewayStatus}")
+            Text("Dernière transcription : ${diagnostics.lastTranscription.ifBlank { "-" }}")
+            if (diagnostics.lastError.isNotBlank()) {
+                Text("Dernière erreur : ${diagnostics.lastError}", color = Color(0xFF8A4B25))
+            }
+            if (diagnostics.lastFinalLine.isNotBlank()) {
+                Text("Phrase finale : ${diagnostics.lastFinalLine}")
+            }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onTestLocal) {
+                Text("Tester Octopus local")
+            }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onTestSafeVoice) {
+                Text("Forcer phrase sûre parlée")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onTestOverlay) {
+                    Text("Tester apparition overlay")
+                }
+                OutlinedButton(onClick = onTestMic) {
+                    Text("Tester micro transcription")
+                }
+            }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCopy) {
+                Text("Copier diagnostic")
+            }
+        }
+    }
+}
+
+@Composable
 private fun ClochetteControlPanel(
     context: Context,
     currentLine: String?,
@@ -831,10 +959,15 @@ private fun AiGatewayPanel(
     testLine: String?,
     onConfig: (AiGatewayConfig) -> Unit,
     onTest: () -> Unit,
+    onRelayTest: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("IA de Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Relais API Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Les clés Mistral/Gemini ne sont pas stockées dans l’application. Elles doivent rester côté serveur, dans la gateway.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -877,11 +1010,20 @@ private fun AiGatewayPanel(
             Text("Dernier statut : ${config.lastStatus ?: "non testé"}")
             Text("Dernière latence : ${config.lastLatencyMs?.let { "$it ms" } ?: "-"}")
             Text("Dernière source : $latestSource")
+            Text("Dernière réponse brute : ${config.lastRawResponse?.take(120) ?: "-"}")
+            config.lastError?.takeIf { it.isNotBlank() }?.let {
+                Text("Dernière erreur : $it", color = Color(0xFF8A4B25))
+            }
             if (config.gatewayUrl.isBlank()) {
                 Text("IA distante non configurée · fallback local actif", color = Color(0xFF8A4B25))
             }
-            Button(onClick = onTest) {
-                Text("Tester l’IA")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onRelayTest) {
+                    Text("Tester le relais")
+                }
+                OutlinedButton(onClick = onTest) {
+                    Text("Tester génération")
+                }
             }
             testLine?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
