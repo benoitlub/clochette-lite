@@ -27,6 +27,7 @@ class PersonaModuleLoader(context: Context) {
 
     companion object {
         private const val MODULE_DIR = "personas/clochette"
+        private const val BANK_DIR = "$MODULE_DIR/phrase_banks"
 
         private data class ModuleFile(
             val label: String,
@@ -35,6 +36,9 @@ class PersonaModuleLoader(context: Context) {
 
         private fun clochetteModule(fileName: String): ModuleFile =
             ModuleFile(fileName, "$MODULE_DIR/$fileName")
+
+        private fun phraseBank(fileName: String): ModuleFile =
+            ModuleFile("phrase_banks/$fileName", "$BANK_DIR/$fileName")
 
         private val MODULE_FILES = listOf(
             clochetteModule("interaction.json"),
@@ -51,6 +55,15 @@ class PersonaModuleLoader(context: Context) {
             clochetteModule("library_schema.json"),
             clochetteModule("persona_traits.json"),
             clochetteModule("appearance_library.json"),
+            phraseBank("natural.json"),
+            phraseBank("teasing.json"),
+            phraseBank("soft.json"),
+            phraseBank("badass.json"),
+            phraseBank("focus.json"),
+            phraseBank("fatigue.json"),
+            phraseBank("creative.json"),
+            phraseBank("micro_questions.json"),
+            phraseBank("silence_responses.json"),
             ModuleFile("shared_library_model.json", "personas/shared_library_model.json"),
             ModuleFile("octopus/archivist_contract.json", "octopus/archivist_contract.json"),
             ModuleFile("octopus/dreamer_contract.json", "octopus/dreamer_contract.json"),
