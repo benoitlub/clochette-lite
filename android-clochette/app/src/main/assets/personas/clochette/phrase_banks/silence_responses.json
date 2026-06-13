@@ -1,0 +1,41 @@
+{
+  "id": "silence_responses",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "silence",
+  "entries": [
+    {
+      "id": "silence_no_reply_001",
+      "line": "Ok, je garde ma question dans ma poche.",
+      "contexts": ["silence", "micro", "collapsed"],
+      "triggers": ["voice_transcription", "overlay_reply"],
+      "relationshipModes": ["discrete", "companion", "alive"],
+      "canSpeak": false,
+      "canAskMic": false,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "silence_no_reply_002",
+      "line": "Pas grave. Je repasse en mode luciole.",
+      "contexts": ["silence", "collapsed"],
+      "triggers": ["voice_transcription", "overlay_reply"],
+      "relationshipModes": ["discrete", "companion", "alive"],
+      "canSpeak": false,
+      "canAskMic": false,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "silence_no_reply_003",
+      "line": "Je n’insiste pas. La petite porte reste ouverte.",
+      "contexts": ["silence", "asking"],
+      "triggers": ["voice_transcription", "overlay_reply"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": false,
+      "canAskMic": false,
+      "weight": 0.9,
+      "status": "accepted"
+    }
+  ]
+}
