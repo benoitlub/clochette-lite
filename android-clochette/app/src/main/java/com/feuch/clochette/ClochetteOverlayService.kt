@@ -37,6 +37,7 @@ class ClochetteOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var overlay: View? = null
     private var bubbleView: View? = null
+    private var spriteView: ImageView? = null
     private var lineView: TextView? = null
     private var sourceView: TextView? = null
     private var replyPanel: LinearLayout? = null
@@ -45,7 +46,7 @@ class ClochetteOverlayService : Service() {
     private var layoutParams: WindowManager.LayoutParams? = null
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
-    private val hideBubbleRunnable = Runnable { bubbleView?.visibility = View.GONE }
+    private val hideBubbleRunnable = Runnable { collapseOverlayIfIdle() }
     private val stopListeningRunnable = Runnable { stopVoiceReply("Temps écoulé.") }
 
     private val lineReceiver = object : BroadcastReceiver() {
@@ -95,6 +96,7 @@ class ClochetteOverlayService : Service() {
         overlay?.let { runCatching { windowManager.removeView(it) } }
         overlay = null
         bubbleView = null
+        spriteView = null
         lineView = null
         sourceView = null
         replyPanel = null
@@ -187,6 +189,7 @@ class ClochetteOverlayService : Service() {
                 true
             }
         }
+        spriteView = sprite
 
         val bubbleParams = LinearLayout.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -209,6 +212,7 @@ class ClochetteOverlayService : Service() {
         Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
         overlay = root
         layoutParams = params
+        expandSprite()
         scheduleBubbleHide()
     }
 
@@ -348,12 +352,46 @@ class ClochetteOverlayService : Service() {
 
     private fun showBubbleTemporarily() {
         bubbleView?.visibility = View.VISIBLE
+        expandSprite()
         scheduleBubbleHide()
     }
 
     private fun scheduleBubbleHide() {
         handler.removeCallbacks(hideBubbleRunnable)
         handler.postDelayed(hideBubbleRunnable, bubbleHideDelay())
+    }
+
+    private fun collapseOverlayIfIdle() {
+        if (listening || replyPanel?.visibility == View.VISIBLE) {
+            handler.postDelayed(hideBubbleRunnable, BUBBLE_AUTO_HIDE_MS)
+            return
+        }
+        bubbleView?.visibility = View.GONE
+        collapseSprite()
+    }
+
+    private fun expandSprite() {
+        spriteView?.apply {
+            layoutParams = LinearLayout.LayoutParams(EXPANDED_SPRITE_WIDTH_DP.dp(), EXPANDED_SPRITE_HEIGHT_DP.dp()).apply {
+                gravity = Gravity.BOTTOM
+            }
+            background = null
+            setPadding(0, 0, 0, 0)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            requestLayout()
+        }
+    }
+
+    private fun collapseSprite() {
+        spriteView?.apply {
+            layoutParams = LinearLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), COLLAPSED_SPRITE_DP.dp()).apply {
+                gravity = Gravity.BOTTOM
+            }
+            background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), COLLAPSED_SPRITE_DP.dp())
+            setPadding(5.dp(), 5.dp(), 5.dp(), 5.dp())
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            requestLayout()
+        }
     }
 
     private fun bubbleHideDelay(): Long {
@@ -437,8 +475,13 @@ class ClochetteOverlayService : Service() {
         if (!listening) return
         listening = false
         replyStatusView?.text = message
+        replyTranscriptView?.text = "Pas grave. Je reste là, sans faire de scène."
         ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
         recognizer?.stopListening()
+        handler.postDelayed({
+            replyPanel?.visibility = View.GONE
+            scheduleBubbleHide()
+        }, REPLY_IDLE_COLLAPSE_MS)
     }
 
     private fun closeVoiceReplyPanel() {
@@ -537,8 +580,12 @@ class ClochetteOverlayService : Service() {
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
         const val ACTION_OPEN_MIC = "com.feuch.clochette.overlay.OPEN_MIC"
+        private const val COLLAPSED_SPRITE_DP = 58
+        private const val EXPANDED_SPRITE_WIDTH_DP = 78
+        private const val EXPANDED_SPRITE_HEIGHT_DP = 140
         private const val BUBBLE_AUTO_HIDE_MS = 25_000L
         private const val DIAGNOSTIC_BUBBLE_HIDE_MS = 60_000L
         private const val MAX_LISTEN_MS = 15_000L
+        private const val REPLY_IDLE_COLLAPSE_MS = 5_000L
     }
 }

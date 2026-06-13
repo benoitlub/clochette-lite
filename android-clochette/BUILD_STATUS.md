@@ -23,6 +23,9 @@ Correction:
 - The `Micro` button now opens a compact voice reply panel inside the overlay instead of navigating to the full `VoiceReplyActivity` page when microphone permission is already granted.
 - Proactive questions that open the mic now ask the overlay to open its mic panel.
 - The sprite can be dragged even when the text bubble is hidden.
+- At rest, the overlay folds into a small portrait bubble instead of leaving the full Clochette silhouette on screen.
+- Clochette expands to the full silhouette only while a phrase, diagnostic, drag interaction, or voice reply panel is visible.
+- If the microphone times out without a reply, the overlay shows a neutral local line and does not reopen the microphone automatically.
 - Prototype fast proactive mode is enabled. In `BAVARDE`, the next attempts are roughly 35 to 60 seconds apart after the first 10-second attempt.
 - Local proactive questions are varied, and local `anti_repeat` blocks can be softened as `approved_repeat_softened` so Clochette does not become mute just because she asked a nearby question recently.
 
@@ -48,6 +51,8 @@ Phone test procedure:
 19. Hide the bubble, then drag Clochette by the sprite.
 20. Tap `Micro` in the overlay and confirm the reply UI stays in the overlay instead of opening a full page.
 21. If microphone permission is missing, confirm Android is sent to the visible permission path instead of opening a hidden microphone.
+22. Wait for inactivity and confirm Clochette folds into a small portrait bubble.
+23. Trigger a phrase or tap the portrait and confirm Clochette expands again.
 
 Notion/API status:
 - Notion sync and external AI providers are still not active in this APK.
