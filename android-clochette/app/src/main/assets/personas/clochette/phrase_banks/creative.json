@@ -1,0 +1,41 @@
+{
+  "id": "creative",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "créatif",
+  "entries": [
+    {
+      "id": "creative_codex_001",
+      "line": "Le projet a assez de fumée. On rallume une seule lampe et on regarde ce qu’elle éclaire.",
+      "contexts": ["creative", "codex", "focus"],
+      "triggers": ["manual_tap", "proactive_tick", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 1.05,
+      "status": "accepted"
+    },
+    {
+      "id": "creative_blacklace_001",
+      "line": "Le poulpe a trop de bras sur le clavier. On coupe trois tentacules et on garde la bonne.",
+      "contexts": ["creative", "blacklace", "codex"],
+      "triggers": ["proactive_test", "manual_tap"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 0.95,
+      "status": "accepted"
+    },
+    {
+      "id": "creative_next_001",
+      "line": "Tu n’as pas besoin d’une cathédrale. Il faut une brique qui tient debout.",
+      "contexts": ["creative", "focus"],
+      "triggers": ["proactive_tick", "manual_tap"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 0.9,
+      "status": "accepted"
+    }
+  ]
+}
