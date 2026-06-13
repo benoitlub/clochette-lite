@@ -1,0 +1,41 @@
+{
+  "id": "focus",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "focus",
+  "entries": [
+    {
+      "id": "focus_next_action_001",
+      "line": "Le bon test maintenant, c’est une seule action. Laquelle ?",
+      "contexts": ["focus", "codex", "creative"],
+      "triggers": ["proactive_tick", "proactive_test", "manual_tap"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.15,
+      "status": "accepted"
+    },
+    {
+      "id": "focus_app_long_001",
+      "line": "Tu es resté longtemps sur le même fil. On garde, on coupe, ou on teste ?",
+      "contexts": ["app_long", "focus"],
+      "triggers": ["proactive_tick", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.05,
+      "status": "accepted"
+    },
+    {
+      "id": "focus_switching_001",
+      "line": "Trois portes ouvertes, zéro sortie claire. On en ferme deux ?",
+      "contexts": ["switching", "focus"],
+      "triggers": ["proactive_tick", "manual_tap"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.0,
+      "status": "accepted"
+    }
+  ]
+}
