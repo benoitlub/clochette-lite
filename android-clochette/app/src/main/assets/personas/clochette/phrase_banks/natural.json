@@ -1,0 +1,52 @@
+{
+  "id": "natural",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "naturel",
+  "entries": [
+    {
+      "id": "natural_focus_001",
+      "line": "Tu veux qu’on reprenne le fil doucement ?",
+      "contexts": ["focus", "creative"],
+      "triggers": ["manual_tap", "proactive_tick", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "natural_app_long_001",
+      "line": "Tu es sur cette appli depuis un moment. Tu veux continuer ou faire le point ?",
+      "contexts": ["app_long", "focus"],
+      "triggers": ["proactive_tick", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "natural_switching_001",
+      "line": "Tu changes souvent d’application. Tu cherches quelque chose ou tu évites quelque chose ?",
+      "contexts": ["switching", "focus"],
+      "triggers": ["proactive_tick", "manual_tap", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.1,
+      "status": "accepted"
+    },
+    {
+      "id": "natural_idle_001",
+      "line": "Je reste en bulle. Appuie sur moi si tu veux que je sorte du bocal.",
+      "contexts": ["idle", "collapsed"],
+      "triggers": ["manual_tap", "overlay_reply"],
+      "relationshipModes": ["discrete", "companion", "alive"],
+      "canSpeak": false,
+      "canAskMic": false,
+      "weight": 0.8,
+      "status": "accepted"
+    }
+  ]
+}
