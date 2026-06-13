@@ -1,0 +1,16 @@
+{
+  "name": "clochette-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "vercel dev",
+    "check": "node -c api/health.js && node -c api/generate-remark.js && node -c api/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  }
+}
