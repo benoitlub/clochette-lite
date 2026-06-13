@@ -83,24 +83,23 @@ object PhraseBankSelector {
         return score
     }
 
-    private fun contextTags(trigger: String, state: ContextState, preferQuestion: Boolean): Set<String> = buildSet {
-        add(trigger)
-        add("local")
-        add("focus")
+    private fun contextTags(trigger: String, state: ContextState, preferQuestion: Boolean): Set<String> {
+        val tags = mutableSetOf(trigger, "local", "focus")
         if (preferQuestion) {
-            add("micro")
-            add("asking")
+            tags += "micro"
+            tags += "asking"
         }
-        if (state.durationMinutes >= 20) add("app_long")
-        if (state.recentAppSwitches >= 4) add("switching")
-        if (state.dayPeriod == DayPeriod.NIGHT) add("night")
-        if (state.userEnergyEstimate == UserEnergyEstimate.LOW) add("fatigue")
+        if (state.durationMinutes >= 20) tags += "app_long"
+        if (state.recentAppSwitches >= 4) tags += "switching"
+        if (state.dayPeriod == DayPeriod.NIGHT) tags += "night"
+        if (state.userEnergyEstimate == UserEnergyEstimate.LOW) tags += "fatigue"
         val app = state.currentAppName.orEmpty().lowercase()
-        if ("codex" in app) add("codex")
-        if ("chatgpt" in app || "chat gpt" in app) add("creative")
-        if ("github" in app) add("codex")
-        if ("notion" in app) add("creative")
-        if ("blacklace" in app) add("blacklace")
+        if ("codex" in app) tags += "codex"
+        if ("chatgpt" in app || "chat gpt" in app) tags += "creative"
+        if ("github" in app) tags += "codex"
+        if ("notion" in app) tags += "creative"
+        if ("blacklace" in app) tags += "blacklace"
+        return tags
     }
 
     private fun loadEntries(context: Context): List<PhraseBankEntry> {
@@ -131,6 +130,8 @@ object PhraseBankSelector {
     }
 
     private fun String.normalizedLine(): String = lowercase().trim().replace(Regex("\\s+"), " ")
+
+    private const val BASE_DIR = "personas/clochette/phrase_banks"
 
     private data class Bank(
         val id: String,
@@ -166,8 +167,6 @@ object PhraseBankSelector {
         Bank("creative", "creative.json", PhraseSource.LOCAL_PROACTIVE),
         Bank("silence_responses", "silence_responses.json", PhraseSource.LOCAL_NATURAL),
     )
-
-    private const val BASE_DIR = "personas/clochette/phrase_banks"
 }
 
 private fun <T> JSONArray?.toObjectList(mapper: (JSONObject) -> T): List<T> {
