@@ -24,6 +24,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -36,6 +37,7 @@ class ClochetteOverlayService : Service() {
     private lateinit var memory: ClochetteMemory
     private val handler = Handler(Looper.getMainLooper())
     private var overlay: View? = null
+    private var rootLayout: LinearLayout? = null
     private var bubbleView: View? = null
     private var spriteView: ImageView? = null
     private var lineView: TextView? = null
@@ -44,7 +46,8 @@ class ClochetteOverlayService : Service() {
     private var replyPanel: LinearLayout? = null
     private var replyStatusView: TextView? = null
     private var replyTranscriptView: TextView? = null
-    private var replyMicButton: Button? = null
+    private var spriteContainerView: FrameLayout? = null
+    private var micBadgeView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
@@ -98,6 +101,7 @@ class ClochetteOverlayService : Service() {
         recognizer = null
         overlay?.let { runCatching { windowManager.removeView(it) } }
         overlay = null
+        rootLayout = null
         bubbleView = null
         spriteView = null
         lineView = null
@@ -106,7 +110,8 @@ class ClochetteOverlayService : Service() {
         replyPanel = null
         replyStatusView = null
         replyTranscriptView = null
-        replyMicButton = null
+        spriteContainerView = null
+        micBadgeView = null
         layoutParams = null
         super.onDestroy()
     }
@@ -133,6 +138,7 @@ class ClochetteOverlayService : Service() {
             gravity = Gravity.BOTTOM or Gravity.END
             setPadding(6.dp(), 6.dp(), 6.dp(), 6.dp())
         }
+        rootLayout = root
         val bubbleMaxWidth = (resources.displayMetrics.widthPixels * 0.68f)
             .toInt()
             .coerceIn(220.dp(), 340.dp())
@@ -185,16 +191,35 @@ class ClochetteOverlayService : Service() {
             adjustViewBounds = true
             setPadding(0, 0, 0, 0)
             elevation = 14f
-            setOnClickListener {
-                showBubbleTemporarily()
-                speakNextLine()
-            }
-            setOnLongClickListener {
-                pauseOverlay()
-                true
-            }
         }
         spriteView = sprite
+        val micBadge = TextView(this).apply {
+            text = "\uD83C\uDFA4"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(86, 48, 132))
+            background = micBadgeBackground(recording = false)
+            elevation = 18f
+            visibility = View.GONE
+        }
+        micBadgeView = micBadge
+        val spriteContainer = FrameLayout(this).apply {
+            addView(
+                sprite,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            addView(
+                micBadge,
+                FrameLayout.LayoutParams(MIC_BADGE_DP.dp(), MIC_BADGE_DP.dp(), Gravity.BOTTOM or Gravity.END).apply {
+                    rightMargin = 2.dp()
+                    bottomMargin = 3.dp()
+                },
+            )
+        }
+        spriteContainerView = spriteContainer
 
         val bubbleParams = LinearLayout.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -209,9 +234,9 @@ class ClochetteOverlayService : Service() {
         }
 
         root.addView(bubble, bubbleParams)
-        root.addView(sprite, spriteParams)
+        root.addView(spriteContainer, spriteParams)
 
-        installDragBehavior(root, sprite, params)
+        installDragBehavior(root, spriteContainer, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
         Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
@@ -231,45 +256,6 @@ class ClochetteOverlayService : Service() {
         setAllCaps(false)
         setPadding(6.dp(), 3.dp(), 6.dp(), 3.dp())
         setOnClickListener { onClick() }
-    }
-
-    private fun holdToTalkButton(): Button = Button(this).apply {
-        text = "🎙"
-        textSize = 22f
-        minHeight = 0
-        minWidth = 0
-        minimumHeight = 0
-        minimumWidth = 0
-        setAllCaps(false)
-        setTextColor(Color.rgb(86, 48, 132))
-        setPadding(0, 0, 0, 1.dp())
-        background = micButtonBackground(recording = false)
-        elevation = 4f
-        contentDescription = "Maintenir pour parler"
-        layoutParams = LinearLayout.LayoutParams(MIC_BUTTON_DP.dp(), MIC_BUTTON_DP.dp()).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
-        replyMicButton = this
-        setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    showVoiceReplyOverlay(autoStart = false)
-                    setMicButtonRecording(true)
-                    startVoiceReply(
-                        status = "Je t’écoute tant que tu maintiens.",
-                        hint = "Relâche pour envoyer. Je note la transcription ici.",
-                    )
-                    true
-                }
-                MotionEvent.ACTION_UP,
-                MotionEvent.ACTION_CANCEL -> {
-                    finishManualVoiceReply()
-                    setMicButtonRecording(false)
-                    true
-                }
-                else -> true
-            }
-        }
     }
 
     private fun buildReplyPanel(): LinearLayout =
@@ -297,16 +283,9 @@ class ClochetteOverlayService : Service() {
                 setPadding(8.dp(), 5.dp(), 8.dp(), 5.dp())
                 visibility = View.GONE
             }
-            val micRow = LinearLayout(this@ClochetteOverlayService).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(0, 5.dp(), 0, 0)
-                addView(holdToTalkButton())
-            }
 
             addView(replyStatusView)
             addView(replyTranscriptView)
-            addView(micRow)
         }
 
     private fun installDragBehavior(root: View, sprite: View, params: WindowManager.LayoutParams) {
@@ -319,7 +298,24 @@ class ClochetteOverlayService : Service() {
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
 
         val listener = View.OnTouchListener { touched, event ->
-            when (event.action) {
+            if (micOnlyMode && touched == sprite) {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        setMicButtonRecording(true)
+                        startVoiceReply(
+                            status = "J’écoute tant que tu maintiens.",
+                            hint = "",
+                        )
+                        true
+                    }
+                    MotionEvent.ACTION_UP,
+                    MotionEvent.ACTION_CANCEL -> {
+                        finishManualVoiceReply()
+                        true
+                    }
+                    else -> true
+                }
+            } else when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     showBubbleTemporarily()
                     startX = params.x
@@ -392,6 +388,10 @@ class ClochetteOverlayService : Service() {
 
     private fun enterMicOnlyMode() {
         micOnlyMode = true
+        rootLayout?.apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.BOTTOM or Gravity.END
+        }
         bubbleView?.apply {
             visibility = View.VISIBLE
             background = null
@@ -406,12 +406,16 @@ class ClochetteOverlayService : Service() {
         if (replyTranscriptView?.text.isNullOrBlank()) {
             replyTranscriptView?.visibility = View.GONE
         }
-        expandSprite()
+        useMicSprite(recording = false)
         handler.removeCallbacks(hideBubbleRunnable)
     }
 
     private fun exitMicOnlyMode() {
         micOnlyMode = false
+        rootLayout?.apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.BOTTOM or Gravity.END
+        }
         bubbleView?.apply {
             visibility = View.VISIBLE
             background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), 20.dp())
@@ -425,6 +429,7 @@ class ClochetteOverlayService : Service() {
         replyStatusView?.visibility = View.GONE
         replyTranscriptView?.visibility = View.GONE
         setMicButtonRecording(false)
+        expandSprite()
         scheduleBubbleHide()
     }
 
@@ -443,28 +448,66 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun expandSprite() {
-        spriteView?.apply {
-            setImageResource(R.drawable.clochette_overlay_model)
+        spriteContainerView?.apply {
             layoutParams = LinearLayout.LayoutParams(EXPANDED_SPRITE_WIDTH_DP.dp(), EXPANDED_SPRITE_HEIGHT_DP.dp()).apply {
                 gravity = Gravity.BOTTOM
             }
             background = null
             setPadding(0, 0, 0, 0)
+            requestLayout()
+        }
+        spriteView?.apply {
+            setImageResource(R.drawable.clochette_overlay_model)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            background = null
+            setPadding(0, 0, 0, 0)
             scaleType = ImageView.ScaleType.FIT_CENTER
             requestLayout()
         }
+        micBadgeView?.visibility = View.GONE
     }
 
     private fun collapseSprite() {
-        spriteView?.apply {
-            setImageResource(R.drawable.clochette_blacklace_portrait)
+        spriteContainerView?.apply {
             layoutParams = LinearLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), COLLAPSED_SPRITE_DP.dp()).apply {
                 gravity = Gravity.BOTTOM
             }
             background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), COLLAPSED_SPRITE_DP.dp())
             setPadding(5.dp(), 5.dp(), 5.dp(), 5.dp())
+            requestLayout()
+        }
+        spriteView?.apply {
+            setImageResource(R.drawable.clochette_blacklace_portrait)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            background = null
+            setPadding(0, 0, 0, 0)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             requestLayout()
+        }
+        micBadgeView?.visibility = View.GONE
+    }
+
+    private fun useMicSprite(recording: Boolean) {
+        spriteContainerView?.apply {
+            layoutParams = LinearLayout.LayoutParams(MIC_SPRITE_DP.dp(), MIC_SPRITE_DP.dp()).apply {
+                gravity = Gravity.BOTTOM
+            }
+            background = micHaloBackground(recording)
+            setPadding(5.dp(), 5.dp(), 5.dp(), 5.dp())
+            requestLayout()
+        }
+        spriteView?.apply {
+            setImageResource(R.drawable.clochette_blacklace_portrait)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            background = null
+            setPadding(0, 0, 0, 0)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            requestLayout()
+        }
+        micBadgeView?.apply {
+            visibility = View.VISIBLE
+            background = micBadgeBackground(recording)
+            setTextColor(if (recording) Color.WHITE else Color.rgb(86, 48, 132))
         }
     }
 
@@ -669,17 +712,11 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun setMicButtonRecording(recording: Boolean, automatic: Boolean = false) {
-        replyMicButton?.apply {
-            background = micButtonBackground(recording)
-            elevation = if (recording) 9f else 4f
-            text = if (recording) "●" else "🎙"
-            textSize = if (recording) 26f else 22f
-            setTextColor(if (recording) Color.WHITE else Color.rgb(86, 48, 132))
-            contentDescription = if (recording) {
-                if (automatic) "Écoute automatique en cours" else "Enregistrement en cours"
-            } else {
-                "Maintenir pour parler"
-            }
+        useMicSprite(recording)
+        spriteContainerView?.contentDescription = if (recording) {
+            if (automatic) "Écoute automatique en cours" else "Enregistrement en cours"
+        } else {
+            "Maintenir Clochette pour parler"
         }
     }
 
@@ -691,13 +728,23 @@ class ClochetteOverlayService : Service() {
             setStroke(2.dp(), stroke)
         }
 
-    private fun micButtonBackground(recording: Boolean): GradientDrawable =
+    private fun micBadgeBackground(recording: Boolean): GradientDrawable =
         GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(if (recording) Color.rgb(128, 75, 169) else Color.rgb(255, 253, 244))
             setStroke(
                 if (recording) 4.dp() else 2.dp(),
                 if (recording) Color.rgb(224, 190, 255) else Color.rgb(109, 58, 161),
+            )
+        }
+
+    private fun micHaloBackground(recording: Boolean): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.rgb(255, 249, 230))
+            setStroke(
+                if (recording) 5.dp() else 2.dp(),
+                if (recording) Color.rgb(156, 89, 190) else Color.rgb(109, 58, 161),
             )
         }
 
@@ -709,7 +756,8 @@ class ClochetteOverlayService : Service() {
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
         const val ACTION_OPEN_MIC = "com.feuch.clochette.overlay.OPEN_MIC"
         private const val COLLAPSED_SPRITE_DP = 68
-        private const val MIC_BUTTON_DP = 64
+        private const val MIC_SPRITE_DP = 76
+        private const val MIC_BADGE_DP = 22
         private const val EXPANDED_SPRITE_WIDTH_DP = 78
         private const val EXPANDED_SPRITE_HEIGHT_DP = 140
         private const val BUBBLE_AUTO_HIDE_MS = 25_000L
