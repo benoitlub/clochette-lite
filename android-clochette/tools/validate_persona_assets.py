@@ -33,20 +33,64 @@ REQUIRED_JSON = [
     "personas/clochette/appearance_library.json",
 ]
 
+REQUIRED_PHRASE_BANKS = [
+    "personas/clochette/phrase_banks/natural.json",
+    "personas/clochette/phrase_banks/teasing.json",
+    "personas/clochette/phrase_banks/soft.json",
+    "personas/clochette/phrase_banks/badass.json",
+    "personas/clochette/phrase_banks/focus.json",
+    "personas/clochette/phrase_banks/fatigue.json",
+    "personas/clochette/phrase_banks/creative.json",
+    "personas/clochette/phrase_banks/micro_questions.json",
+    "personas/clochette/phrase_banks/silence_responses.json",
+]
+
+
+def load_json(path: Path, relative: str, errors: list[str]) -> dict | list | None:
+    if not path.exists():
+        errors.append(f"missing: {relative}")
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        errors.append(f"invalid json: {relative}:{exc.lineno}:{exc.colno}: {exc.msg}")
+        return None
+
+
+def accepted_entries(data: dict | list | None) -> list[dict]:
+    if isinstance(data, list):
+        entries = data
+    elif isinstance(data, dict):
+        entries = data.get("entries", [])
+    else:
+        entries = []
+    return [
+        item for item in entries
+        if isinstance(item, dict)
+        and item.get("status") == "accepted"
+        and str(item.get("line", "")).strip()
+    ]
+
 
 def main() -> int:
     errors: list[str] = []
     loaded = 0
+    accepted_total = 0
+
     for relative in REQUIRED_JSON:
-        path = ASSETS / relative
-        if not path.exists():
-            errors.append(f"missing: {relative}")
-            continue
-        try:
-            json.loads(path.read_text(encoding="utf-8-sig"))
+        data = load_json(ASSETS / relative, relative, errors)
+        if data is not None:
             loaded += 1
-        except json.JSONDecodeError as exc:
-            errors.append(f"invalid json: {relative}:{exc.lineno}:{exc.colno}: {exc.msg}")
+
+    for relative in REQUIRED_PHRASE_BANKS:
+        data = load_json(ASSETS / relative, relative, errors)
+        if data is None:
+            continue
+        loaded += 1
+        accepted = accepted_entries(data)
+        accepted_total += len(accepted)
+        if not accepted:
+            errors.append(f"empty phrase bank: {relative} has no accepted line")
 
     if errors:
         print("Clochette persona asset validation failed:")
@@ -54,7 +98,10 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print(f"OK: {loaded} Clochette persona JSON assets are present and valid.")
+    print(
+        f"OK: {loaded} Clochette persona JSON assets are present and valid; "
+        f"{accepted_total} accepted phrase-bank lines found."
+    )
     return 0
 
 
