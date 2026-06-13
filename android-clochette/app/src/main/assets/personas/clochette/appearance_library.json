@@ -1,0 +1,72 @@
+{
+  "id": "clochette_appearance_library",
+  "personaId": "clochette",
+  "version": 1,
+  "principle": "Bibliothèque d'apparences utilisables par l'overlay, le widget et les futures animations de présence.",
+  "formats": {
+    "runtimePreferred": "webp",
+    "transparentBackground": true,
+    "androidAssetBasePath": "personas/clochette/appearances/"
+  },
+  "appearances": [
+    {
+      "id": "blacklace_standing_blue_violet",
+      "displayName": "Blacklace debout — cheveux bleus/violets",
+      "role": "expanded",
+      "path": "personas/clochette/appearances/clochette_blacklace_standing.webp",
+      "promptTags": [
+        "blacklace",
+        "blue_violet_hair",
+        "gothic_fairy",
+        "expanded_overlay"
+      ],
+      "recommendedUse": [
+        "speaking",
+        "asking",
+        "octopus_test"
+      ],
+      "notes": "Version complète pour apparition hors bulle."
+    },
+    {
+      "id": "blacklace_seated_stool",
+      "displayName": "Blacklace assise — tabouret de bar",
+      "role": "expanded_idle",
+      "path": "personas/clochette/appearances/clochette_blacklace_seated_stool.webp",
+      "promptTags": [
+        "blacklace",
+        "bar_stool",
+        "blue_violet_hair",
+        "gothic_fairy"
+      ],
+      "recommendedUse": [
+        "idle_expanded",
+        "settings",
+        "gateway_panel"
+      ],
+      "notes": "Version posée pour écran de réglages ou intervention calme."
+    },
+    {
+      "id": "blacklace_portrait_blue_violet",
+      "displayName": "Portrait Blacklace — bulle repliée",
+      "role": "collapsed_portrait",
+      "path": "personas/clochette/appearances/clochette_blacklace_portrait.webp",
+      "promptTags": [
+        "portrait",
+        "collapsed_bubble",
+        "blue_violet_hair"
+      ],
+      "recommendedUse": [
+        "collapsed",
+        "widget_avatar",
+        "notification_avatar"
+      ],
+      "notes": "Portrait pour bulle ronde de repos."
+    }
+  ],
+  "selectionRules": [
+    "Utiliser collapsed_portrait quand overlayState=COLLAPSED.",
+    "Utiliser expanded quand Clochette parle, pose une question ou veut capter l'attention.",
+    "Utiliser expanded_idle quand une présence calme est préférable.",
+    "Ne pas changer d'apparence pendant une écoute micro."
+  ]
+}
