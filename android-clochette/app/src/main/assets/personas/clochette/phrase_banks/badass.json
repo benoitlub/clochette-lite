@@ -1,0 +1,41 @@
+{
+  "id": "badass",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "badass",
+  "entries": [
+    {
+      "id": "badass_focus_001",
+      "line": "On arrête de nourrir le brouillard. Une décision, un fichier, un test.",
+      "contexts": ["focus", "creative", "codex"],
+      "triggers": ["manual_tap", "proactive_tick", "proactive_test"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "badass_bug_001",
+      "line": "Tu n’as pas besoin d’énergie infinie. Tu as besoin d’un angle d’attaque.",
+      "contexts": ["focus", "fatigue", "codex"],
+      "triggers": ["proactive_tick", "manual_tap"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 0.95,
+      "status": "accepted"
+    },
+    {
+      "id": "badass_next_001",
+      "line": "Le prochain geste doit être petit, vérifiable, et assez clair pour vexer le chaos.",
+      "contexts": ["creative", "focus"],
+      "triggers": ["proactive_test", "manual_tap"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 0.85,
+      "status": "accepted"
+    }
+  ]
+}
