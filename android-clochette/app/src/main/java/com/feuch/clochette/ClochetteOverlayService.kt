@@ -374,6 +374,7 @@ class ClochetteOverlayService : Service() {
 
     private fun expandSprite() {
         spriteView?.apply {
+            setImageResource(R.drawable.clochette_overlay_model)
             layoutParams = LinearLayout.LayoutParams(EXPANDED_SPRITE_WIDTH_DP.dp(), EXPANDED_SPRITE_HEIGHT_DP.dp()).apply {
                 gravity = Gravity.BOTTOM
             }
@@ -386,12 +387,13 @@ class ClochetteOverlayService : Service() {
 
     private fun collapseSprite() {
         spriteView?.apply {
+            setImageResource(R.drawable.clochette_blacklace_portrait)
             layoutParams = LinearLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), COLLAPSED_SPRITE_DP.dp()).apply {
                 gravity = Gravity.BOTTOM
             }
             background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), COLLAPSED_SPRITE_DP.dp())
             setPadding(5.dp(), 5.dp(), 5.dp(), 5.dp())
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             requestLayout()
         }
     }
@@ -587,7 +589,7 @@ class ClochetteOverlayService : Service() {
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
         const val ACTION_OPEN_MIC = "com.feuch.clochette.overlay.OPEN_MIC"
-        private const val COLLAPSED_SPRITE_DP = 58
+        private const val COLLAPSED_SPRITE_DP = 68
         private const val EXPANDED_SPRITE_WIDTH_DP = 78
         private const val EXPANDED_SPRITE_HEIGHT_DP = 140
         private const val BUBBLE_AUTO_HIDE_MS = 25_000L
