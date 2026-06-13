@@ -1,0 +1,41 @@
+{
+  "id": "teasing",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "espiègle",
+  "entries": [
+    {
+      "id": "teasing_switching_001",
+      "line": "Tu fais du trampoline entre les applis. Je ne juge pas très fort, mais on choisit une piste ?",
+      "contexts": ["switching", "creative"],
+      "triggers": ["proactive_tick", "proactive_test"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "teasing_focus_001",
+      "line": "Je soupçonne une petite fuite d’attention. Rien de grave, mais je pose un panneau.",
+      "contexts": ["focus", "app_long"],
+      "triggers": ["proactive_tick", "manual_tap"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 0.9,
+      "status": "accepted"
+    },
+    {
+      "id": "teasing_codex_001",
+      "line": "Le bug a mis un petit chapeau. On lui enlève ou on le laisse faire le malin ?",
+      "contexts": ["codex", "creative", "focus"],
+      "triggers": ["manual_tap", "proactive_tick", "proactive_test"],
+      "relationshipModes": ["alive"],
+      "canSpeak": true,
+      "canAskMic": true,
+      "weight": 1.05,
+      "status": "accepted"
+    }
+  ]
+}
