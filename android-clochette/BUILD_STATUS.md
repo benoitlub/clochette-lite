@@ -1,92 +1,45 @@
 # Android Clochette Build Status
 
 - Date: 2026-06-13
-- Previous build command: `cd android-clochette && ./gradlew assembleDebug --stacktrace --no-daemon`
-- Previous result: success before phrase-bank wiring and simplified mic overlay
-- Latest change: Notion-ready phrase banks + Octopus local selection + simplified overlay microphone interaction
-- Latest validation to run: `python android-clochette/tools/validate_persona_assets.py`
-- Latest build to run: `cd android-clochette && ./gradlew assembleDebug --stacktrace --no-daemon`
+- Commit tested: `d65b4c6`
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build result: success
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 
-Observed bug fixed earlier:
-- The widget could show a generated proactive phrase while the overlay showed `Je garde celle-là pour plus tard.`
-- Diagnostics showed `source : guardian_fallback`, `voix : skipped_guardian`, `provider : aucun`.
-- The proactive phrase, overlay, widget, memory and voice were not using one single result.
+Current correction:
+- `OctopusCore.intervene(...)` is now the required path for visible Clochette interventions.
+- Widget tap, overlay tap/reply, proactive ticks/tests, safe voice test, MainActivity test buttons, and VoiceReplyActivity transcription now route through Octopus.
+- `ProactiveInterventionRunner` was removed to avoid a second intervention pipeline.
+- Widget, overlay, voice, memory and diagnostics use the same `OctopusDecision.finalLine`.
+- Diagnostics include trigger, source, provider, Guardian reason, voice status, overlay state, micro status, appearance, phrase bank id, phrase entry id and tone.
+- Local phrase banks under `personas/clochette/phrase_banks/` are the first local source before context lines and local fallback.
+- Gateway/Mistral/Gemini remain optional and are only used when explicitly configured or tested.
 
-Correction already present:
-- Proactive interventions pass through `ProactiveInterventionRunner`.
-- The runner returns one result: original line, final line, source, Guardian reason, voice status, mic decision and provider.
-- Widget and overlay receive the same `finalLine`.
-- The safe test path uses `local_proactive_test`, `guardian : approved`, `voix : spoken`.
-- Overlay diagnostics include source, voice status, Guardian decision and provider.
-- If Guardian blocks or voice is skipped, the overlay diagnostic bubble remains visible for 60 seconds.
-- Proactive questions that open the mic ask the overlay to open its mic panel.
-- The sprite can be dragged even when the text bubble is hidden.
-- At rest, the overlay folds into a small portrait bubble instead of leaving the full Clochette silhouette on screen.
-- Clochette expands to the full silhouette only while a phrase, diagnostic, drag interaction, or voice reply panel is visible.
-- If the microphone times out without a reply, the overlay shows a neutral local line and does not reopen the microphone automatically.
-- `OctopusCore` can produce a single `OctopusDecision` used for line, source, provider, Guardian, voice, overlay, micro and diagnostic.
-- `Octopus / diagnostic` is visible in MainActivity with copyable diagnostic text.
-- `Relais API Clochette` is visible with Gateway URL, provider choice, style choice, health test, generation test, last status, latency, raw response and error.
-- Gateway calls use `/api/health` and `/api/generate-remark`.
-- `clochette-gateway/` contains a server scaffold with no real API key committed.
-- Prototype fast proactive mode is enabled. In `BAVARDE`, the next attempts are roughly 35 to 60 seconds apart after the first 10-second attempt.
-- Local proactive questions can soften local `anti_repeat` blocks as `approved_repeat_softened`.
-
-Phrase bank wiring:
-- Added non-empty phrase banks under `personas/clochette/phrase_banks/`:
-  - `natural.json`
-  - `teasing.json`
-  - `soft.json`
-  - `badass.json`
-  - `focus.json`
-  - `fatigue.json`
-  - `creative.json`
-  - `micro_questions.json`
-  - `silence_responses.json`
-- `validate_persona_assets.py` now checks these banks and fails if a bank has no accepted line.
-- `PersonaModuleLoader` now lists phrase banks in the module diagnostics.
-- `PhraseBankSelector` loads accepted local lines, scores them by trigger, context, relationship mode, tone and mic intent.
-- `ProactiveInterventionRunner` asks `PhraseBankSelector` before falling back to hardcoded local proactive lines.
-- `OctopusCore` asks `PhraseBankSelector` before falling back to `ContextRemarkEngine` or local hardcoded lines.
-- Octopus diagnostics enrich `Source phrase` with `bank=...`, `id=...`, and `tone=...` when a phrase bank entry is used.
-
-Simplified overlay microphone:
-- The overlay no longer shows both `Micro` and `Parler 15 s`.
-- The main overlay now exposes one hold-to-talk button.
-- Holding the button opens the mic; releasing it stops capture and lets Android return the transcription.
-- When Octopus/proactive asks a question through `ACTION_OPEN_MIC`, the overlay opens the mic automatically for 15 seconds maximum.
-- The reply panel shows partial and final transcription with `J’entends : ...` and `J’ai entendu : ...`.
-- Micro errors now tell the user to hold the single reply button again instead of bouncing between two controls.
+Bypass audit:
+- Direct phrase decisions in `ClochetteWidget`, `ClochetteOverlayService`, `ClochetteProactiveService`, `MainActivity`, and `VoiceReplyActivity` were migrated to Octopus.
+- `ContextRemarkEngine` and `ClochetteEngine` are still available only as local fallback helpers owned by Octopus.
+- `ClochetteVoice.speakAfterRemark(...)` remains for legacy callers, but proactive/visible intervention speech now uses the Octopus decision path.
+- Permission screens, service start/stop, pause, and raw settings display stay outside Octopus because they do not decide a phrase.
 
 Phone test procedure:
 1. Install the debug APK.
-2. Allow notifications.
-3. Allow overlay/surimpression.
-4. Allow Usage Access.
-5. Disable battery optimization for Clochette if Android offers it.
-6. Open Clochette.
-7. Enable `Voix activée`.
-8. Enable `Interventions vocales`.
-9. Enable `Questions spontanées`.
-10. Select relationship mode `Vivante`.
-11. Select frequency `Bavarde`.
-12. Tap `Observer`.
-13. Tap `Forcer phrase sûre parlée`.
-14. Confirm Clochette speaks without tapping the overlay sprite.
-15. Confirm overlay and widget show the same phrase.
-16. Confirm overlay debug shows `source`, `voix`, `guardian`, and `provider`.
-17. Tap `Tester parole proactive maintenant`.
-18. Confirm it no longer lands on `guardian_fallback` by default.
-19. Tap `Tester Octopus local`.
-20. Confirm the Octopus panel shows a phrase source containing `bank=...`, `id=...`, and `tone=...`.
-21. Hold the overlay reply button, speak, release, and confirm transcription appears.
-22. Let Clochette ask a proactive question and confirm the mic closes after 15 seconds.
-23. Tap `Copier diagnostic` and paste it into a note/chat if needed.
-24. Leave Gateway URL empty, tap `Tester le relais`, and confirm the app shows fallback local instead of crashing.
+2. Allow notifications, overlay/surimpression, Usage Access, and microphone when Android asks.
+3. Open Clochette.
+4. Enable `Voix activée`, `Interventions vocales`, and `Questions spontanées`.
+5. Select relationship mode `Vivante` and frequency `Bavarde`.
+6. Tap `Observer`.
+7. Tap `Tester Octopus local`.
+8. Confirm the diagnostic shows `source`, `bank`, `entry`, `tone`, `guardian`, `voice`, `provider`, and `appearance`.
+9. Tap `Forcer phrase sûre parlée`.
+10. Confirm Clochette speaks without tapping the overlay sprite.
+11. Tap the widget and confirm widget and overlay show the same phrase.
+12. Hold the overlay reply button, speak, release, and confirm transcription appears in the overlay.
+13. Tap `Copier diagnostic` and verify the copied text explains the last decision.
 
-Notion/API status:
-- Notion sync and external AI providers are still not required for local Clochette behavior.
-- Phrase banks are ready to be generated from Notion exports.
-- External providers remain routed through `clochette-gateway/`; keys stay server-side.
+Expected APK behavior:
+- Clochette works locally without a gateway.
+- Phrase banks drive local interventions when possible.
+- Empty Gateway URL shows local fallback behavior instead of blocking the app.
 - No API key is stored in the repository or APK.
