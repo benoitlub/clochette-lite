@@ -1,0 +1,41 @@
+{
+  "id": "fatigue",
+  "personaId": "clochette",
+  "version": 1,
+  "tone": "fatigue",
+  "entries": [
+    {
+      "id": "fatigue_low_001",
+      "line": "Ton énergie a l’air basse. On choisit une version courte, pas héroïque.",
+      "contexts": ["fatigue", "night"],
+      "triggers": ["proactive_tick", "manual_tap", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 1.2,
+      "status": "accepted"
+    },
+    {
+      "id": "fatigue_night_001",
+      "line": "Je baisse le volume. Tu peux terminer par une petite victoire, pas une conquête.",
+      "contexts": ["fatigue", "night", "focus"],
+      "triggers": ["proactive_tick"],
+      "relationshipModes": ["discrete", "companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 1.0,
+      "status": "accepted"
+    },
+    {
+      "id": "fatigue_pause_001",
+      "line": "Pause possible. Reprise possible. Effondrement administratif déconseillé.",
+      "contexts": ["fatigue", "switching"],
+      "triggers": ["manual_tap", "proactive_test"],
+      "relationshipModes": ["companion", "alive"],
+      "canSpeak": true,
+      "canAskMic": false,
+      "weight": 0.9,
+      "status": "accepted"
+    }
+  ]
+}
