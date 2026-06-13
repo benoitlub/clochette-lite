@@ -30,6 +30,7 @@ REQUIRED_JSON = [
     "personas/clochette/relationship_modes.json",
     "personas/clochette/library_schema.json",
     "personas/clochette/persona_traits.json",
+    "personas/clochette/appearance_library.json",
 ]
 
 
