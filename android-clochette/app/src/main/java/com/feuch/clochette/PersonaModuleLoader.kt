@@ -50,6 +50,7 @@ class PersonaModuleLoader(context: Context) {
             clochetteModule("relationship_modes.json"),
             clochetteModule("library_schema.json"),
             clochetteModule("persona_traits.json"),
+            clochetteModule("appearance_library.json"),
             ModuleFile("shared_library_model.json", "personas/shared_library_model.json"),
             ModuleFile("octopus/archivist_contract.json", "octopus/archivist_contract.json"),
             ModuleFile("octopus/dreamer_contract.json", "octopus/dreamer_contract.json"),
