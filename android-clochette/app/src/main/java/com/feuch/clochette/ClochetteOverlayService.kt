@@ -47,7 +47,7 @@ class ClochetteOverlayService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
     private val hideBubbleRunnable = Runnable { collapseOverlayIfIdle() }
-    private val stopListeningRunnable = Runnable { stopVoiceReply("Temps écoulé.") }
+    private val stopListeningRunnable = Runnable { stopVoiceReply("Temps écoulé. Micro fermé.") }
 
     private val lineReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -81,7 +81,7 @@ class ClochetteOverlayService : Service() {
             ACTION_NEXT_LINE -> speakNextLine()
             ACTION_OPEN_MIC -> {
                 if (Settings.canDrawOverlays(this) && overlay == null) showOverlay()
-                showVoiceReplyOverlay()
+                showVoiceReplyOverlay(autoStart = true)
             }
             else -> updateLine(ClochetteRemarkStore.latest(this))
         }
@@ -165,8 +165,7 @@ class ClochetteOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-        buttonRow.addView(actionButton("Parler") { speakNextLine() })
-        buttonRow.addView(actionButton("Micro") { showVoiceReplyOverlay() })
+        buttonRow.addView(holdToTalkButton())
         buttonRow.addView(actionButton("Réglages") { openMainActivity("settings") })
 
         bubble.addView(lineView)
@@ -228,6 +227,27 @@ class ClochetteOverlayService : Service() {
         setOnClickListener { onClick() }
     }
 
+    private fun holdToTalkButton(): Button = actionButton("Maintenir") { showVoiceReplyOverlay(autoStart = false) }.apply {
+        setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    showVoiceReplyOverlay(autoStart = false)
+                    startVoiceReply(
+                        status = "Je t’écoute tant que tu maintiens.",
+                        hint = "Relâche pour envoyer. Je note la transcription ici.",
+                    )
+                    true
+                }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    finishManualVoiceReply()
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
     private fun buildReplyPanel(): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -241,7 +261,7 @@ class ClochetteOverlayService : Service() {
                 setTextColor(Color.rgb(44, 24, 63))
             }
             replyTranscriptView = TextView(this@ClochetteOverlayService).apply {
-                text = "Appuie sur Micro pour parler 15 secondes."
+                text = "Maintiens Répondre pour parler. Si je pose une question, j’écoute 15 secondes."
                 textSize = 12f
                 setTextColor(Color.rgb(72, 56, 88))
                 maxLines = 4
@@ -249,7 +269,6 @@ class ClochetteOverlayService : Service() {
             val replyButtons = LinearLayout(this@ClochetteOverlayService).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.END
-                addView(actionButton("Parler 15 s") { startVoiceReply() })
                 addView(actionButton("Fermer") { closeVoiceReplyPanel() })
             }
 
@@ -429,15 +448,24 @@ class ClochetteOverlayService : Service() {
         )
     }
 
-    private fun showVoiceReplyOverlay() {
+    private fun showVoiceReplyOverlay(autoStart: Boolean) {
         showBubbleTemporarily()
         replyPanel?.visibility = View.VISIBLE
-        replyStatusView?.text = "Micro prêt"
-        replyTranscriptView?.text = "Le micro s’ouvre ici, sans changer d’écran."
-        startVoiceReply()
+        if (autoStart) {
+            replyStatusView?.text = "J’écoute. 15 secondes maximum."
+            replyTranscriptView?.text = "Je note la transcription ici."
+            startVoiceReply()
+        } else {
+            replyStatusView?.text = "Prêt à écouter"
+            replyTranscriptView?.text = "Maintiens Répondre pour parler. Relâche pour envoyer."
+        }
     }
 
-    private fun startVoiceReply() {
+    private fun startVoiceReply(
+        status: String = "J’écoute. 15 secondes maximum.",
+        hint: String = "Parle, je note ici ce que j’entends.",
+    ) {
+        if (listening) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             replyPanel?.visibility = View.VISIBLE
             replyStatusView?.text = "Permission micro requise"
@@ -454,8 +482,8 @@ class ClochetteOverlayService : Service() {
         }
         listening = true
         replyPanel?.visibility = View.VISIBLE
-        replyStatusView?.text = "J’écoute. 15 secondes maximum."
-        replyTranscriptView?.text = "..."
+        replyStatusView?.text = status
+        replyTranscriptView?.text = hint
         ClochetteRuntimeStatus.recordAction(this, "micro ouvert overlay")
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
@@ -471,11 +499,19 @@ class ClochetteOverlayService : Service() {
         handler.postDelayed(stopListeningRunnable, MAX_LISTEN_MS)
     }
 
+    private fun finishManualVoiceReply() {
+        if (!listening) return
+        listening = false
+        handler.removeCallbacks(stopListeningRunnable)
+        replyStatusView?.text = "Je transforme ça en mots."
+        recognizer?.stopListening()
+    }
+
     private fun stopVoiceReply(message: String) {
         if (!listening) return
         listening = false
         replyStatusView?.text = message
-        replyTranscriptView?.text = "Pas grave. Je reste là, sans faire de scène."
+        replyTranscriptView?.text = "Pas grave. Je range la question dans ma poche."
         ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
         recognizer?.stopListening()
         handler.postDelayed({
@@ -507,8 +543,8 @@ class ClochetteOverlayService : Service() {
         override fun onError(error: Int) {
             listening = false
             handler.removeCallbacks(stopListeningRunnable)
-            replyStatusView?.text = "Je n’ai pas bien attrapé la phrase."
-            replyTranscriptView?.text = "Réessaie depuis le bouton Micro."
+            replyStatusView?.text = "Je n’ai pas bien attrapé."
+            replyTranscriptView?.text = "Maintiens Répondre pour réessayer."
             ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro fermé overlay")
         }
 
@@ -519,15 +555,22 @@ class ClochetteOverlayService : Service() {
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
-            replyTranscriptView?.text = if (text.isBlank()) "Je n’ai rien entendu." else text
+            replyTranscriptView?.text = if (text.isBlank()) {
+                "Je n’ai rien entendu."
+            } else {
+                "J’ai entendu : “$text”"
+            }
             finishOverlayReply(text)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            replyTranscriptView?.text = partialResults
+            val partial = partialResults
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
+            if (partial.isNotBlank()) {
+                replyTranscriptView?.text = "J’entends : “$partial”"
+            }
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
