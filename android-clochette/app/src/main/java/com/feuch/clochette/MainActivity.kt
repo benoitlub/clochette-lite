@@ -90,6 +90,9 @@ private fun ClochetteApp(startSection: String?) {
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { refresh++ }
+    val microphoneLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { refresh++ }
 
     fun updateVoiceConfig(config: ClochetteVoiceConfig) {
         voiceConfig = config
@@ -257,14 +260,197 @@ private fun ClochetteApp(startSection: String?) {
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text("Clochette native", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "Phase 1 : Clochette habite l'écran d'accueil. Widget local, remarque courte, voix Android.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text("Clochette", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Commence par les autorisations, puis active l'observation.", style = MaterialTheme.typography.bodyMedium)
 
                 StatusPanel(context = context, refresh = refresh)
 
+                SettingsSection("Premier lancement — autorisations")
+                PermissionStepCard(
+                    step = 1,
+                    title = "Notifications",
+                    explanation = "Nécessaire pour garder Clochette active avec un service visible sur Android récent.",
+                    status = if (Build.VERSION.SDK_INT < 33) {
+                        "non nécessaire sur cette version Android"
+                    } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                        "autorisé"
+                    } else {
+                        "requis"
+                    },
+                    primaryButtonLabel = "Autoriser les notifications",
+                    primaryAction = {
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            Toast.makeText(context, "Notifications déjà disponibles sur cette version.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                )
+                PermissionStepCard(
+                    step = 2,
+                    title = "Superposition",
+                    explanation = "Permet d'afficher Clochette par-dessus les autres apps.",
+                    status = if (Settings.canDrawOverlays(context)) "autorisée" else "requise",
+                    primaryButtonLabel = "Autoriser la superposition",
+                    primaryAction = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
+                    },
+                )
+                PermissionStepCard(
+                    step = 3,
+                    title = "Accès à l'utilisation",
+                    explanation = "Permet de détecter l'application au premier plan sans lire son contenu.",
+                    status = if (UsageObserver(context).hasPermission()) "autorisé" else "recommandé",
+                    primaryButtonLabel = "Ouvrir Accès à l'utilisation",
+                    primaryAction = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                )
+                PermissionStepCard(
+                    step = 4,
+                    title = "Autorisations de l'application",
+                    explanation = "Vérifie les autorisations Android de Clochette : micro, notifications et futures options.",
+                    status = "à vérifier si besoin",
+                    primaryButtonLabel = "Ouvrir les autorisations de l'application",
+                    primaryAction = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")),
+                        )
+                    },
+                )
+                PermissionStepCard(
+                    step = 5,
+                    title = "Micro",
+                    explanation = "Sert uniquement à répondre vocalement à Clochette.",
+                    status = if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) "autorisé" else "requis pour répondre",
+                    primaryButtonLabel = "Autoriser le micro",
+                    primaryAction = { microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                )
+                PermissionStepCard(
+                    step = 6,
+                    title = "Accès notifications / média",
+                    explanation = "Recommandé pour Now Playing : app média, titre et artiste exposés par Android.",
+                    status = if (NowPlayingObserver.hasPermission(context)) "autorisé" else "recommandé",
+                    primaryButtonLabel = "Ouvrir accès notifications",
+                    primaryAction = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                )
+                PermissionStepCard(
+                    step = 7,
+                    title = "Accessibilité / Assistive Clochette",
+                    explanation = "Avancé et optionnel. Désactivé par défaut.",
+                    status = if (isAccessibilityServiceEnabled(context)) "autorisé" else "optionnel",
+                    primaryButtonLabel = "Ouvrir accessibilité",
+                    primaryAction = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                )
+                PermissionStepCard(
+                    step = 8,
+                    title = "SMS / téléphone",
+                    explanation = "SMS : non utilisé dans cette version.",
+                    status = "non utilisé",
+                    primaryButtonLabel = "Voir autorisations de l'application",
+                    primaryAction = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")),
+                        )
+                    },
+                )
+                PermissionStepCard(
+                    step = 9,
+                    title = "Widget écran d'accueil",
+                    explanation = "Optionnel. Ajoute Clochette depuis les widgets Android.",
+                    status = "optionnel",
+                    primaryButtonLabel = "Ajouter le widget",
+                    primaryAction = {
+                        openWidgetPicker(context)
+                        Toast.makeText(context, "Ajoute le widget depuis la liste Android.", Toast.LENGTH_LONG).show()
+                    },
+                )
+
+                VisibleSettingsPanel(
+                    context = context,
+                    currentLine = currentLine,
+                    onNeedLine = { generateLine() },
+                    onMic = { testOverlayMic() },
+                    onRefresh = {
+                        aiConfig = AiGatewaySettings.read(context)
+                        runtimeStatus = ClochetteRuntimeStatus.read(context)
+                        refresh++
+                    },
+                )
+
+                BehaviorSettingsPanel(
+                    proactiveConfig = proactiveConfig,
+                    onProactiveConfig = { updateProactiveConfig(it) },
+                    relationshipModeId = relationshipModeId,
+                    relationshipModes = relationshipModes,
+                    onRelationshipMode = { updateRelationshipMode(it) },
+                    onObserve = {
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        ContextCompat.startForegroundService(context, Intent(context, ClochettePresenceService::class.java))
+                        ContextCompat.startForegroundService(
+                            context,
+                            Intent(context, ClochetteProactiveService::class.java)
+                                .setAction(ClochetteProactiveService.ACTION_OBSERVE),
+                        )
+                        Toast.makeText(context, "Observation active", Toast.LENGTH_SHORT).show()
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            runtimeStatus = ClochetteRuntimeStatus.read(context)
+                            refresh++
+                        }, 500L)
+                        refresh++
+                    },
+                    onPause = {
+                        context.startService(Intent(context, ClochettePresenceService::class.java).setAction(ClochettePresenceService.ACTION_PAUSE))
+                        context.startService(Intent(context, ClochetteProactiveService::class.java).setAction(ClochetteProactiveService.ACTION_PAUSE))
+                        context.stopService(Intent(context, ClochetteOverlayService::class.java))
+                        ClochetteVoice.stop()
+                        refresh++
+                    },
+                )
+
+                VoiceSettingsPanel(
+                    config = voiceConfig,
+                    onConfig = { updateVoiceConfig(it) },
+                )
+
+                SelectorPanel(
+                    project = project,
+                    energy = energy,
+                    onProject = { project = it },
+                    onEnergy = { energy = it },
+                    onLine = { generateLineWithAi() },
+                    onSpeak = { generateLine(autoSpeak = true) },
+                )
+
+                currentLine?.let {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6))) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(it, style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(onClick = { generateLine(autoSpeak = true) }) { Text("Parler via Octopus") }
+                                OutlinedButton(onClick = { generateLine(autoSpeak = false) }) { Text("Rafraîchir via Octopus") }
+                            }
+                        }
+                    }
+                }
+
+                AiGatewayPanel(
+                    config = aiConfig,
+                    latestSource = ClochetteRemarkStore.latestSource(context).id,
+                    testLine = aiTestLine,
+                    onConfig = { updateAiConfig(it) },
+                    onTest = { generateLineWithAi(autoSpeak = false, testOnly = true) },
+                    onRelayTest = { testRelayApi() },
+                )
+
+                SettingsSection("Diagnostics")
                 ProactiveDiagnosticPanel(
                     runtimeStatus = runtimeStatus,
                     relationshipMode = RelationshipModeSettings.selected(context),
@@ -272,16 +458,6 @@ private fun ClochetteApp(startSection: String?) {
                     voiceConfig = voiceConfig,
                     latestSource = ClochetteRemarkStore.latestSource(context).id,
                 )
-
-                OctopusDiagnosticPanel(
-                    diagnostics = octopusDiagnostics,
-                    onCopy = { copyOctopusDiagnostic() },
-                    onTestLocal = { testOctopusLocal() },
-                    onTestSafeVoice = { testOctopusSafeVoice() },
-                    onTestOverlay = { testOverlayAppearance() },
-                    onTestMic = { testOverlayMic() },
-                )
-
                 ClochetteControlPanel(
                     context = context,
                     currentLine = currentLine,
@@ -297,75 +473,13 @@ private fun ClochetteApp(startSection: String?) {
                         refresh++
                     },
                 )
-
-                AiGatewayPanel(
-                    config = aiConfig,
-                    latestSource = ClochetteRemarkStore.latestSource(context).id,
-                    testLine = aiTestLine,
-                    onConfig = { updateAiConfig(it) },
-                    onTest = { generateLineWithAi(autoSpeak = false, testOnly = true) },
-                    onRelayTest = { testRelayApi() },
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = {
-                        if (Build.VERSION.SDK_INT >= 33 &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        ContextCompat.startForegroundService(
-                            context,
-                            Intent(context, ClochettePresenceService::class.java),
-                        )
-                        ContextCompat.startForegroundService(
-                            context,
-                            Intent(context, ClochetteProactiveService::class.java)
-                                .setAction(ClochetteProactiveService.ACTION_OBSERVE),
-                        )
-                        Toast.makeText(context, "Observation active", Toast.LENGTH_SHORT).show()
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            runtimeStatus = ClochetteRuntimeStatus.read(context)
-                            refresh++
-                        }, 500L)
-                        refresh++
-                    }) {
-                        Text("Observer")
-                    }
-                    OutlinedButton(onClick = {
-                        context.startService(
-                            Intent(context, ClochettePresenceService::class.java)
-                                .setAction(ClochettePresenceService.ACTION_PAUSE),
-                        )
-                        context.startService(
-                            Intent(context, ClochetteProactiveService::class.java)
-                                .setAction(ClochetteProactiveService.ACTION_PAUSE),
-                        )
-                        context.stopService(Intent(context, ClochetteOverlayService::class.java))
-                        ClochetteVoice.stop()
-                        refresh++
-                    }) {
-                        Text("Pause")
-                    }
-                }
-
-                VoiceSettingsPanel(
-                    config = voiceConfig,
-                    onConfig = { updateVoiceConfig(it) },
-                    proactiveConfig = proactiveConfig,
-                    onProactiveConfig = { updateProactiveConfig(it) },
-                    relationshipModeId = relationshipModeId,
-                    relationshipModes = relationshipModes,
-                    onRelationshipMode = { updateRelationshipMode(it) },
-                )
-
-                SelectorPanel(
-                    project = project,
-                    energy = energy,
-                    onProject = { project = it },
-                    onEnergy = { energy = it },
-                    onLine = { generateLineWithAi() },
-                    onSpeak = { generateLine(autoSpeak = true) },
+                OctopusDiagnosticPanel(
+                    diagnostics = octopusDiagnostics,
+                    onCopy = { copyOctopusDiagnostic() },
+                    onTestLocal = { testOctopusLocal() },
+                    onTestSafeVoice = { testOctopusSafeVoice() },
+                    onTestOverlay = { testOverlayAppearance() },
+                    onTestMic = { testOverlayMic() },
                 )
 
                 ResponsePanel(
@@ -374,31 +488,7 @@ private fun ClochetteApp(startSection: String?) {
                     highlighted = startSection == "response",
                 )
 
-                currentLine?.let {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6))) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(it, style = MaterialTheme.typography.titleMedium)
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Button(onClick = { generateLine(autoSpeak = true) }) { Text("Parler via Octopus") }
-                                OutlinedButton(onClick = { generateLine(autoSpeak = false) }) { Text("Rafraîchir via Octopus") }
-                            }
-                        }
-                    }
-                }
-
-                Text("Widget écran d'accueil", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                PermissionCard(
-                    title = "Widget écran d'accueil",
-                    explanation = "Ajoute Clochette depuis les widgets Android. Le widget affiche une remarque et peut parler quand tu le touches.",
-                    enabled = true,
-                    onEnable = {
-                        openWidgetPicker(context)
-                        Toast.makeText(context, "Ajoute le widget depuis la liste Android.", Toast.LENGTH_LONG).show()
-                    },
-                    onDecline = { memory.decline("home_widget") },
-                )
-
-                Text("Permissions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                SettingsSection("Mémoire locale / modules")
                 Button(onClick = {
                     val result = PersonaLoader(context).synchronizeLocal()
                     val message = when (result.source) {
@@ -421,43 +511,6 @@ private fun ClochetteApp(startSection: String?) {
                     snapshot = nowPlayingSnapshot,
                     onOpenSettings = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
                 )
-                PermissionCard(
-                    title = "Surimpression",
-                    explanation = "Affiche Clochette par-dessus les apps, en petite présence visible et stoppable.",
-                    enabled = Settings.canDrawOverlays(context),
-                    onEnable = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${context.packageName}"),
-                            ),
-                        )
-                    },
-                    onDecline = { memory.decline("overlay") },
-                )
-                PermissionCard(
-                    title = "Usage Access",
-                    explanation = "Permet de savoir quelles apps sont utilisées, sans lire leur contenu : package, durée approximative, bascules.",
-                    enabled = UsageObserver(context).hasPermission(),
-                    onEnable = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
-                    onDecline = { memory.decline("usage_access") },
-                )
-                PermissionCard(
-                    title = "Capteurs",
-                    explanation = "Utilise mouvement, orientation et lumière si disponible pour produire des signaux sobres : marche possible, téléphone immobile, basse lumière, écran actif.",
-                    enabled = true,
-                    onEnable = { refresh++ },
-                    onDecline = { memory.decline("sensors") },
-                )
-                PermissionCard(
-                    title = "Assistive Clochette",
-                    explanation = "Mode avancé, désactivé par défaut. Isolé derrière AccessibilityService. Il ne récupère pas le contenu des fenêtres dans ce prototype.",
-                    enabled = isAccessibilityServiceEnabled(context),
-                    onEnable = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
-                    onDecline = { memory.decline("assistive_clochette") },
-                )
-
-                Text("Mémoire locale", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 MemoryPreview(memory = memory, refresh = refresh)
             }
         }
@@ -527,6 +580,112 @@ private fun VisibleClochettePanel(
                 if (Settings.canDrawOverlays(context)) "Surimpression : autorisée" else "Surimpression : autorisation requise",
                 color = if (Settings.canDrawOverlays(context)) Color(0xFF2E7D5B) else Color(0xFF8A4B25),
             )
+        }
+    }
+}
+
+@Composable
+private fun VisibleSettingsPanel(
+    context: Context,
+    currentLine: String?,
+    onNeedLine: () -> String,
+    onMic: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Clochette visible", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Affiche, masque ou réveille Clochette sans ouvrir les diagnostics.")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = {
+                    if (Settings.canDrawOverlays(context)) {
+                        context.startService(
+                            Intent(context, ClochetteOverlayService::class.java)
+                                .setAction(ClochetteOverlayService.ACTION_SHOW)
+                                .putExtra(ClochetteRemarkStore.EXTRA_LINE, currentLine ?: ClochetteRemarkStore.latest(context)),
+                        )
+                        Toast.makeText(context, "Overlay démarré", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Autorise la superposition.", Toast.LENGTH_LONG).show()
+                        context.startActivity(
+                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")),
+                        )
+                    }
+                    onRefresh()
+                }) {
+                    Text("Afficher Clochette")
+                }
+                OutlinedButton(onClick = {
+                    context.stopService(Intent(context, ClochetteOverlayService::class.java))
+                    onRefresh()
+                }) {
+                    Text("Masquer")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = {
+                    onNeedLine()
+                    onRefresh()
+                }) {
+                    Text("Nouvelle phrase")
+                }
+                OutlinedButton(onClick = onMic) {
+                    Text("Micro overlay")
+                }
+            }
+            Text(
+                if (Settings.canDrawOverlays(context)) "Superposition : autorisée" else "Superposition : requise",
+                color = if (Settings.canDrawOverlays(context)) Color(0xFF2E7D5B) else Color(0xFF8A4B25),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BehaviorSettingsPanel(
+    proactiveConfig: ProactiveConfig,
+    onProactiveConfig: (ProactiveConfig) -> Unit,
+    relationshipModeId: String,
+    relationshipModes: List<RelationshipMode>,
+    onRelationshipMode: (String) -> Unit,
+    onObserve: () -> Unit,
+    onPause: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Comportement", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            SettingsDropdown(
+                title = "Mode de présence",
+                value = relationshipModes.firstOrNull { it.id == relationshipModeId }?.name ?: "Discrète",
+                options = relationshipModes.map { it.name },
+                onValue = { selected ->
+                    relationshipModes.firstOrNull { it.name == selected }?.let { onRelationshipMode(it.id) }
+                },
+            )
+            SettingsDropdown(
+                title = "Fréquence",
+                value = proactiveConfig.frequency.name.lowercase(),
+                options = ProactiveFrequency.values().map { it.name.lowercase() },
+                onValue = { selected ->
+                    onProactiveConfig(proactiveConfig.copy(frequency = ProactiveFrequency.valueOf(selected.uppercase())))
+                },
+            )
+            SettingsSwitchRow(
+                title = "Questions spontanées",
+                subtitle = "Clochette peut poser une question courte quand le mode le permet.",
+                checked = proactiveConfig.spontaneousQuestions,
+                onCheckedChange = { onProactiveConfig(proactiveConfig.copy(spontaneousQuestions = it)) },
+            )
+            SettingsSwitchRow(
+                title = "Interventions vocales",
+                subtitle = "Autorise la voix proactive sans dépendre du bouton Parler.",
+                checked = proactiveConfig.voiceInterventions,
+                onCheckedChange = { onProactiveConfig(proactiveConfig.copy(voiceInterventions = it)) },
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onObserve) { Text("Observer") }
+                OutlinedButton(onClick = onPause) { Text("Pause") }
+            }
         }
     }
 }
@@ -723,85 +882,35 @@ private fun ResponsePanel(
 private fun VoiceSettingsPanel(
     config: ClochetteVoiceConfig,
     onConfig: (ClochetteVoiceConfig) -> Unit,
-    proactiveConfig: ProactiveConfig,
-    onProactiveConfig: (ProactiveConfig) -> Unit,
-    relationshipModeId: String,
-    relationshipModes: List<RelationshipMode>,
-    onRelationshipMode: (String) -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Voix de Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("Voix activée")
-                Switch(
-                    checked = config.enabled,
-                    onCheckedChange = { onConfig(config.copy(enabled = it)) },
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("Parler après chaque remarque")
-                Switch(
-                    checked = config.autoSpeak,
-                    onCheckedChange = { onConfig(config.copy(autoSpeak = it)) },
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("Interventions vocales")
-                Switch(
-                    checked = proactiveConfig.voiceInterventions,
-                    onCheckedChange = { onProactiveConfig(proactiveConfig.copy(voiceInterventions = it)) },
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("Questions spontanées")
-                Switch(
-                    checked = proactiveConfig.spontaneousQuestions,
-                    onCheckedChange = { onProactiveConfig(proactiveConfig.copy(spontaneousQuestions = it)) },
-                )
-            }
-            VoiceChoice(
-                title = "Mode de présence",
-                value = relationshipModes.firstOrNull { it.id == relationshipModeId }?.name ?: "Discrète",
-                options = relationshipModes.map { it.name },
-                onValue = { selected ->
-                    relationshipModes.firstOrNull { it.name == selected }?.let { onRelationshipMode(it.id) }
-                },
+            Text("Voix", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            SettingsSwitchRow(
+                title = "Voix activée",
+                checked = config.enabled,
+                onCheckedChange = { onConfig(config.copy(enabled = it)) },
             )
-            VoiceChoice(
-                title = "Fréquence",
-                value = proactiveConfig.frequency.name.lowercase(),
-                options = ProactiveFrequency.values().map { it.name.lowercase() },
-                onValue = { selected ->
-                    val frequency = ProactiveFrequency.valueOf(selected.uppercase())
-                    onProactiveConfig(proactiveConfig.copy(frequency = frequency))
-                },
+            SettingsSwitchRow(
+                title = "Parler automatiquement après chaque remarque",
+                checked = config.autoSpeak,
+                onCheckedChange = { onConfig(config.copy(autoSpeak = it)) },
             )
-            Text("Vitesse de parole : ${config.speechRate.formatOneDecimal()}")
-            Slider(
+            SettingsSlider(
+                title = "Vitesse de parole",
                 value = config.speechRate,
-                onValueChange = { onConfig(config.copy(speechRate = it.coerceIn(0.7f, 1.4f))) },
                 valueRange = 0.7f..1.4f,
+                displayedValue = config.speechRate.formatOneDecimal(),
+                onValueChange = { onConfig(config.copy(speechRate = it.coerceIn(0.7f, 1.4f))) },
             )
-            Text("Hauteur / pitch : ${config.pitch.formatOneDecimal()}")
-            Slider(
+            SettingsSlider(
+                title = "Hauteur / pitch",
                 value = config.pitch,
-                onValueChange = { onConfig(config.copy(pitch = it.coerceIn(0.8f, 1.7f))) },
                 valueRange = 0.8f..1.7f,
+                displayedValue = config.pitch.formatOneDecimal(),
+                onValueChange = { onConfig(config.copy(pitch = it.coerceIn(0.8f, 1.7f))) },
             )
-            VoiceChoice(
+            SettingsDropdown(
                 title = "Mode vocal",
                 value = config.mode,
                 options = listOf(
@@ -812,7 +921,7 @@ private fun VoiceSettingsPanel(
                 ),
                 onValue = { onConfig(config.copy(mode = it)) },
             )
-            VoiceChoice(
+            SettingsDropdown(
                 title = "Effet sonore avant parole",
                 value = config.soundEffect,
                 options = listOf(
@@ -822,7 +931,7 @@ private fun VoiceSettingsPanel(
                 ),
                 onValue = { onConfig(config.copy(soundEffect = it)) },
             )
-            VoiceChoice(
+            SettingsDropdown(
                 title = "Longueur des phrases",
                 value = config.phraseLength,
                 options = listOf(
@@ -917,6 +1026,83 @@ private fun AiGatewayPanel(
 }
 
 @Composable
+private fun SettingsSection(title: String) {
+    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
+private fun PermissionStepCard(
+    step: Int,
+    title: String,
+    explanation: String,
+    status: String,
+    primaryButtonLabel: String,
+    primaryAction: () -> Unit,
+    secondaryButtonLabel: String? = null,
+    secondaryAction: (() -> Unit)? = null,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("$step. $title", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(explanation)
+            Text("État : $status", color = if (status.contains("autor")) Color(0xFF2E7D5B) else Color(0xFF8A4B25))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = primaryAction) { Text(primaryButtonLabel) }
+                if (secondaryButtonLabel != null && secondaryAction != null) {
+                    OutlinedButton(onClick = secondaryAction) { Text(secondaryButtonLabel) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) }
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun SettingsSlider(
+    title: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    displayedValue: String,
+    onValueChange: (Float) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(displayedValue)
+        }
+        Slider(value = value, onValueChange = onValueChange, valueRange = valueRange)
+    }
+}
+
+@Composable
+private fun SettingsDropdown(
+    title: String,
+    value: String,
+    options: List<String>,
+    onValue: (String) -> Unit,
+) {
+    VoiceChoice(title = title, value = value, options = options, onValue = onValue)
+}
+
+@Composable
 private fun VoiceChoice(
     title: String,
     value: String,
@@ -948,13 +1134,13 @@ private fun ModulesClochettePanel(modules: List<PersonaModuleStatus>) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Modules Clochette", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            modules.forEach { module ->
-                val status = when {
-                    module.detected && module.validJson -> "détecté"
-                    module.detected -> "invalide"
-                    else -> "manquant"
-                }
-                Text("${module.fileName} : $status")
+            val detected = modules.count { it.detected && it.validJson }
+            val invalid = modules.count { it.detected && !it.validJson }
+            val missing = modules.count { !it.detected }
+            Text("Modules : $detected détectés, $invalid invalides, $missing manquants")
+            val problems = modules.filter { !it.detected || !it.validJson }.take(4)
+            if (problems.isNotEmpty()) {
+                Text("À vérifier : ${problems.joinToString { it.fileName }}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
