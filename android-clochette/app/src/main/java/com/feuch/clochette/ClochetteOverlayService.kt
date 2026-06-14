@@ -49,6 +49,7 @@ class ClochetteOverlayService : Service() {
     private var replyStatusView: TextView? = null
     private var replyTranscriptView: TextView? = null
     private var spriteContainerView: FrameLayout? = null
+    private var medallionBaseView: View? = null
     private var micBadgeView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private var recognizer: SpeechRecognizer? = null
@@ -128,6 +129,7 @@ class ClochetteOverlayService : Service() {
         replyStatusView = null
         replyTranscriptView = null
         spriteContainerView = null
+        medallionBaseView = null
         micBadgeView = null
         layoutParams = null
         super.onDestroy()
@@ -154,6 +156,8 @@ class ClochetteOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.BOTTOM or Gravity.END
             setPadding(6.dp(), 6.dp(), 6.dp(), 6.dp())
+            clipChildren = false
+            clipToPadding = false
         }
         rootLayout = root
         val bubbleMaxWidth = (resources.displayMetrics.widthPixels * 0.68f)
@@ -210,6 +214,12 @@ class ClochetteOverlayService : Service() {
             elevation = 14f
         }
         spriteView = sprite
+        val medallionBase = View(this).apply {
+            background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), COLLAPSED_SPRITE_DP.dp())
+            elevation = 10f
+            visibility = View.GONE
+        }
+        medallionBaseView = medallionBase
         val micBadge = TextView(this).apply {
             text = "\uD83C\uDFA4"
             textSize = 13f
@@ -221,6 +231,12 @@ class ClochetteOverlayService : Service() {
         }
         micBadgeView = micBadge
         val spriteContainer = FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+            addView(
+                medallionBase,
+                FrameLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), COLLAPSED_SPRITE_DP.dp(), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL),
+            )
             addView(
                 sprite,
                 FrameLayout.LayoutParams(
@@ -253,6 +269,7 @@ class ClochetteOverlayService : Service() {
         root.addView(bubble, bubbleParams)
         root.addView(spriteContainer, spriteParams)
 
+        installTapRefreshBehavior(bubble)
         installDragBehavior(root, spriteContainer, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
@@ -305,6 +322,39 @@ class ClochetteOverlayService : Service() {
             addView(replyTranscriptView)
         }
 
+    private fun installTapRefreshBehavior(bubble: View) {
+        var downX = 0f
+        var downY = 0f
+        var downAt = 0L
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        bubble.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    downAt = System.currentTimeMillis()
+                    handler.removeCallbacks(hideBubbleRunnable)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val moved = abs(event.rawX - downX) > touchSlop || abs(event.rawY - downY) > touchSlop
+                    val longPress = System.currentTimeMillis() - downAt >= LONG_PRESS_MIC_MS
+                    if (!moved && !longPress) {
+                        speakNextLine()
+                    } else {
+                        scheduleBubbleHide()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    scheduleBubbleHide()
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
     private fun installDragBehavior(root: View, sprite: View, params: WindowManager.LayoutParams) {
         var startX = 0
         var startY = 0
@@ -329,7 +379,7 @@ class ClochetteOverlayService : Service() {
                 }
             } else when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    showBubbleTemporarily()
+                    handler.removeCallbacks(hideBubbleRunnable)
                     startX = params.x
                     startY = params.y
                     touchX = event.rawX
@@ -341,7 +391,7 @@ class ClochetteOverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - touchX).toInt()
                     val dy = (event.rawY - touchY).toInt()
-                    if (abs(dx) > touchSlop || abs(dy) > touchSlop) {
+                    if (touched == sprite && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
                         moved = true
                         params.x = (startX - dx).coerceAtLeast(0)
                         params.y = (startY - dy).coerceAtLeast(0)
@@ -351,10 +401,12 @@ class ClochetteOverlayService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     val pressDuration = System.currentTimeMillis() - downAt
-                    if (!moved && pressDuration >= 2_500L) {
-                        pauseOverlay()
-                    } else if (!moved && touched == sprite) {
+                    if (!moved && touched == sprite && pressDuration >= LONG_PRESS_MIC_MS) {
                         showVoiceReplyOverlay(autoStart = true)
+                    } else if (!moved && touched == sprite) {
+                        speakNextLine()
+                    } else if (!moved) {
+                        speakNextLine()
                     } else {
                         scheduleBubbleHide()
                     }
@@ -465,8 +517,11 @@ class ClochetteOverlayService : Service() {
             }
             background = null
             setPadding(0, 0, 0, 0)
+            clipChildren = false
+            clipToPadding = false
             requestLayout()
         }
+        medallionBaseView?.visibility = View.GONE
         spriteView?.apply {
             setImageResource(R.drawable.clochette_overlay_model)
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -480,16 +535,23 @@ class ClochetteOverlayService : Service() {
 
     private fun collapseSprite() {
         spriteContainerView?.apply {
-            layoutParams = LinearLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), COLLAPSED_SPRITE_DP.dp()).apply {
+            layoutParams = LinearLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), (COLLAPSED_SPRITE_DP + COLLAPSED_OVERFLOW_DP).dp()).apply {
                 gravity = Gravity.BOTTOM
             }
-            background = roundedBackground(Color.rgb(255, 249, 230), Color.rgb(109, 58, 161), COLLAPSED_SPRITE_DP.dp())
-            setPadding(5.dp(), 5.dp(), 5.dp(), 5.dp())
+            background = null
+            clipChildren = false
+            clipToPadding = false
+            setPadding(0, 0, 0, 0)
+            requestLayout()
+        }
+        medallionBaseView?.apply {
+            visibility = View.VISIBLE
+            layoutParams = FrameLayout.LayoutParams(COLLAPSED_SPRITE_DP.dp(), COLLAPSED_SPRITE_DP.dp(), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
             requestLayout()
         }
         spriteView?.apply {
             setImageResource(R.drawable.clochette_blacklace_portrait)
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            layoutParams = FrameLayout.LayoutParams(COLLAPSED_PORTRAIT_DP.dp(), COLLAPSED_PORTRAIT_DP.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
             background = null
             setPadding(0, 0, 0, 0)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
@@ -505,8 +567,11 @@ class ClochetteOverlayService : Service() {
             }
             background = micHaloBackground(recording)
             setPadding(5.dp(), 5.dp(), 5.dp(), 5.dp())
+            clipChildren = false
+            clipToPadding = false
             requestLayout()
         }
+        medallionBaseView?.visibility = View.GONE
         spriteView?.apply {
             setImageResource(R.drawable.clochette_blacklace_portrait)
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -915,6 +980,8 @@ class ClochetteOverlayService : Service() {
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
         const val ACTION_OPEN_MIC = "com.feuch.clochette.overlay.OPEN_MIC"
         private const val COLLAPSED_SPRITE_DP = 68
+        private const val COLLAPSED_OVERFLOW_DP = 14
+        private const val COLLAPSED_PORTRAIT_DP = 78
         private const val MIC_SPRITE_DP = 76
         private const val MIC_BADGE_DP = 22
         private const val EXPANDED_SPRITE_WIDTH_DP = 78
@@ -926,5 +993,6 @@ class ClochetteOverlayService : Service() {
         private const val EXTRA_OFFER_MS = 3_500L
         private const val RESULT_GRACE_MS = 2_500L
         private const val REPLY_IDLE_COLLAPSE_MS = 5_000L
+        private const val LONG_PRESS_MIC_MS = 650L
     }
 }
