@@ -17,6 +17,8 @@ Latest overlay microphone correction:
 - Permission behavior: missing microphone permission opens Android app settings instead of `VoiceReplyActivity`.
 - Reuse fix: every voice capture now creates a fresh `SpeechRecognizer`, increments a `voiceSessionId`, clears stale partial text, cancels timers, and ignores callbacks from older sessions.
 - Error handling: `no_match`, `speech_timeout`, `recognizer_busy`, `client`, `audio`, and permission errors return the overlay to a tappable stable state.
+- Follow-up fix: tapping the Clochette portrait now starts voice capture directly instead of generating a new remark first.
+- Follow-up fix: after `stopListening()`, a 2.5-second fallback processes the current partial transcript if Android never sends `onResults` or `onError`.
 - Commands run:
   - `python android-clochette/tools/validate_persona_assets.py`
   - `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`

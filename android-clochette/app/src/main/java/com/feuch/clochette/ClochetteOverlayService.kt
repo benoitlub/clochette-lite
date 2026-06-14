@@ -63,6 +63,7 @@ class ClochetteOverlayService : Service() {
     private var voiceSessionId = 0L
     private val hideBubbleRunnable = Runnable { collapseOverlayIfIdle() }
     private val stopListeningRunnable = Runnable { stopVoiceCapture(process = true) }
+    private val forceProcessRunnable = Runnable { forceProcessCurrentCapture() }
     private val countdownRunnable = object : Runnable {
         override fun run() {
             if (!listening) return
@@ -353,8 +354,7 @@ class ClochetteOverlayService : Service() {
                     if (!moved && pressDuration >= 2_500L) {
                         pauseOverlay()
                     } else if (!moved && touched == sprite) {
-                        showBubbleTemporarily()
-                        speakNextLine()
+                        showVoiceReplyOverlay(autoStart = true)
                     } else {
                         scheduleBubbleHide()
                     }
@@ -636,11 +636,13 @@ class ClochetteOverlayService : Service() {
         voiceState = if (process) VoiceCaptureState.PROCESSING else VoiceCaptureState.IDLE
         handler.removeCallbacks(stopListeningRunnable)
         handler.removeCallbacks(countdownRunnable)
+        handler.removeCallbacks(forceProcessRunnable)
         setMicButtonRecording(false)
         Log.d(TAG, "voice session $sessionId stop process=$process")
         if (process) {
             showMiniTranscript(currentTranscriptText().ifBlank { "Je transforme \u00e7a en mots..." })
             recognizer?.stopListening()
+            handler.postDelayed(forceProcessRunnable, RESULT_GRACE_MS)
         } else {
             recognizer?.cancel()
             ClochetteRuntimeStatus.recordAction(this, "micro ferm\u00e9 overlay")
@@ -651,6 +653,7 @@ class ClochetteOverlayService : Service() {
     private fun resetVoiceSessionForStart(appendMode: Boolean): Long {
         handler.removeCallbacks(stopListeningRunnable)
         handler.removeCallbacks(countdownRunnable)
+        handler.removeCallbacks(forceProcessRunnable)
         voiceSessionId += 1L
         listening = false
         voiceState = VoiceCaptureState.IDLE
@@ -664,6 +667,19 @@ class ClochetteOverlayService : Service() {
         recognizer = null
         Log.d(TAG, "voice session $voiceSessionId reset append=$appendMode")
         return voiceSessionId
+    }
+
+    private fun forceProcessCurrentCapture() {
+        if (voiceState != VoiceCaptureState.PROCESSING) return
+        Log.d(TAG, "voice session $voiceSessionId force process after recognizer silence")
+        runCatching { recognizer?.cancel() }
+        runCatching { recognizer?.destroy() }
+        recognizer = null
+        listening = false
+        mergeRecognizedText(latestPartialTranscript)
+        setMicButtonRecording(false)
+        ClochetteRuntimeStatus.recordAction(this, "micro ferm\u00e9 overlay")
+        offerExtraListeningWindow()
     }
 
     private fun updateVoiceCountdown() {
@@ -743,10 +759,11 @@ class ClochetteOverlayService : Service() {
             listening = false
             handler.removeCallbacks(stopListeningRunnable)
             handler.removeCallbacks(countdownRunnable)
+            handler.removeCallbacks(forceProcessRunnable)
             setMicButtonRecording(false)
             runCatching { recognizer?.destroy() }
             recognizer = null
-            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm? overlay")
+            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm\u00e9 overlay")
             Log.d(TAG, "voice session $sessionId error=${recognizerErrorLabel(error)}")
             when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
@@ -766,6 +783,7 @@ class ClochetteOverlayService : Service() {
             listening = false
             handler.removeCallbacks(stopListeningRunnable)
             handler.removeCallbacks(countdownRunnable)
+            handler.removeCallbacks(forceProcessRunnable)
             val text = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
@@ -774,7 +792,7 @@ class ClochetteOverlayService : Service() {
             setMicButtonRecording(false)
             runCatching { recognizer?.destroy() }
             recognizer = null
-            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm? overlay")
+            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm\u00e9 overlay")
             Log.d(TAG, "voice session $sessionId final='${accumulatedTranscript.take(80)}'")
             offerExtraListeningWindow()
         }
@@ -906,6 +924,7 @@ class ClochetteOverlayService : Service() {
         private const val INITIAL_LISTEN_MS = 15_000L
         private const val EXTRA_LISTEN_MS = 20_000L
         private const val EXTRA_OFFER_MS = 3_500L
+        private const val RESULT_GRACE_MS = 2_500L
         private const val REPLY_IDLE_COLLAPSE_MS = 5_000L
     }
 }
