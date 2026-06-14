@@ -362,7 +362,16 @@ class ClochetteOverlayService : Service() {
         var touchY = 0f
         var downAt = 0L
         var moved = false
+        var longPressTriggered = false
+        var ignoreNextMicUpAfterLongPress = false
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        val longPressRunnable = Runnable {
+            if (!moved && !micOnlyMode) {
+                longPressTriggered = true
+                ignoreNextMicUpAfterLongPress = true
+                showVoiceReplyOverlay(autoStart = true)
+            }
+        }
 
         val listener = View.OnTouchListener { touched, event ->
             if (micOnlyMode && touched == sprite) {
@@ -372,7 +381,11 @@ class ClochetteOverlayService : Service() {
                     }
                     MotionEvent.ACTION_UP,
                     MotionEvent.ACTION_CANCEL -> {
-                        handleMicTap()
+                        if (ignoreNextMicUpAfterLongPress) {
+                            ignoreNextMicUpAfterLongPress = false
+                        } else {
+                            handleMicTap()
+                        }
                         true
                     }
                     else -> true
@@ -386,6 +399,10 @@ class ClochetteOverlayService : Service() {
                     touchY = event.rawY
                     downAt = System.currentTimeMillis()
                     moved = false
+                    longPressTriggered = false
+                    if (touched == sprite) {
+                        handler.postDelayed(longPressRunnable, LONG_PRESS_MIC_MS)
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -393,6 +410,7 @@ class ClochetteOverlayService : Service() {
                     val dy = (event.rawY - touchY).toInt()
                     if (touched == sprite && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
                         moved = true
+                        handler.removeCallbacks(longPressRunnable)
                         params.x = (startX - dx).coerceAtLeast(0)
                         params.y = (startY - dy).coerceAtLeast(0)
                         overlay?.let { windowManager.updateViewLayout(it, params) }
@@ -400,8 +418,11 @@ class ClochetteOverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    handler.removeCallbacks(longPressRunnable)
                     val pressDuration = System.currentTimeMillis() - downAt
-                    if (!moved && touched == sprite && pressDuration >= LONG_PRESS_MIC_MS) {
+                    if (longPressTriggered) {
+                        true
+                    } else if (!moved && touched == sprite && pressDuration >= LONG_PRESS_MIC_MS) {
                         showVoiceReplyOverlay(autoStart = true)
                     } else if (!moved && touched == sprite) {
                         speakNextLine()
@@ -413,6 +434,7 @@ class ClochetteOverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(longPressRunnable)
                     true
                 }
                 else -> false

@@ -78,3 +78,16 @@ Overlay tap refresh and collapsed portrait fix:
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: tap open portrait, tap open bubble, collapse then tap medallion, long press medallion, long press open portrait, drag portrait, verify bubble text/voice/widget all show the same Octopus decision.
+
+Overlay long-press mic guard:
+- Date: 2026-06-14
+- Commit tested: working tree after `2e9972a`; final commit contains the same source change plus this note.
+- Change: long press on the Clochette portrait/medallion starts the overlay microphone immediately, and the following finger release is ignored once so it does not stop the 15-second capture by accident.
+- Tap behavior preserved: normal tap on portrait/medallion or bubble still calls `OctopusCore.intervene(...)` through the existing manual tap path.
+- Drag behavior preserved: moving the portrait/medallion cancels the pending long press and only drags Clochette; the bubble still does not drag the overlay.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
