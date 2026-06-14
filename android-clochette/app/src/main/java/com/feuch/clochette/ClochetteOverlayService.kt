@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
@@ -52,8 +53,21 @@ class ClochetteOverlayService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
     private var micOnlyMode = false
+    private var voiceState = VoiceCaptureState.IDLE
+    private var voiceCaptureStartedAt = 0L
+    private var voiceCaptureDurationMs = INITIAL_LISTEN_MS
+    private var voiceAppendMode = false
+    private var accumulatedTranscript = ""
+    private var latestPartialTranscript = ""
     private val hideBubbleRunnable = Runnable { collapseOverlayIfIdle() }
-    private val stopListeningRunnable = Runnable { stopVoiceReply("Temps écoulé. Micro fermé.") }
+    private val stopListeningRunnable = Runnable { stopVoiceCapture(process = true) }
+    private val countdownRunnable = object : Runnable {
+        override fun run() {
+            if (!listening) return
+            updateVoiceCountdown()
+            handler.postDelayed(this, 1_000L)
+        }
+    }
 
     private val lineReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -301,16 +315,11 @@ class ClochetteOverlayService : Service() {
             if (micOnlyMode && touched == sprite) {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        setMicButtonRecording(true)
-                        startVoiceReply(
-                            status = "J’écoute tant que tu maintiens.",
-                            hint = "",
-                        )
                         true
                     }
                     MotionEvent.ACTION_UP,
                     MotionEvent.ACTION_CANCEL -> {
-                        finishManualVoiceReply()
+                        handleMicTap()
                         true
                     }
                     else -> true
@@ -549,42 +558,57 @@ class ClochetteOverlayService : Service() {
     private fun showVoiceReplyOverlay(autoStart: Boolean) {
         enterMicOnlyMode()
         if (autoStart) {
-            replyStatusView?.text = "J’écoute. 15 secondes maximum."
-            showMiniTranscript("")
-            setMicButtonRecording(true, automatic = true)
-            startVoiceReply()
+            startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false)
         } else {
-            replyStatusView?.text = "Prêt à écouter"
-            showMiniTranscript("")
+            voiceState = VoiceCaptureState.IDLE
+            showMiniTranscript("Tape Clochette pour parler 15 s.")
             setMicButtonRecording(false)
         }
     }
 
-    private fun startVoiceReply(
-        status: String = "J’écoute. 15 secondes maximum.",
-        hint: String = "Parle, je note ici ce que j’entends.",
-    ) {
+    private fun handleMicTap() {
+        when (voiceState) {
+            VoiceCaptureState.LISTENING_INITIAL,
+            VoiceCaptureState.LISTENING_EXTRA -> stopVoiceCapture(process = true)
+            VoiceCaptureState.PROCESSING -> Unit
+            VoiceCaptureState.ERROR -> startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false)
+            VoiceCaptureState.IDLE -> {
+                val append = accumulatedTranscript.isNotBlank()
+                startVoiceCapture(if (append) EXTRA_LISTEN_MS else INITIAL_LISTEN_MS, appendMode = append)
+            }
+        }
+    }
+
+    private fun startVoiceCapture(durationMs: Long, appendMode: Boolean = false) {
         if (listening) return
         enterMicOnlyMode()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            replyStatusView?.text = "Permission micro requise"
-            showMiniTranscript("Autorise le micro dans l’app.")
+            voiceState = VoiceCaptureState.ERROR
+            showMiniTranscript("Micro non autoris\u00e9. Ouvre les r\u00e9glages de l’app.")
             setMicButtonRecording(false)
-            Toast.makeText(this, "Autorise le micro pour répondre à Clochette.", Toast.LENGTH_LONG).show()
-            startActivity(Intent(this, VoiceReplyActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            Toast.makeText(this, "Autorise le micro pour r\u00e9pondre \u00e0 Clochette.", Toast.LENGTH_LONG).show()
+            openAppPermissionSettings()
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            replyStatusView?.text = "Micro indisponible"
+            voiceState = VoiceCaptureState.ERROR
             showMiniTranscript("Reconnaissance vocale indisponible.")
             setMicButtonRecording(false)
             return
         }
+        if (!appendMode) {
+            accumulatedTranscript = ""
+        }
+        latestPartialTranscript = ""
+        voiceAppendMode = appendMode
+        voiceCaptureDurationMs = durationMs
+        voiceCaptureStartedAt = System.currentTimeMillis()
+        voiceState = if (appendMode) VoiceCaptureState.LISTENING_EXTRA else VoiceCaptureState.LISTENING_INITIAL
         listening = true
-        replyStatusView?.text = status
-        showMiniTranscript("")
-        setMicButtonRecording(true)
+        setMicButtonRecording(true, automatic = appendMode)
+        updateVoiceCountdown()
         ClochetteRuntimeStatus.recordAction(this, "micro ouvert overlay")
+
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(replyListener)
@@ -592,51 +616,81 @@ class ClochetteOverlayService : Service() {
                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                     .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
-                    .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1),
+                    .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true),
             )
         }
         handler.removeCallbacks(stopListeningRunnable)
-        handler.postDelayed(stopListeningRunnable, MAX_LISTEN_MS)
+        handler.removeCallbacks(countdownRunnable)
+        handler.postDelayed(stopListeningRunnable, durationMs)
+        handler.postDelayed(countdownRunnable, 1_000L)
     }
 
-    private fun finishManualVoiceReply() {
+    private fun stopVoiceCapture(process: Boolean = true) {
         if (!listening) return
         listening = false
+        voiceState = if (process) VoiceCaptureState.PROCESSING else VoiceCaptureState.IDLE
         handler.removeCallbacks(stopListeningRunnable)
-        replyStatusView?.text = "Je transforme ça en mots."
-        showMiniTranscript("Je transforme ça en mots...")
+        handler.removeCallbacks(countdownRunnable)
         setMicButtonRecording(false)
-        recognizer?.stopListening()
-    }
-
-    private fun stopVoiceReply(message: String) {
-        if (!listening) return
-        listening = false
-        replyStatusView?.text = message
-        showMiniTranscript("Pas grave. Je range la question.")
-        ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
-        setMicButtonRecording(false)
-        recognizer?.stopListening()
-        handler.postDelayed({
-            exitMicOnlyMode()
-        }, REPLY_IDLE_COLLAPSE_MS)
-    }
-
-    private fun closeVoiceReplyPanel() {
-        if (listening) {
-            stopVoiceReply("Micro fermé")
+        if (process) {
+            showMiniTranscript(currentTranscriptText().ifBlank { "Je transforme \u00e7a en mots..." })
+            recognizer?.stopListening()
         } else {
-            replyStatusView?.text = "Micro fermé"
-            showMiniTranscript("")
-            setMicButtonRecording(false)
+            recognizer?.cancel()
+            ClochetteRuntimeStatus.recordAction(this, "micro ferm\u00e9 overlay")
+            offerExtraListeningWindow()
         }
-        exitMicOnlyMode()
     }
+
+    private fun updateVoiceCountdown() {
+        val elapsed = System.currentTimeMillis() - voiceCaptureStartedAt
+        val remainingSeconds = ((voiceCaptureDurationMs - elapsed).coerceAtLeast(0L) / 1_000L).toInt() + 1
+        val heard = currentTranscriptText()
+        val prefix = if (voiceState == VoiceCaptureState.LISTENING_EXTRA) "+20 s" else "J’écoute"
+        showMiniTranscript(
+            if (heard.isBlank()) "$prefix… ${remainingSeconds}s" else "$heard · ${remainingSeconds}s",
+        )
+    }
+
+    private fun currentTranscriptText(): String {
+        val base = accumulatedTranscript.trim()
+        val partial = latestPartialTranscript.trim()
+        return when {
+            base.isNotBlank() && partial.isNotBlank() -> "J’entends : $base $partial"
+            partial.isNotBlank() -> "J’entends : $partial"
+            base.isNotBlank() -> "J’ai entendu : $base"
+            else -> ""
+        }
+    }
+
+    private fun offerExtraListeningWindow() {
+        voiceState = VoiceCaptureState.IDLE
+        if (accumulatedTranscript.isBlank()) {
+            showMiniTranscript("Je n’ai rien entendu. Tape pour réessayer 15 s.")
+        } else {
+            showMiniTranscript("J’ai entendu : $accumulatedTranscript · tape pour +20 s")
+        }
+        setMicButtonRecording(false)
+        handler.postDelayed({
+            if (!listening && micOnlyMode && voiceState == VoiceCaptureState.IDLE) {
+                finishOverlayReply(accumulatedTranscript)
+            }
+        }, EXTRA_OFFER_MS)
+    }
+
+    private fun openAppPermissionSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:$packageName"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
 
     private val replyListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
-            replyStatusView?.text = "J’écoute."
-            showMiniTranscript("")
+            updateVoiceCountdown()
             setMicButtonRecording(true)
         }
 
@@ -645,49 +699,64 @@ class ClochetteOverlayService : Service() {
         override fun onBufferReceived(buffer: ByteArray?) = Unit
 
         override fun onEndOfSpeech() {
-            listening = false
-            replyStatusView?.text = "Je transforme ça en mots."
-            showMiniTranscript("Je transforme ça en mots...")
-            setMicButtonRecording(false)
+            if (listening) {
+                voiceState = VoiceCaptureState.PROCESSING
+                showMiniTranscript(currentTranscriptText().ifBlank { "Je transforme ça en mots..." })
+                setMicButtonRecording(false)
+            }
         }
 
         override fun onError(error: Int) {
             listening = false
             handler.removeCallbacks(stopListeningRunnable)
-            replyStatusView?.text = "Je n’ai pas bien attrapé."
-            showMiniTranscript("Je n’ai pas bien attrapé.")
-            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro fermé overlay")
+            handler.removeCallbacks(countdownRunnable)
             setMicButtonRecording(false)
+            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm? overlay")
+            if (accumulatedTranscript.isNotBlank() || latestPartialTranscript.isNotBlank()) {
+                mergeRecognizedText(latestPartialTranscript)
+                offerExtraListeningWindow()
+            } else {
+                voiceState = VoiceCaptureState.ERROR
+                showMiniTranscript("Je n’ai pas bien attrapé. Tape pour réessayer.")
+            }
         }
 
         override fun onResults(results: Bundle?) {
             listening = false
             handler.removeCallbacks(stopListeningRunnable)
+            handler.removeCallbacks(countdownRunnable)
             val text = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
-            replyTranscriptView?.text = if (text.isBlank()) {
-                "Je n’ai rien entendu."
-            } else {
-                "J’ai entendu : “$text”"
-            }
-            replyTranscriptView?.visibility = View.VISIBLE
+            mergeRecognizedText(text)
             setMicButtonRecording(false)
-            finishOverlayReply(text)
+            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm? overlay")
+            offerExtraListeningWindow()
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            val partial = partialResults
+            latestPartialTranscript = partialResults
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
-            if (partial.isNotBlank()) {
-                showMiniTranscript("J’entends : “$partial”")
+            if (latestPartialTranscript.isNotBlank()) {
+                updateVoiceCountdown()
             }
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    private fun mergeRecognizedText(text: String) {
+        val clean = text.trim()
+        if (clean.isBlank()) return
+        accumulatedTranscript = listOf(accumulatedTranscript, clean)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(" ")
+        latestPartialTranscript = ""
     }
 
     private fun finishOverlayReply(userText: String) {
@@ -750,6 +819,14 @@ class ClochetteOverlayService : Service() {
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
 
+    private enum class VoiceCaptureState {
+        IDLE,
+        LISTENING_INITIAL,
+        LISTENING_EXTRA,
+        PROCESSING,
+        ERROR,
+    }
+
     companion object {
         const val ACTION_SHOW = "com.feuch.clochette.overlay.SHOW"
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
@@ -762,7 +839,9 @@ class ClochetteOverlayService : Service() {
         private const val EXPANDED_SPRITE_HEIGHT_DP = 140
         private const val BUBBLE_AUTO_HIDE_MS = 25_000L
         private const val DIAGNOSTIC_BUBBLE_HIDE_MS = 60_000L
-        private const val MAX_LISTEN_MS = 15_000L
+        private const val INITIAL_LISTEN_MS = 15_000L
+        private const val EXTRA_LISTEN_MS = 20_000L
+        private const val EXTRA_OFFER_MS = 3_500L
         private const val REPLY_IDLE_COLLAPSE_MS = 5_000L
     }
 }

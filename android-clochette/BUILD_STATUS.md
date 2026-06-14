@@ -8,6 +8,18 @@
 - Build result: success
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 
+Latest overlay microphone correction:
+- Date: 2026-06-14
+- Change: replaced fragile press-and-hold microphone capture with tap-to-start / tap-to-stop timed capture.
+- Initial capture: 15 seconds maximum.
+- Extra capture: tap Clochette after a first result to continue for 20 seconds.
+- UI: compact mic-only overlay, Clochette portrait remains the control, countdown and partial transcript stay in the mini capsule above.
+- Permission behavior: missing microphone permission opens Android app settings instead of `VoiceReplyActivity`.
+- Commands run:
+  - `python android-clochette/tools/validate_persona_assets.py`
+  - `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Result: success.
+
 Current correction:
 - `OctopusCore.intervene(...)` is now the required path for visible Clochette interventions.
 - Widget tap, overlay tap/reply, proactive ticks/tests, safe voice test, MainActivity test buttons, and VoiceReplyActivity transcription now route through Octopus.
