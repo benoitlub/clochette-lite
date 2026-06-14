@@ -59,3 +59,22 @@ Expected APK behavior:
 - Phrase banks drive local interventions when possible.
 - Empty Gateway URL shows local fallback behavior instead of blocking the app.
 - No API key is stored in the repository or APK.
+
+Overlay tap refresh and collapsed portrait fix:
+- Date: 2026-06-14
+- Commit tested: `2a1cc07`
+- Change: open and collapsed Clochette are tappable again.
+- Open portrait tap: calls `OctopusCore.intervene(...)` with `manual_tap` and refreshes the overlay line.
+- Open bubble tap: calls the same Octopus path and does not drag the overlay.
+- Portrait long press: opens the overlay microphone path.
+- Collapsed medallion tap: expands Clochette and requests a fresh Octopus line immediately.
+- Collapsed medallion long press: opens the overlay microphone path.
+- Drag behavior: movement is handled only from the Clochette portrait/medallion, not from the text bubble.
+- Collapsed visual: the medallion has a circular base, portrait uses `CENTER_INSIDE`, and the portrait can overflow above the circle by 14dp so the head is not cropped.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: tap open portrait, tap open bubble, collapse then tap medallion, long press medallion, long press open portrait, drag portrait, verify bubble text/voice/widget all show the same Octopus decision.
