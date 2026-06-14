@@ -91,3 +91,20 @@ Overlay long-press mic guard:
 - Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+
+Settings onboarding reorganization:
+- Date: 2026-06-14
+- Commit tested: `eecda70`
+- Change: `MainActivity` now presents first-launch setup in Android order: notifications, overlay/superposition, Usage Access, app permissions, microphone, notification/media access, accessibility, SMS status, and widget.
+- Change: diagnostics and Octopus test controls moved below the normal setup and behavior controls.
+- Change: behavior settings are grouped separately from voice settings.
+- Change: voice sliders now use reusable readable slider rows with visible values.
+- Change: choice settings use reusable dropdown rows.
+- Change: module display is summarized as detected/invalid/missing instead of a long raw list.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: verify permission buttons open the expected Android screens, sliders save voice values, dropdowns save behavior/voice/IA choices, Observer/Pause still work, overlay buttons still work, and diagnostics are at the bottom.
