@@ -255,3 +255,39 @@ Second Blacklace avatar batch:
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: select `sofia`, `feunette_verte`, `feuch`, and `fee_belette`; verify thumbnails and overlay avatars update in open, edge, and point modes.
+
+Character avatar mapping and alpha fix:
+- Date: 2026-06-15
+- Commit tested before commit: `d9c6306`
+- Change: replaced character JPG assets with PNG assets carrying a real alpha channel.
+- Change: removed tracked JPG avatar files so checkerboard backgrounds cannot be selected by manifests.
+- Change: every `assets/characters/<id>/manifest.json` now points to `idle.png`, `talking.png`, and `thumbnail.png`.
+- Change: `CharacterRegistry` now maps every character ID directly to its matching drawable resource; no index/order-based mapping is used.
+- Runtime validation added:
+  - logs `Character asset mismatch: expected <id> but got <manifest id>` if a manifest ID is wrong.
+  - logs missing manifest fields/files.
+  - logs non-alpha JPG/JPEG references as invalid avatar assets.
+- Build validation added in `tools/validate_persona_assets.py`:
+  - validates all 9 character manifests.
+  - verifies `manifest.id` exactly matches the character folder/id.
+  - verifies `idle` and `thumbnail` exist.
+  - rejects JPG/JPEG avatar references.
+  - verifies PNG/WebP assets have an alpha channel.
+  - detects obvious checkerboard backgrounds on opaque corner samples.
+- Corrected explicit mapping:
+  - `fee_brune`: Clochette / fée brune gothic model.
+  - `sofia`: brunette portrait.
+  - `birdy`: purple fairy with megaphone.
+  - `audrey`: blue-haired character with cigarette.
+  - `feunette_verte`: small green creature.
+  - `fee_belette`: dark-haired cartoon fairy.
+  - `brumeux`: dark man with glasses.
+  - `feuch`: orange/eye-themed supplied avatar available in the asset set.
+  - `natasha`: blue-haired Natasha asset.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found, 9 character asset manifests validated.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: select all 9 characters one by one and verify name, thumbnail, open overlay avatar, edge mode avatar, point mode access, tap/new phrase, long-press/micro, Observer/Pause, and no visible checkerboard on light or dark backgrounds.

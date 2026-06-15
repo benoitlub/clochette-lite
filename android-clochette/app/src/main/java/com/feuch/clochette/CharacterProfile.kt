@@ -1,6 +1,8 @@
 package com.feuch.clochette
 
 import android.content.Context
+import android.util.Log
+import org.json.JSONObject
 
 data class CharacterProfile(
     val id: String,
@@ -97,6 +99,14 @@ object CharacterRegistry {
             callDot = R.drawable.character_birdy_idle,
             thumbnail = R.drawable.character_birdy_idle,
         )
+        val audreyVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_audrey_idle,
+            talking = R.drawable.character_audrey_idle,
+            listening = R.drawable.character_audrey_idle,
+            closedEdge = R.drawable.character_audrey_idle,
+            callDot = R.drawable.character_audrey_idle,
+            thumbnail = R.drawable.character_audrey_idle,
+        )
         val feunetteVerteVisuals = CharacterVisualAssets(
             idle = R.drawable.character_feunette_verte_idle,
             talking = R.drawable.character_feunette_verte_idle,
@@ -112,6 +122,14 @@ object CharacterRegistry {
             closedEdge = R.drawable.character_fee_belette_idle,
             callDot = R.drawable.character_fee_belette_idle,
             thumbnail = R.drawable.character_fee_belette_idle,
+        )
+        val brumeuxVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_brumeux_idle,
+            talking = R.drawable.character_brumeux_idle,
+            listening = R.drawable.character_brumeux_idle,
+            closedEdge = R.drawable.character_brumeux_idle,
+            callDot = R.drawable.character_brumeux_idle,
+            thumbnail = R.drawable.character_brumeux_idle,
         )
         val feuchVisuals = CharacterVisualAssets(
             idle = R.drawable.character_feuch_idle,
@@ -210,6 +228,7 @@ object CharacterRegistry {
                 listOf("direct", "caring"),
                 CharacterDefaultPersonality(40, 60, 35, 45, 35, 45),
                 65,
+                visuals = audreyVisuals,
             ),
             profile(
                 FEUNETTE_VERTE,
@@ -245,6 +264,7 @@ object CharacterRegistry {
                 listOf("mysterious", "soft", "caring"),
                 CharacterDefaultPersonality(25, 25, 20, 80, 70, 40),
                 45,
+                visuals = brumeuxVisuals,
             ),
             profile(
                 FEUCH,
@@ -272,7 +292,7 @@ object CharacterRegistry {
                 12 * 60_000L,
                 natashaVisuals,
             ),
-        )
+        ).also { CharacterAssetValidator.validate(context, it) }
     }
 
     fun get(context: Context, id: String): CharacterProfile =
@@ -284,4 +304,42 @@ object CharacterRegistry {
 
     fun normalizeId(id: String): String =
         if (id == LEGACY_CLOCHETTE) FEE_BRUNE else id
+}
+
+object CharacterAssetValidator {
+    private const val TAG = "ClochetteCharacters"
+
+    fun validate(context: Context, profiles: List<CharacterProfile>) {
+        profiles.forEach { profile ->
+            runCatching {
+                val manifestPath = "characters/${profile.id}/manifest.json"
+                val manifest = context.assets.open(manifestPath)
+                    .bufferedReader()
+                    .use { JSONObject(it.readText()) }
+                val manifestId = manifest.optString("id")
+                if (manifestId != profile.id) {
+                    Log.e(TAG, "Character asset mismatch: expected ${profile.id} but got $manifestId")
+                }
+                listOf("idle", "thumbnail").forEach { field ->
+                    val fileName = manifest.optString(field)
+                    if (fileName.isBlank()) {
+                        Log.e(TAG, "Character asset missing field: characterId=${profile.id} field=$field")
+                    } else {
+                        runCatching { context.assets.open("characters/${profile.id}/$fileName").close() }
+                            .onFailure {
+                                Log.e(TAG, "Character asset missing file: characterId=${profile.id} field=$field file=$fileName")
+                            }
+                    }
+                }
+                listOf("idle", "talking", "thumbnail", "closed_edge", "call_dot").forEach { field ->
+                    val fileName = manifest.optString(field)
+                    if (fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true)) {
+                        Log.e(TAG, "Invalid avatar asset: non-alpha format for characterId=${profile.id} file=$fileName")
+                    }
+                }
+            }.onFailure {
+                Log.e(TAG, "Character asset manifest error: characterId=${profile.id}", it)
+            }
+        }
+    }
 }
