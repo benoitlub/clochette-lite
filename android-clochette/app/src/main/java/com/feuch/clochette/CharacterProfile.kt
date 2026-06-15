@@ -73,6 +73,46 @@ object CharacterRegistry {
             callDot = R.drawable.clochette_blacklace_portrait,
             thumbnail = R.drawable.clochette_blacklace_portrait,
         )
+        val feeBruneVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_fee_brune_idle,
+            talking = R.drawable.character_fee_brune_idle,
+            listening = R.drawable.character_fee_brune_idle,
+            closedEdge = R.drawable.character_fee_brune_idle,
+            callDot = R.drawable.character_fee_brune_idle,
+            thumbnail = R.drawable.character_fee_brune_idle,
+        )
+        val birdyVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_birdy_idle,
+            talking = R.drawable.character_birdy_idle,
+            listening = R.drawable.character_birdy_idle,
+            closedEdge = R.drawable.character_birdy_idle,
+            callDot = R.drawable.character_birdy_idle,
+            thumbnail = R.drawable.character_birdy_idle,
+        )
+        val feeBeletteVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_fee_belette_idle,
+            talking = R.drawable.character_fee_belette_idle,
+            listening = R.drawable.character_fee_belette_idle,
+            closedEdge = R.drawable.character_fee_belette_idle,
+            callDot = R.drawable.character_fee_belette_idle,
+            thumbnail = R.drawable.character_fee_belette_idle,
+        )
+        val feuchVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_feuch_idle,
+            talking = R.drawable.character_feuch_idle,
+            listening = R.drawable.character_feuch_idle,
+            closedEdge = R.drawable.character_feuch_idle,
+            callDot = R.drawable.character_feuch_idle,
+            thumbnail = R.drawable.character_feuch_idle,
+        )
+        val natashaVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_natasha_idle,
+            talking = R.drawable.character_natasha_idle,
+            listening = R.drawable.character_natasha_idle,
+            closedEdge = R.drawable.character_natasha_idle,
+            callDot = R.drawable.character_natasha_idle,
+            thumbnail = R.drawable.character_natasha_idle,
+        )
         fun profile(
             id: String,
             name: String,
@@ -84,13 +124,14 @@ object CharacterRegistry {
             personality: CharacterDefaultPersonality,
             priority: Int,
             cooldown: Long = 8 * 60_000L,
+            visuals: CharacterVisualAssets = fallback,
         ) = CharacterProfile(
             id = id,
             displayName = name,
             shortDescription = description,
             roleLabel = roleLabel,
             role = role,
-            visualAssets = fallback,
+            visualAssets = visuals,
             phraseBankId = "phrases_$id",
             voiceProfileId = id,
             phraseBanks = banks,
@@ -117,6 +158,7 @@ object CharacterRegistry {
                 CharacterDefaultPersonality(55, 50, 55, 60, 50, 55),
                 100,
                 20_000L,
+                feeBruneVisuals,
             ),
             profile(
                 SOFIA,
@@ -139,6 +181,7 @@ object CharacterRegistry {
                 listOf("curious", "soft", "mysterious"),
                 CharacterDefaultPersonality(45, 55, 35, 55, 45, 80),
                 62,
+                visuals = birdyVisuals,
             ),
             profile(
                 AUDREY,
@@ -172,6 +215,7 @@ object CharacterRegistry {
                 listOf("teasing", "soft", "absurd"),
                 CharacterDefaultPersonality(35, 45, 65, 55, 35, 55),
                 55,
+                visuals = feeBeletteVisuals,
             ),
             profile(
                 BRUMEUX,
@@ -195,6 +239,7 @@ object CharacterRegistry {
                 CharacterDefaultPersonality(70, 85, 70, 20, 35, 45),
                 50,
                 10 * 60_000L,
+                feuchVisuals,
             ),
             profile(
                 NATASHA,
@@ -207,6 +252,7 @@ object CharacterRegistry {
                 CharacterDefaultPersonality(55, 60, 80, 30, 45, 70),
                 58,
                 12 * 60_000L,
+                natashaVisuals,
             ),
         )
     }
