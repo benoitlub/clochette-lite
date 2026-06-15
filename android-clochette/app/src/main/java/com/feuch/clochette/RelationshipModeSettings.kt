@@ -52,10 +52,19 @@ object RelationshipModeSettings {
 
     fun effectiveConfig(context: Context, base: ProactiveConfig = ProactiveSettings.read(context)): ProactiveConfig {
         val mode = selected(context)
+        val personality = ClochettePersonalitySettings.read(context)
+        val personalityFrequency = when {
+            personality.talkativeness >= 70 -> ProactiveFrequency.BAVARDE
+            personality.talkativeness <= 25 -> ProactiveFrequency.DISCRETE
+            personality.talkativeness !in 40..60 -> ProactiveFrequency.NORMALE
+            else -> null
+        }
         return base.copy(
             voiceInterventions = base.voiceInterventions && mode.voiceDefault,
-            spontaneousQuestions = base.spontaneousQuestions && mode.questionFrequency != "very_low",
-            frequency = when (mode.questionFrequency) {
+            spontaneousQuestions = base.spontaneousQuestions &&
+                mode.questionFrequency != "very_low" &&
+                personality.curiosity > 10,
+            frequency = personalityFrequency ?: when (mode.questionFrequency) {
                 "high" -> ProactiveFrequency.BAVARDE
                 "medium" -> ProactiveFrequency.NORMALE
                 else -> ProactiveFrequency.DISCRETE

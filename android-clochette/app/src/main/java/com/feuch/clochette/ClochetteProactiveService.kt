@@ -19,10 +19,16 @@ class ClochetteProactiveService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
-            OctopusCore.intervene(
-                context = this@ClochetteProactiveService,
-                trigger = OctopusCore.TRIGGER_PROACTIVE_TICK,
-            )
+            val personality = ClochettePersonalitySettings.read(this@ClochetteProactiveService)
+            val chance = (10 + (personality.initiative * 0.85)).toInt().coerceIn(5, 95)
+            if (Random.nextInt(100) < chance) {
+                OctopusCore.intervene(
+                    context = this@ClochetteProactiveService,
+                    trigger = OctopusCore.TRIGGER_PROACTIVE_TICK,
+                )
+            } else {
+                ClochetteRuntimeStatus.recordAction(this@ClochetteProactiveService, "proactive_skipped_initiative")
+            }
             val config = RelationshipModeSettings.effectiveConfig(this@ClochetteProactiveService)
             val mode = RelationshipModeSettings.selected(this@ClochetteProactiveService)
             val delay = nextDelayMillis(config.frequency, mode.cooldownMultiplier)
@@ -128,20 +134,22 @@ class ClochetteProactiveService : Service() {
     }
 
     private fun nextDelayMillis(frequency: ProactiveFrequency, cooldownMultiplier: Double): Long {
+        val personality = ClochettePersonalitySettings.read(this)
+        val talkFactor = (1.6 - (personality.talkativeness / 100.0) * 1.05).coerceIn(0.5, 1.7)
         if (DEBUG_FAST_PROACTIVE) {
             val seconds = when (frequency) {
                 ProactiveFrequency.DISCRETE -> 180L
                 ProactiveFrequency.NORMALE -> 90L
                 ProactiveFrequency.BAVARDE -> Random.nextLong(35L, 61L)
             }
-            return (seconds * 1000L * cooldownMultiplier).toLong().coerceAtLeast(30_000L)
+            return (seconds * 1000L * cooldownMultiplier * talkFactor).toLong().coerceAtLeast(20_000L)
         }
         val minutes = when (frequency) {
             ProactiveFrequency.DISCRETE -> Random.nextLong(18L, 21L)
             ProactiveFrequency.NORMALE -> Random.nextLong(13L, 18L)
             ProactiveFrequency.BAVARDE -> Random.nextLong(10L, 13L)
         }
-        return (minutes * cooldownMultiplier).toLong().coerceAtLeast(10L) * 60_000L
+        return (minutes * cooldownMultiplier * talkFactor).toLong().coerceAtLeast(5L) * 60_000L
     }
 
     companion object {

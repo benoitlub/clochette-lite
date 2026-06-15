@@ -83,6 +83,8 @@ private fun ClochetteApp(startSection: String?) {
     var runtimeStatus by remember { mutableStateOf(ClochetteRuntimeStatus.read(context)) }
     var octopusDiagnostics by remember { mutableStateOf(OctopusDiagnosticsStore.read(context)) }
     var relationshipModeId by remember { mutableStateOf(RelationshipModeSettings.selectedId(context)) }
+    var appearanceConfig by remember { mutableStateOf(ClochetteAppearanceSettings.read(context)) }
+    var personalityConfig by remember { mutableStateOf(ClochettePersonalitySettings.read(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val relationshipModes = remember(refresh) { RelationshipModeSettings.modes(context) }
     val usageSnapshot = remember(refresh) { UsageObserver(context).snapshot() }
@@ -112,6 +114,17 @@ private fun ClochetteApp(startSection: String?) {
     fun updateRelationshipMode(modeId: String) {
         relationshipModeId = modeId
         RelationshipModeSettings.saveSelectedId(context, modeId)
+    }
+
+    fun updateAppearanceConfig(config: ClosedAppearanceConfig) {
+        appearanceConfig = config
+        ClochetteAppearanceSettings.save(context, config)
+    }
+
+    fun updatePersonalityConfig(config: ClochettePersonalityConfig) {
+        val safe = config.clamp()
+        personalityConfig = safe
+        ClochettePersonalitySettings.save(context, safe)
     }
 
     fun recordAction(action: String) {
@@ -415,6 +428,16 @@ private fun ClochetteApp(startSection: String?) {
                     },
                 )
 
+                ClosedAppearancePanel(
+                    config = appearanceConfig,
+                    onConfig = { updateAppearanceConfig(it) },
+                )
+
+                CharacterSettingsPanel(
+                    config = personalityConfig,
+                    onConfig = { updatePersonalityConfig(it) },
+                )
+
                 VoiceSettingsPanel(
                     config = voiceConfig,
                     onConfig = { updateVoiceConfig(it) },
@@ -687,6 +710,134 @@ private fun BehaviorSettingsPanel(
                 OutlinedButton(onClick = onPause) { Text("Pause") }
             }
         }
+    }
+}
+
+@Composable
+private fun ClosedAppearancePanel(
+    config: ClosedAppearanceConfig,
+    onConfig: (ClosedAppearanceConfig) -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Apparence fermée", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Choisis comment Clochette se range quand elle n'a rien à dire.")
+            SettingsDropdown(
+                title = "Apparence fermée",
+                value = config.mode.label(),
+                options = ClosedAppearanceMode.values().map { it.label() },
+                onValue = { selected ->
+                    ClosedAppearanceMode.values().firstOrNull { it.label() == selected }?.let {
+                        onConfig(config.copy(mode = it))
+                    }
+                },
+            )
+            SettingsDropdown(
+                title = "Côté préféré",
+                value = config.side.label(),
+                options = ClosedAppearanceSide.values().map { it.label() },
+                onValue = { selected ->
+                    ClosedAppearanceSide.values().firstOrNull { it.label() == selected }?.let {
+                        onConfig(config.copy(side = it))
+                    }
+                },
+            )
+            Text(
+                "Le mode point garde une zone tactile confortable, même si le point visible reste discret.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.DarkGray,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CharacterSettingsPanel(
+    config: ClochettePersonalityConfig,
+    onConfig: (ClochettePersonalityConfig) -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Caractère de Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Ces réglages influencent les interventions locales, sans toucher à Octopus.")
+            PersonalitySlider(
+                title = "Bavardage",
+                low = "très discrète",
+                mid = "équilibrée",
+                high = "très bavarde",
+                value = config.talkativeness,
+                onValue = { onConfig(config.copy(talkativeness = it)) },
+            )
+            PersonalitySlider(
+                title = "Initiative",
+                low = "attend qu'on l'appelle",
+                mid = "intervient parfois",
+                high = "vient souvent",
+                value = config.initiative,
+                onValue = { onConfig(config.copy(initiative = it)) },
+            )
+            PersonalitySlider(
+                title = "Taquinerie",
+                low = "douce et sobre",
+                mid = "piquante gentille",
+                high = "sarcastique sans méchanceté",
+                value = config.teasing,
+                onValue = { onConfig(config.copy(teasing = it)) },
+            )
+            PersonalitySlider(
+                title = "Douceur",
+                low = "directe",
+                mid = "chaleureuse",
+                high = "très rassurante",
+                value = config.softness,
+                onValue = { onConfig(config.copy(softness = it)) },
+            )
+            PersonalitySlider(
+                title = "Longueur des phrases",
+                low = "très court",
+                mid = "normal",
+                high = "plus narratif",
+                value = config.phraseLength,
+                onValue = { onConfig(config.copy(phraseLength = it)) },
+            )
+            PersonalitySlider(
+                title = "Curiosité",
+                low = "presque pas de questions",
+                mid = "questions occasionnelles",
+                high = "relances plus fréquentes",
+                value = config.curiosity,
+                onValue = { onConfig(config.copy(curiosity = it)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PersonalitySlider(
+    title: String,
+    low: String,
+    mid: String,
+    high: String,
+    value: Int,
+    onValue: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SettingsSlider(
+            title = title,
+            value = value.toFloat(),
+            valueRange = 0f..100f,
+            displayedValue = value.toString(),
+            onValueChange = { onValue(it.toInt().coerceIn(0, 100)) },
+        )
+        Text(
+            when {
+                value < 34 -> low
+                value > 66 -> high
+                else -> mid
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.DarkGray,
+        )
     }
 }
 
@@ -1342,6 +1493,17 @@ private fun stateLabel(raw: String?): String = when (raw) {
     ClochetteState.OBSERVING.name -> "observe"
     ClochetteState.PAUSED.name -> "pause"
     else -> "en veille"
+}
+
+private fun ClosedAppearanceMode.label(): String = when (this) {
+    ClosedAppearanceMode.EDGE_PEEK -> "En retrait sur le bord"
+    ClosedAppearanceMode.CALL_DOT -> "Simple point d'appel"
+}
+
+private fun ClosedAppearanceSide.label(): String = when (this) {
+    ClosedAppearanceSide.LEFT -> "Gauche"
+    ClosedAppearanceSide.RIGHT -> "Droite"
+    ClosedAppearanceSide.AUTO -> "Automatique / dernier bord utilisé"
 }
 
 private fun openWidgetPicker(context: Context) {

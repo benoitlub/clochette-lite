@@ -27,6 +27,8 @@ object PhraseBankSelector {
     ): PhraseBankSelection? {
         val tags = contextTags(trigger, state, preferQuestion)
         val modeId = relationshipMode.id
+        val personality = ClochettePersonalitySettings.read(context)
+        val tone = preferredTone ?: ClochettePersonalitySettings.preferredTone(personality)
         val recentLines = recentMemory.mapNotNull { it.clochetteLine }.map { it.normalizedLine() }.toSet()
         val candidates = loadEntries(context)
             .filter { it.status == "accepted" }
@@ -35,7 +37,7 @@ object PhraseBankSelector {
             .filter { it.relationshipModes.isEmpty() || modeId in it.relationshipModes }
             .filterNot { it.line.normalizedLine() in recentLines }
             .mapNotNull { entry ->
-                val score = score(entry, trigger, tags, modeId, preferQuestion, preferredTone)
+                val score = score(entry, trigger, tags, modeId, preferQuestion, tone, personality)
                 if (score <= 0.0) null else entry to score
             }
 
@@ -68,6 +70,7 @@ object PhraseBankSelector {
         modeId: String,
         preferQuestion: Boolean,
         preferredTone: String?,
+        personality: ClochettePersonalityConfig,
     ): Double {
         val contextMatches = entry.contexts.count { it in tags }
         val hasContextMatch = entry.contexts.isEmpty() || contextMatches > 0
@@ -80,7 +83,46 @@ object PhraseBankSelector {
         if (!preferQuestion && entry.canAskMic) score -= 4.0
         if (preferredTone != null && entry.tone.equals(preferredTone, ignoreCase = true)) score += 22.0
         if (entry.line.contains("?") && preferQuestion) score += 12.0
+        score += personalityToneScore(entry, personality)
+        score += personalityLengthScore(entry, personality)
         return score
+    }
+
+    private fun personalityToneScore(entry: PhraseBankEntry, personality: ClochettePersonalityConfig): Double {
+        var score = 0.0
+        val tone = entry.tone.lowercase()
+        val bank = entry.bankId.lowercase()
+        val contexts = entry.contexts.map { it.lowercase() }.toSet()
+        if (personality.teasing >= 60 && (tone == "teasing" || bank == "teasing" || "playful" in contexts)) {
+            score += (personality.teasing - 50) * 0.9
+        }
+        if (personality.teasing <= 25 && (tone == "teasing" || bank == "teasing")) {
+            score -= 35.0
+        }
+        if (personality.softness >= 60 && (tone == "soft" || bank == "soft" || "calm" in contexts || "soft" in contexts)) {
+            score += (personality.softness - 50) * 0.9
+        }
+        if (personality.softness <= 25 && (tone == "soft" || bank == "soft")) {
+            score -= 18.0
+        }
+        if (personality.curiosity >= 60 && (entry.canAskMic || entry.line.contains("?") || bank == "micro_questions" || "curious" in contexts)) {
+            score += (personality.curiosity - 50) * 0.9
+        }
+        if (personality.curiosity <= 25 && (entry.canAskMic || entry.line.contains("?"))) {
+            score -= 35.0
+        }
+        return score
+    }
+
+    private fun personalityLengthScore(entry: PhraseBankEntry, personality: ClochettePersonalityConfig): Double {
+        val words = entry.line.split(Regex("\\s+")).count { it.isNotBlank() }
+        return when {
+            personality.phraseLength <= 30 && words <= 12 -> 18.0
+            personality.phraseLength <= 30 && words >= 20 -> -24.0
+            personality.phraseLength >= 70 && words >= 16 -> 16.0
+            personality.phraseLength >= 70 && words <= 8 -> -10.0
+            else -> 0.0
+        }
     }
 
     private fun contextTags(trigger: String, state: ContextState, preferQuestion: Boolean): Set<String> {
