@@ -141,3 +141,34 @@ Closed overlay modes and personality sliders:
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: open Clochette, select edge-peek mode, verify tap opens and portrait is masked; select call-dot mode, verify small dot opens Clochette; long press/drag the point; verify Observer/Pause, voice, micro, overlay over other apps, and wake-from-screen-off behavior.
+
+Octopus Blacklace character casting:
+- Date: 2026-06-15
+- Commit tested: `56cebbd`
+- Change: added `CharacterProfile`, `CharacterSettings`, and `CharacterDirector`.
+- Characters included:
+  - Clochette: host, main character, handles normal system/help/micro context.
+  - Natasha: optional commentator, lucid/acerbic Blacklace guest, never insulting.
+  - Feuch: optional chaos guest, energetic/action-oriented, never insulting.
+- Change: Octopus now calls `CharacterDirector` after phrase generation and before Guardian, so guest phrases still pass Guardian.
+- Change: widget, overlay, and remark store share the same `characterId` with the same final phrase.
+- Change: overlay reads current character and falls back to existing Clochette assets if guest-specific assets are missing.
+- Change: settings include `Personnages Blacklace` with guest enable, Natasha/Feuch toggles, casting mode, frequency, acidity, chaos, host lock, and Octopus choice.
+- Cooldowns:
+  - global guest cooldown: 90 seconds.
+  - per-character cooldown from profile.
+  - max guest appearances per hour: 5.
+  - guests disabled while proactive mode is Pause.
+- Safety:
+  - guests comment only observable signals.
+  - no permissions added.
+  - no SMS permission added.
+  - no Android settings screen is opened by a service.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: Clochette only, guests disabled, Natasha enabled, Feuch enabled, casting modes, overlay open/closed, point mode, edge mode, Observer/Pause, micro, voice, and frequency/cooldown behavior over time.
+- Current limitation: Natasha and Feuch do not yet have dedicated visual assets in `res/drawable*`; they use Clochette visual fallback while keeping their own character id, line, tone, and diagnostics.
