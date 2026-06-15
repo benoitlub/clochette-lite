@@ -84,8 +84,16 @@ object OctopusCore {
             else -> localGenerated(appContext, trigger, state, relationshipMode, contextEngine, usage, recentMemory)
         }
 
+        val casting = CharacterDirector.choose(
+            context = appContext,
+            trigger = trigger,
+            state = state,
+            baseLine = generated.line.withVisibleFrenchAccents(),
+            source = generated.source,
+        )
+
         val guardian = GuardianRulesLoader(appContext).approve(
-            candidate = generated.line.withVisibleFrenchAccents(),
+            candidate = casting.phrase.withVisibleFrenchAccents(),
             state = state,
             recentLines = if (trigger == TRIGGER_SAFE_VOICE_TEST) emptyList() else recentMemory.mapNotNull { it.clochetteLine },
             recentEntries = if (trigger == TRIGGER_SAFE_VOICE_TEST) emptyList() else recentMemory,
@@ -94,13 +102,13 @@ object OctopusCore {
             allowTestOverride = trigger == TRIGGER_SAFE_VOICE_TEST,
         )
 
-        val finalLine = (guardian.line ?: generated.line).withVisibleFrenchAccents()
+        val finalLine = (guardian.line ?: casting.phrase).withVisibleFrenchAccents()
         val source = if (guardian.reason == "approved") generated.source else PhraseSource.GUARDIAN_FALLBACK
         val shouldSpeak = ClochetteVoiceSettings.read(appContext).enabled &&
             (guardian.shouldSpeak || forceSpeak || trigger == TRIGGER_SAFE_VOICE_TEST)
         val shouldOpenMic = openMic || generated.openMic && finalLine.contains("?")
 
-        ClochetteWidget.updateAll(appContext, finalLine, source)
+        ClochetteWidget.updateAll(appContext, finalLine, source, casting.character.id)
         memory.add(
             ClochetteMemoryEntry(
                 context = "octopus_core",
@@ -152,13 +160,13 @@ object OctopusCore {
             listenSeconds = generated.listenSeconds,
             overlayState = if (shouldOpenMic) "micro" else "expanded",
             voiceStatus = voiceStatus,
-            diagnosticText = "trigger=$trigger | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus$bankDiagnostic",
+            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | casting=${casting.reason}$bankDiagnostic",
             phraseBankId = generated.bankId,
             phraseEntryId = generated.entryId,
             phraseTone = generated.tone,
-            appearanceId = if (shouldOpenMic) "expanded_micro" else "expanded",
-            appearanceRole = if (shouldOpenMic) "listening" else "intervention",
-            appearancePath = "res/drawable-nodpi/clochette_overlay_model.png",
+            appearanceId = casting.character.id,
+            appearanceRole = if (shouldOpenMic) "listening" else casting.visualState,
+            appearancePath = "character:${casting.character.id}",
         )
         OctopusDiagnosticsStore.save(appContext, decision.toDiagnostics(trigger, transcription, aiConfig))
         return decision

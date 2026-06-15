@@ -85,6 +85,7 @@ private fun ClochetteApp(startSection: String?) {
     var relationshipModeId by remember { mutableStateOf(RelationshipModeSettings.selectedId(context)) }
     var appearanceConfig by remember { mutableStateOf(ClochetteAppearanceSettings.read(context)) }
     var personalityConfig by remember { mutableStateOf(ClochettePersonalitySettings.read(context)) }
+    var characterConfig by remember { mutableStateOf(CharacterSettings.read(context)) }
     val personaModules = remember(refresh) { PersonaModuleLoader(context).loadStatuses() }
     val relationshipModes = remember(refresh) { RelationshipModeSettings.modes(context) }
     val usageSnapshot = remember(refresh) { UsageObserver(context).snapshot() }
@@ -125,6 +126,11 @@ private fun ClochetteApp(startSection: String?) {
         val safe = config.clamp()
         personalityConfig = safe
         ClochettePersonalitySettings.save(context, safe)
+    }
+
+    fun updateCharacterConfig(config: CharacterCastingConfig) {
+        characterConfig = config
+        CharacterSettings.save(context, config)
     }
 
     fun recordAction(action: String) {
@@ -436,6 +442,11 @@ private fun ClochetteApp(startSection: String?) {
                 CharacterSettingsPanel(
                     config = personalityConfig,
                     onConfig = { updatePersonalityConfig(it) },
+                )
+
+                BlacklaceCharactersPanel(
+                    config = characterConfig,
+                    onConfig = { updateCharacterConfig(it) },
                 )
 
                 VoiceSettingsPanel(
@@ -807,6 +818,81 @@ private fun CharacterSettingsPanel(
                 high = "relances plus fréquentes",
                 value = config.curiosity,
                 onValue = { onConfig(config.copy(curiosity = it)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BlacklaceCharactersPanel(
+    config: CharacterCastingConfig,
+    onConfig: (CharacterCastingConfig) -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Personnages Blacklace", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Clochette reste l'hôte. Natasha et Feuch peuvent apparaître ponctuellement si Octopus les autorise.")
+            SettingsSwitchRow(
+                title = "Activer les invités",
+                subtitle = "Désactivé = Clochette uniquement.",
+                checked = config.guestsEnabled,
+                onCheckedChange = { onConfig(config.copy(guestsEnabled = it)) },
+            )
+            SettingsDropdown(
+                title = "Mode de casting",
+                value = config.castingMode.label(),
+                options = CastingMode.values().map { it.label() },
+                onValue = { selected ->
+                    CastingMode.values().firstOrNull { it.label() == selected }?.let {
+                        onConfig(config.copy(castingMode = it, guestsEnabled = it != CastingMode.CLOCHETTE_ONLY))
+                    }
+                },
+            )
+            SettingsSwitchRow(
+                title = "Autoriser Natasha",
+                subtitle = "Commentaires lucides, acerbes mais non humiliants.",
+                checked = config.allowNatasha,
+                onCheckedChange = { onConfig(config.copy(allowNatasha = it)) },
+            )
+            SettingsSwitchRow(
+                title = "Autoriser Feuch",
+                subtitle = "Interventions chaotiques courtes pour relancer l'action.",
+                checked = config.allowFeuch,
+                onCheckedChange = { onConfig(config.copy(allowFeuch = it)) },
+            )
+            PersonalitySlider(
+                title = "Fréquence des invités",
+                low = "rares",
+                mid = "ponctuels",
+                high = "plus présents",
+                value = config.guestFrequency,
+                onValue = { onConfig(config.copy(guestFrequency = it)) },
+            )
+            PersonalitySlider(
+                title = "Acidité Natasha",
+                low = "sobre",
+                mid = "lucide",
+                high = "acerbe contrôlée",
+                value = config.acidity,
+                onValue = { onConfig(config.copy(acidity = it)) },
+            )
+            PersonalitySlider(
+                title = "Chaos Feuch",
+                low = "calme relatif",
+                mid = "énergique",
+                high = "volcanique contrôlé",
+                value = config.feuchChaos,
+                onValue = { onConfig(config.copy(feuchChaos = it)) },
+            )
+            SettingsSwitchRow(
+                title = "Verrouiller Clochette comme personnage principal",
+                checked = config.lockClochetteHost,
+                onCheckedChange = { onConfig(config.copy(lockClochetteHost = it)) },
+            )
+            SettingsSwitchRow(
+                title = "Laisser Octopus choisir le personnage",
+                checked = config.letOctopusChoose,
+                onCheckedChange = { onConfig(config.copy(letOctopusChoose = it)) },
             )
         }
     }
@@ -1504,6 +1590,13 @@ private fun ClosedAppearanceSide.label(): String = when (this) {
     ClosedAppearanceSide.LEFT -> "Gauche"
     ClosedAppearanceSide.RIGHT -> "Droite"
     ClosedAppearanceSide.AUTO -> "Automatique / dernier bord utilisé"
+}
+
+private fun CastingMode.label(): String = when (this) {
+    CastingMode.CLOCHETTE_ONLY -> "Clochette uniquement"
+    CastingMode.OCCASIONAL_GUESTS -> "Invités ponctuels"
+    CastingMode.BLACKLACE_ALIVE -> "Mode Blacklace vivant"
+    CastingMode.CONTROLLED_CHAOS -> "Chaos contrôlé"
 }
 
 private fun openWidgetPicker(context: Context) {

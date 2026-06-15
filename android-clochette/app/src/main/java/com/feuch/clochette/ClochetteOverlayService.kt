@@ -217,7 +217,7 @@ class ClochetteOverlayService : Service() {
         bubble.addView(settingsRow)
 
         val sprite = ImageView(this).apply {
-            setImageResource(R.drawable.clochette_overlay_model)
+            setImageResource(currentCharacter().visualAssets.idle)
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
             setPadding(0, 0, 0, 0)
@@ -469,6 +469,7 @@ class ClochetteOverlayService : Service() {
             maxLines = bubbleMaxLines()
             text = line.withVisibleFrenchAccents()
         }
+        applyCharacterVisual("talking")
         sourceView?.text = debugLine()
         showBubbleTemporarily()
     }
@@ -485,7 +486,22 @@ class ClochetteOverlayService : Service() {
     private fun debugLine(): String {
         val ai = AiGatewaySettings.read(this)
         val runtime = ClochetteRuntimeStatus.read(this)
-        return "source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"}"
+        return "perso : ${currentCharacter().displayName} · source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"}"
+    }
+
+    private fun currentCharacter(): CharacterProfile =
+        CharacterRegistry.get(this, ClochetteRemarkStore.latestCharacterId(this))
+
+    private fun applyCharacterVisual(state: String) {
+        val character = currentCharacter()
+        val asset = when (state) {
+            "listening" -> character.visualAssets.listening ?: character.visualAssets.idle
+            "closed_edge" -> character.visualAssets.closedEdge ?: character.visualAssets.idle
+            "call_dot" -> character.visualAssets.callDot ?: character.visualAssets.idle
+            "talking" -> character.visualAssets.talking
+            else -> character.visualAssets.idle
+        }
+        spriteView?.setImageResource(asset)
     }
 
     private fun showBubbleTemporarily() {
@@ -573,7 +589,7 @@ class ClochetteOverlayService : Service() {
         medallionBaseView?.visibility = View.GONE
         spriteView?.apply {
             visibility = View.VISIBLE
-            setImageResource(R.drawable.clochette_overlay_model)
+            setImageResource(currentCharacter().visualAssets.talking)
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             background = null
             setPadding(0, 0, 0, 0)
@@ -609,7 +625,7 @@ class ClochetteOverlayService : Service() {
             requestLayout()
         }
         spriteView?.apply {
-            setImageResource(R.drawable.clochette_blacklace_portrait)
+            applyCharacterVisual("closed_edge")
             layoutParams = FrameLayout.LayoutParams(COLLAPSED_PORTRAIT_DP.dp(), COLLAPSED_PORTRAIT_DP.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
                 topMargin = (-6).dp()
             }
@@ -677,7 +693,7 @@ class ClochetteOverlayService : Service() {
         medallionBaseView?.visibility = View.GONE
         spriteView?.apply {
             visibility = View.VISIBLE
-            setImageResource(R.drawable.clochette_blacklace_portrait)
+            applyCharacterVisual("listening")
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             background = null
             setPadding(0, 0, 0, 0)

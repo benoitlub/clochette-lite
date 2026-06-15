@@ -31,8 +31,9 @@ class ClochetteWidget : AppWidgetProvider() {
             context: Context,
             line: String = latestLine(context),
             source: PhraseSource = PhraseSource.UNKNOWN,
+            characterId: String = ClochetteRemarkStore.latestCharacterId(context),
         ) {
-            ClochetteRemarkStore.announce(context, line, source)
+            ClochetteRemarkStore.announce(context, line, source, characterId)
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, ClochetteWidget::class.java)
             manager.getAppWidgetIds(component).forEach { update(context, manager, it, line) }
