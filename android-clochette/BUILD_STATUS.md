@@ -172,3 +172,36 @@ Octopus Blacklace character casting:
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: Clochette only, guests disabled, Natasha enabled, Feuch enabled, casting modes, overlay open/closed, point mode, edge mode, Observer/Pause, micro, voice, and frequency/cooldown behavior over time.
 - Current limitation: Natasha and Feuch do not yet have dedicated visual assets in `res/drawable*`; they use Clochette visual fallback while keeping their own character id, line, tone, and diagnostics.
+
+Active Blacklace character selector:
+- Date: 2026-06-15
+- Commit tested: `16a1d73`
+- Change: user can select exactly one active character at a time.
+- Characters prepared:
+  - `fee_brune`
+  - `sofia`
+  - `birdy`
+  - `audrey`
+  - `feunette_verte`
+  - `fee_belette`
+  - `brumeux`
+  - `feuch`
+  - `natasha`
+- Change: added `assets/characters/<id>/manifest.json` for every character.
+- Change: `CharacterProfile` now includes short description, role label, thumbnail, phraseBankId, default personality, enabled, and userSelectable fields.
+- Change: settings show character cards with thumbnail, name, description, role, active badge, and `Choisir` button.
+- Change: default Octopus character mode is `Personnage verrouillé`; Octopus does not switch characters automatically unless the user selects another mode.
+- Modes available:
+  - Personnage verrouillé
+  - Suggestions de changement
+  - Apparitions rares
+  - Mode Blacklace vivant
+- Change: active character influences phrase tone preference and overlay character id.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: select each character, close/reopen app, verify active character persists, verify overlay open/closed point/edge modes, verify locked mode does not auto-switch, verify rare/living modes can still use cooldown-limited appearances, verify Observer/Pause, voice, micro, and no permission loop.
+- Current limitation: character-specific image files referenced in asset manifests are placeholders for future content; runtime uses existing drawable fallbacks until those PNG/WebP files are added.
