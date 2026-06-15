@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Outline
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -24,6 +25,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
@@ -590,12 +592,14 @@ class ClochetteOverlayService : Service() {
             overlay?.let { windowManager.updateViewLayout(it, params) }
         }
         spriteContainerView?.apply {
-            layoutParams = LinearLayout.LayoutParams(EDGE_PEEK_TOUCH_DP.dp(), (COLLAPSED_SPRITE_DP + COLLAPSED_OVERFLOW_DP).dp()).apply {
+            layoutParams = LinearLayout.LayoutParams(EDGE_PEEK_TOUCH_DP.dp(), COLLAPSED_SPRITE_DP.dp()).apply {
                 gravity = Gravity.BOTTOM
             }
-            background = null
-            clipChildren = false
-            clipToPadding = false
+            background = roundedBackground(Color.TRANSPARENT, Color.TRANSPARENT, COLLAPSED_SPRITE_DP.dp())
+            clipChildren = true
+            clipToPadding = true
+            clipToOutline = true
+            outlineProvider = roundedOutlineProvider(COLLAPSED_SPRITE_DP.dp())
             setPadding(0, 0, 0, 0)
             requestLayout()
         }
@@ -606,7 +610,9 @@ class ClochetteOverlayService : Service() {
         }
         spriteView?.apply {
             setImageResource(R.drawable.clochette_blacklace_portrait)
-            layoutParams = FrameLayout.LayoutParams(COLLAPSED_PORTRAIT_DP.dp(), COLLAPSED_PORTRAIT_DP.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+            layoutParams = FrameLayout.LayoutParams(COLLAPSED_PORTRAIT_DP.dp(), COLLAPSED_PORTRAIT_DP.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+                topMargin = (-6).dp()
+            }
             background = null
             setPadding(0, 0, 0, 0)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
@@ -646,6 +652,13 @@ class ClochetteOverlayService : Service() {
         }
         micBadgeView?.visibility = View.GONE
     }
+
+    private fun roundedOutlineProvider(radius: Int): ViewOutlineProvider =
+        object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, radius.toFloat())
+            }
+        }
 
     private fun isClosedCallDot(): Boolean =
         collapsedCallDot && bubbleView?.visibility != View.VISIBLE
