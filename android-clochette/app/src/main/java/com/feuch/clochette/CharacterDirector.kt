@@ -32,28 +32,33 @@ object CharacterDirector {
     ): CharacterIntervention {
         val appContext = context.applicationContext
         val config = CharacterSettings.read(appContext)
-        val clochette = CharacterRegistry.get(appContext, CharacterRegistry.CLOCHETTE)
-        if (!config.guestsEnabled || config.castingMode == CastingMode.CLOCHETTE_ONLY) {
-            return host(clochette, baseLine, "clochette_only")
+        val active = CharacterRegistry.get(appContext, config.activeCharacterId)
+        if (config.castingMode == CastingMode.LOCKED_CHARACTER) {
+            return host(active, baseLine, "locked_character")
         }
         if (ProactiveSettings.read(appContext).mode == ProactiveMode.PAUSE) {
-            return host(clochette, baseLine, "pause")
+            return host(active, baseLine, "pause")
+        }
+        if (config.castingMode == CastingMode.SUGGEST_CHANGES) {
+            return host(active, maybeSuggestSwitch(appContext, active, baseLine, state), "suggestion_only")
         }
         if (!config.letOctopusChoose) {
-            return host(clochette, baseLine, "octopus_choice_disabled")
+            return host(active, baseLine, "octopus_choice_disabled")
         }
         if (trigger == OctopusCore.TRIGGER_GATEWAY_TEST || trigger == OctopusCore.TRIGGER_SAFE_VOICE_TEST) {
-            return host(clochette, baseLine, "technical_trigger")
+            return host(active, baseLine, "technical_trigger")
         }
         if (!underGlobalLimits(appContext)) {
-            return host(clochette, baseLine, "cooldown_global")
+            return host(active, baseLine, "cooldown_global")
         }
 
-        val candidates = mutableListOf<CharacterProfile>()
-        if (config.allowNatasha) candidates += CharacterRegistry.get(appContext, CharacterRegistry.NATASHA)
-        if (config.allowFeuch) candidates += CharacterRegistry.get(appContext, CharacterRegistry.FEUCH)
+        val candidates = CharacterRegistry.selectable(appContext)
+            .filterNot { it.id == active.id }
+            .filter { config.castingMode == CastingMode.BLACKLACE_ALIVE || it.id == CharacterRegistry.NATASHA || it.id == CharacterRegistry.FEUCH }
+            .filter { it.id != CharacterRegistry.NATASHA || config.allowNatasha }
+            .filter { it.id != CharacterRegistry.FEUCH || config.allowFeuch }
         val eligible = candidates.filter { it.allowedInOverlay && it.canAppearProactively && cooldownOk(appContext, it) }
-        if (eligible.isEmpty()) return host(clochette, baseLine, "no_guest_eligible")
+        if (eligible.isEmpty()) return host(active, baseLine, "no_guest_eligible")
 
         val chance = guestChance(config, trigger, state, source)
         val seed = abs(
@@ -62,7 +67,7 @@ object CharacterDirector {
                 state.durationMinutes * 3 +
                 System.currentTimeMillis().div(60_000L).toInt(),
         ) % 100
-        if (seed >= chance) return host(clochette, baseLine, "guest_chance_$chance")
+        if (seed >= chance) return host(active, baseLine, "guest_chance_$chance")
 
         val picked = pickGuest(eligible, config, state)
         val phrase = guestPhrase(picked.id, config, state, trigger).withVisibleFrenchAccents()
@@ -80,8 +85,8 @@ object CharacterDirector {
 
     fun latestCharacterId(context: Context): String =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_LAST_CHARACTER, CharacterRegistry.CLOCHETTE)
-            ?: CharacterRegistry.CLOCHETTE
+            .getString(KEY_LAST_CHARACTER, CharacterRegistry.DEFAULT_ACTIVE)
+            ?: CharacterRegistry.DEFAULT_ACTIVE
 
     private fun host(profile: CharacterProfile, line: String, reason: String): CharacterIntervention =
         CharacterIntervention(
@@ -101,10 +106,10 @@ object CharacterDirector {
         source: PhraseSource,
     ): Int {
         var chance = when (config.castingMode) {
-            CastingMode.CLOCHETTE_ONLY -> 0
-            CastingMode.OCCASIONAL_GUESTS -> config.guestFrequency / 3
+            CastingMode.LOCKED_CHARACTER -> 0
+            CastingMode.SUGGEST_CHANGES -> 0
+            CastingMode.OCCASIONAL_GUESTS -> config.guestFrequency / 4
             CastingMode.BLACKLACE_ALIVE -> config.guestFrequency / 2 + 15
-            CastingMode.CONTROLLED_CHAOS -> config.guestFrequency + 10
         }
         if (trigger == OctopusCore.TRIGGER_PROACTIVE_TICK) chance += 8
         if (state.recentAppSwitches >= 4) chance += 16
@@ -124,8 +129,25 @@ object CharacterDirector {
             config.feuchChaos >= 70 && feuch != null -> feuch
             state.recentAppSwitches >= 4 && natasha != null -> natasha
             state.durationMinutes >= 25 && natasha != null -> natasha
-            feuch != null && config.castingMode == CastingMode.CONTROLLED_CHAOS -> feuch
             else -> eligible.maxBy { it.priority }
+        }
+    }
+
+    private fun maybeSuggestSwitch(
+        context: Context,
+        active: CharacterProfile,
+        baseLine: String,
+        state: ContextState,
+    ): String {
+        val suggested = when {
+            state.recentAppSwitches >= 4 -> CharacterRegistry.get(context, CharacterRegistry.NATASHA)
+            state.durationMinutes >= 25 -> CharacterRegistry.get(context, CharacterRegistry.AUDREY)
+            else -> null
+        }
+        return if (suggested != null && suggested.id != active.id) {
+            "$baseLine\nSuggestion Octopus : ${suggested.displayName} serait peut-être adaptée ici."
+        } else {
+            baseLine
         }
     }
 

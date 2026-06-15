@@ -29,8 +29,8 @@ object ClochetteRemarkStore {
 
     fun latestCharacterId(context: Context): String = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(KEY_CHARACTER_ID, CharacterRegistry.CLOCHETTE)
-        ?: CharacterRegistry.CLOCHETTE
+        .getString(KEY_CHARACTER_ID, CharacterSettings.read(context).activeCharacterId)
+        ?: CharacterSettings.read(context).activeCharacterId
 
     fun announce(
         context: Context,

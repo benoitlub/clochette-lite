@@ -204,6 +204,7 @@ object OctopusCore {
         recentMemory: List<ClochetteMemoryEntry>,
     ): Generated {
         val proactiveConfig = RelationshipModeSettings.effectiveConfig(context)
+        val activeCharacter = CharacterRegistry.get(context, CharacterSettings.read(context).activeCharacterId)
         val preferQuestion = trigger == TRIGGER_PROACTIVE_TEST || proactiveConfig.spontaneousQuestions
         if (trigger != TRIGGER_GATEWAY_TEST) {
             PhraseBankSelector.select(
@@ -213,6 +214,7 @@ object OctopusCore {
                 relationshipMode = relationshipMode,
                 recentMemory = recentMemory,
                 preferQuestion = preferQuestion,
+                preferredTone = preferredToneFor(activeCharacter),
             )?.let { selection ->
                 return Generated(
                     line = selection.line,
@@ -244,6 +246,15 @@ object OctopusCore {
                 "Je suis là. Tu veux que je reste discrète ou que je t’aide à reprendre le fil ?"
         }
         return Generated(line, PhraseSource.LOCAL_NATURAL, "local", trigger.contains("test"), line.contains("?"), 15)
+    }
+
+    private fun preferredToneFor(character: CharacterProfile): String? = when {
+        "sarcastic" in character.toneTags -> "teasing"
+        "chaotic" in character.toneTags -> "badass"
+        "soft" in character.toneTags -> "soft"
+        "direct" in character.toneTags -> "focus"
+        "curious" in character.toneTags -> "micro_questions"
+        else -> null
     }
 
     private fun buildRequest(

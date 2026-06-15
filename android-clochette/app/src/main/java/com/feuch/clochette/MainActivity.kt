@@ -20,12 +20,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -49,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -828,25 +831,42 @@ private fun BlacklaceCharactersPanel(
     config: CharacterCastingConfig,
     onConfig: (CharacterCastingConfig) -> Unit,
 ) {
+    val context = LocalContext.current
+    val characters = remember(config.activeCharacterId) { CharacterRegistry.selectable(context) }
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Personnages Blacklace", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text("Clochette reste l'hôte. Natasha et Feuch peuvent apparaître ponctuellement si Octopus les autorise.")
-            SettingsSwitchRow(
-                title = "Activer les invités",
-                subtitle = "Désactivé = Clochette uniquement.",
-                checked = config.guestsEnabled,
-                onCheckedChange = { onConfig(config.copy(guestsEnabled = it)) },
-            )
+            Text("Personnage actif", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Un seul personnage actif à la fois. Octopus anime celui que tu choisis.")
+            characters.forEach { character ->
+                CharacterChoiceCard(
+                    character = character,
+                    selected = character.id == config.activeCharacterId,
+                    onChoose = {
+                        onConfig(
+                            config.copy(
+                                activeCharacterId = character.id,
+                                castingMode = CastingMode.LOCKED_CHARACTER,
+                                guestsEnabled = false,
+                            ),
+                        )
+                    },
+                )
+            }
             SettingsDropdown(
-                title = "Mode de casting",
+                title = "Gestion des personnages par Octopus",
                 value = config.castingMode.label(),
                 options = CastingMode.values().map { it.label() },
                 onValue = { selected ->
                     CastingMode.values().firstOrNull { it.label() == selected }?.let {
-                        onConfig(config.copy(castingMode = it, guestsEnabled = it != CastingMode.CLOCHETTE_ONLY))
+                        onConfig(config.copy(castingMode = it, guestsEnabled = it != CastingMode.LOCKED_CHARACTER))
                     }
                 },
+            )
+            SettingsSwitchRow(
+                title = "Activer les apparitions invitées",
+                subtitle = "Uniquement hors mode Personnage verrouillé.",
+                checked = config.guestsEnabled,
+                onCheckedChange = { onConfig(config.copy(guestsEnabled = it)) },
             )
             SettingsSwitchRow(
                 title = "Autoriser Natasha",
@@ -885,7 +905,7 @@ private fun BlacklaceCharactersPanel(
                 onValue = { onConfig(config.copy(feuchChaos = it)) },
             )
             SettingsSwitchRow(
-                title = "Verrouiller Clochette comme personnage principal",
+                title = "Verrouiller le personnage actif comme principal",
                 checked = config.lockClochetteHost,
                 onCheckedChange = { onConfig(config.copy(lockClochetteHost = it)) },
             )
@@ -894,6 +914,38 @@ private fun BlacklaceCharactersPanel(
                 checked = config.letOctopusChoose,
                 onCheckedChange = { onConfig(config.copy(letOctopusChoose = it)) },
             )
+        }
+    }
+}
+
+@Composable
+private fun CharacterChoiceCard(
+    character: CharacterProfile,
+    selected: Boolean,
+    onChoose: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFFFFF9E6) else Color(0xFFF7F3EA))) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Image(
+                painter = painterResource(character.visualAssets.thumbnail),
+                contentDescription = character.displayName,
+                modifier = Modifier.size(54.dp),
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(character.displayName, fontWeight = FontWeight.SemiBold)
+                Text(character.shortDescription, style = MaterialTheme.typography.bodySmall)
+                Text(character.roleLabel, style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+            }
+            if (selected) {
+                Text("Actif", color = Color(0xFF2E7D5B), fontWeight = FontWeight.SemiBold)
+            } else {
+                OutlinedButton(onClick = onChoose) { Text("Choisir") }
+            }
         }
     }
 }
@@ -1593,10 +1645,10 @@ private fun ClosedAppearanceSide.label(): String = when (this) {
 }
 
 private fun CastingMode.label(): String = when (this) {
-    CastingMode.CLOCHETTE_ONLY -> "Clochette uniquement"
-    CastingMode.OCCASIONAL_GUESTS -> "Invités ponctuels"
+    CastingMode.LOCKED_CHARACTER -> "Personnage verrouillé"
+    CastingMode.SUGGEST_CHANGES -> "Suggestions de changement"
+    CastingMode.OCCASIONAL_GUESTS -> "Apparitions rares"
     CastingMode.BLACKLACE_ALIVE -> "Mode Blacklace vivant"
-    CastingMode.CONTROLLED_CHAOS -> "Chaos contrôlé"
 }
 
 private fun openWidgetPicker(context: Context) {

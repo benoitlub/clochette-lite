@@ -3,7 +3,8 @@ package com.feuch.clochette
 import android.content.Context
 
 data class CharacterCastingConfig(
-    val castingMode: CastingMode = CastingMode.CLOCHETTE_ONLY,
+    val activeCharacterId: String = CharacterRegistry.DEFAULT_ACTIVE,
+    val castingMode: CastingMode = CastingMode.LOCKED_CHARACTER,
     val guestsEnabled: Boolean = false,
     val allowNatasha: Boolean = true,
     val allowFeuch: Boolean = true,
@@ -15,14 +16,15 @@ data class CharacterCastingConfig(
 )
 
 enum class CastingMode {
-    CLOCHETTE_ONLY,
+    LOCKED_CHARACTER,
+    SUGGEST_CHANGES,
     OCCASIONAL_GUESTS,
     BLACKLACE_ALIVE,
-    CONTROLLED_CHAOS,
 }
 
 object CharacterSettings {
     private const val PREFS = "clochette_character_casting"
+    private const val KEY_ACTIVE = "active_character_id"
     private const val KEY_MODE = "mode"
     private const val KEY_GUESTS = "guests_enabled"
     private const val KEY_NATASHA = "allow_natasha"
@@ -36,9 +38,12 @@ object CharacterSettings {
     fun read(context: Context): CharacterCastingConfig {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return CharacterCastingConfig(
-            castingMode = prefs.getString(KEY_MODE, CastingMode.CLOCHETTE_ONLY.name)
+            activeCharacterId = CharacterRegistry.normalizeId(
+                prefs.getString(KEY_ACTIVE, CharacterRegistry.DEFAULT_ACTIVE) ?: CharacterRegistry.DEFAULT_ACTIVE,
+            ),
+            castingMode = prefs.getString(KEY_MODE, CastingMode.LOCKED_CHARACTER.name)
                 ?.let { runCatching { CastingMode.valueOf(it) }.getOrNull() }
-                ?: CastingMode.CLOCHETTE_ONLY,
+                ?: CastingMode.LOCKED_CHARACTER,
             guestsEnabled = prefs.getBoolean(KEY_GUESTS, false),
             allowNatasha = prefs.getBoolean(KEY_NATASHA, true),
             allowFeuch = prefs.getBoolean(KEY_FEUCH, true),
@@ -53,6 +58,7 @@ object CharacterSettings {
     fun save(context: Context, config: CharacterCastingConfig) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
+            .putString(KEY_ACTIVE, CharacterRegistry.normalizeId(config.activeCharacterId))
             .putString(KEY_MODE, config.castingMode.name)
             .putBoolean(KEY_GUESTS, config.guestsEnabled)
             .putBoolean(KEY_NATASHA, config.allowNatasha)
