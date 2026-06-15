@@ -108,3 +108,36 @@ Settings onboarding reorganization:
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: verify permission buttons open the expected Android screens, sliders save voice values, dropdowns save behavior/voice/IA choices, Observer/Pause still work, overlay buttons still work, and diagnostics are at the bottom.
+
+Closed overlay modes and personality sliders:
+- Date: 2026-06-15
+- Commit tested: `5e176a2`
+- Main code commits included:
+  - `c46df69` Add closed overlay modes and personality sliders
+  - `5e176a2` Mask collapsed Clochette portrait in bubble
+- Files modified:
+  - `ClochetteAppearanceSettings.kt`
+  - `ClochettePersonalitySettings.kt`
+  - `ClochetteOverlayService.kt`
+  - `ClochetteProactiveService.kt`
+  - `MainActivity.kt`
+  - `PhraseBankSelector.kt`
+  - `RelationshipModeSettings.kt`
+- Change: added closed appearance settings with `En retrait sur le bord` and `Simple point d'appel`.
+- Change: closed overlay point uses a 48dp touch area with an 18dp visible dot.
+- Change: edge-peek closed portrait is clipped with a rounded bubble-sized mask so the lower portrait no longer spills outside the bubble.
+- Change: closed position is persisted after dragging.
+- Change: added `Caractère de Clochette` sliders for Bavardage, Initiative, Taquinerie, Douceur, Longueur des phrases, and Curiosité.
+- Behavior impact:
+  - Bavardage adjusts effective proactive frequency and delay.
+  - Initiative adjusts the probability that a proactive tick actually speaks.
+  - Taquinerie, Douceur, Curiosité, and Longueur des phrases influence phrase-bank scoring.
+  - Longueur des phrases also adjusts overlay bubble width/line count.
+  - Curiosité reduces or increases question preference.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: open Clochette, select edge-peek mode, verify tap opens and portrait is masked; select call-dot mode, verify small dot opens Clochette; long press/drag the point; verify Observer/Pause, voice, micro, overlay over other apps, and wake-from-screen-off behavior.
