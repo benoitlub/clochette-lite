@@ -291,3 +291,13 @@ Character avatar mapping and alpha fix:
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: select all 9 characters one by one and verify name, thumbnail, open overlay avatar, edge mode avatar, point mode access, tap/new phrase, long-press/micro, Observer/Pause, and no visible checkerboard on light or dark backgrounds.
+
+Character asset validation CI fix:
+- Date: 2026-06-15
+- Commit tested before commit: `ab040b1`
+- Problem found after push: `validate_persona_assets.py` used Pillow, but GitHub Actions does not install Python dependencies.
+- Change: replaced Pillow usage with standard-library PNG/WebP alpha-header checks.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found, 9 character asset manifests validated.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build result: success.

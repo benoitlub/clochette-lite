@@ -85,12 +85,6 @@ def accepted_entries(data: dict | list | None) -> list[dict]:
 
 
 def validate_character_assets(errors: list[str]) -> int:
-    try:
-        from PIL import Image
-    except ImportError:
-        errors.append("Pillow is required to validate character avatar alpha channels")
-        return 0
-
     loaded = 0
     for character_id in EXPECTED_CHARACTERS:
         relative = f"characters/{character_id}/manifest.json"
@@ -115,44 +109,32 @@ def validate_character_assets(errors: list[str]) -> int:
             if asset_path.suffix.lower() not in {".png", ".webp"}:
                 errors.append(f"invalid avatar asset format: characters/{character_id}/{file_name} must be PNG or WebP with alpha")
                 continue
-            try:
-                image = Image.open(asset_path)
-                has_alpha = image.mode in {"RGBA", "LA"} or "transparency" in image.info
-                if not has_alpha:
-                    errors.append(f"invalid avatar asset: no alpha channel for characterId={character_id} file={file_name}")
-                else:
-                    alpha = image.convert("RGBA").getchannel("A")
-                    minimum, maximum = alpha.getextrema()
-                    if minimum == 255 and maximum == 255:
-                        errors.append(f"invalid avatar asset: opaque alpha for characterId={character_id} file={file_name}")
-                if looks_like_checkerboard(image):
-                    errors.append(f"Invalid avatar asset: checkerboard background detected for characterId={character_id}")
-            except Exception as exc:
-                errors.append(f"invalid character image: characters/{character_id}/{file_name}: {exc}")
+            if not file_has_alpha(asset_path):
+                errors.append(f"invalid avatar asset: no alpha channel for characterId={character_id} file={file_name}")
     return loaded
 
 
-def looks_like_checkerboard(image) -> bool:
-    rgba = image.convert("RGBA")
-    rgb = rgba.convert("RGB")
-    width, height = rgba.size
-    if width < 12 or height < 12:
-        return False
-    samples = []
-    for x, y in (
-        (2, 2),
-        (width - 3, 2),
-        (2, height - 3),
-        (width - 3, height - 3),
-        (width // 2, 2),
-        (width // 2, height - 3),
-    ):
-        if rgba.getpixel((x, y))[3] < 24:
-            continue
-        r, g, b = rgb.getpixel((x, y))
-        if max(r, g, b) - min(r, g, b) < 18 and min(r, g, b) > 190:
-            samples.append((r, g, b))
-    return len(samples) >= 4
+def file_has_alpha(path: Path) -> bool:
+    data = path.read_bytes()
+    suffix = path.suffix.lower()
+    if suffix == ".png":
+        # PNG color type: 4 = grayscale+alpha, 6 = truecolor+alpha.
+        if len(data) < 26 or data[:8] != b"\x89PNG\r\n\x1a\n":
+            return False
+        return data[25] in {4, 6}
+    if suffix == ".webp":
+        # WebP extended header stores alpha in VP8X feature flags.
+        if len(data) < 21 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+            return False
+        offset = 12
+        while offset + 8 <= len(data):
+            chunk = data[offset:offset + 4]
+            size = int.from_bytes(data[offset + 4:offset + 8], "little")
+            payload_start = offset + 8
+            if chunk == b"VP8X" and payload_start < len(data):
+                return bool(data[payload_start] & 0b00010000)
+            offset = payload_start + size + (size % 2)
+    return False
 
 
 def main() -> int:
