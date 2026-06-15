@@ -208,7 +208,7 @@ Active Blacklace character selector:
 
 Blacklace character avatar install:
 - Date: 2026-06-15
-- Commit tested before commit: `e8dc844`
+- Code commit tested after avatar install: `7e30aa7`
 - Change: installed five supplied avatar images and connected them to the active character selector and overlay runtime.
 - Avatar mapping used:
   - Photo 1: `natasha`
