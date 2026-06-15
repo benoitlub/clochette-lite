@@ -81,6 +81,14 @@ object CharacterRegistry {
             callDot = R.drawable.character_fee_brune_idle,
             thumbnail = R.drawable.character_fee_brune_idle,
         )
+        val sofiaVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_sofia_idle,
+            talking = R.drawable.character_sofia_idle,
+            listening = R.drawable.character_sofia_idle,
+            closedEdge = R.drawable.character_sofia_idle,
+            callDot = R.drawable.character_sofia_idle,
+            thumbnail = R.drawable.character_sofia_idle,
+        )
         val birdyVisuals = CharacterVisualAssets(
             idle = R.drawable.character_birdy_idle,
             talking = R.drawable.character_birdy_idle,
@@ -88,6 +96,14 @@ object CharacterRegistry {
             closedEdge = R.drawable.character_birdy_idle,
             callDot = R.drawable.character_birdy_idle,
             thumbnail = R.drawable.character_birdy_idle,
+        )
+        val feunetteVerteVisuals = CharacterVisualAssets(
+            idle = R.drawable.character_feunette_verte_idle,
+            talking = R.drawable.character_feunette_verte_idle,
+            listening = R.drawable.character_feunette_verte_idle,
+            closedEdge = R.drawable.character_feunette_verte_idle,
+            callDot = R.drawable.character_feunette_verte_idle,
+            thumbnail = R.drawable.character_feunette_verte_idle,
         )
         val feeBeletteVisuals = CharacterVisualAssets(
             idle = R.drawable.character_fee_belette_idle,
@@ -170,6 +186,7 @@ object CharacterRegistry {
                 listOf("soft", "caring", "direct"),
                 CharacterDefaultPersonality(35, 35, 20, 85, 55, 35),
                 70,
+                visuals = sofiaVisuals,
             ),
             profile(
                 BIRDY,
@@ -204,6 +221,7 @@ object CharacterRegistry {
                 listOf("teasing", "soft", "curious"),
                 CharacterDefaultPersonality(55, 65, 60, 55, 35, 60),
                 60,
+                visuals = feunetteVerteVisuals,
             ),
             profile(
                 FEE_BELETTE,

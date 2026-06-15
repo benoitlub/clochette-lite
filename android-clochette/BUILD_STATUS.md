@@ -231,3 +231,27 @@ Blacklace character avatar install:
 - Build result: success.
 - Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
 - Manual phone checks still required after installing the APK: select each installed character, verify the selector thumbnail changes, verify overlay open/closed point/edge modes use the selected avatar, verify tap/new phrase, long-press/micro, Observer/Pause, voice, and no permission loop.
+
+Second Blacklace avatar batch:
+- Date: 2026-06-15
+- Commit tested before commit: `bdce5e9`
+- Change: installed four additional supplied avatar images.
+- Avatar mapping used:
+  - Photo 1: `sofia`
+  - Photo 2: `feunette_verte`
+  - Photo 3: updated `feuch`
+  - Photo 4: updated `fee_belette`
+- Runtime drawable assets added or updated:
+  - `res/drawable-nodpi/character_sofia_idle.jpg`
+  - `res/drawable-nodpi/character_feunette_verte_idle.jpg`
+  - `res/drawable-nodpi/character_feuch_idle.jpg`
+  - `res/drawable-nodpi/character_fee_belette_idle.jpg`
+- Asset library files added or updated under `assets/characters/<id>/` as `idle.jpg`, `talking.jpg`, and `thumbnail.jpg`.
+- Remaining fallback characters: `audrey` and `brumeux` still use the existing Clochette fallback image until dedicated avatars are supplied.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual phone checks still required after installing the APK: select `sofia`, `feunette_verte`, `feuch`, and `fee_belette`; verify thumbnails and overlay avatars update in open, edge, and point modes.
