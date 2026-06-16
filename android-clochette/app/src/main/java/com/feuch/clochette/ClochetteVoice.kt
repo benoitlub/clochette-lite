@@ -13,6 +13,10 @@ object ClochetteVoice {
     private var ready = false
 
     fun speak(context: Context, text: String, automatic: Boolean = false) {
+        if (!VoiceInteractionController.canSpeak(context)) {
+            ClochetteRuntimeStatus.recordVoiceAction(context, "skipped_listening")
+            return
+        }
         val config = ClochetteVoiceSettings.read(context)
         if (!config.enabled) {
             ClochetteRuntimeStatus.recordVoiceAction(context, "skipped_voice_disabled")
@@ -30,7 +34,9 @@ object ClochetteVoice {
                 ready = status == TextToSpeech.SUCCESS
                 configure(config)
                 if (ready) {
+                    VoiceInteractionController.transition(appContext, VoiceInteractionState.SPEAKING, "tts_start")
                     say(config, text)
+                    scheduleSpeechIdle(appContext, text)
                     ClochetteRuntimeStatus.recordVoiceAction(appContext, "spoken")
                 } else {
                     ClochetteRuntimeStatus.recordVoiceAction(appContext, "error_tts")
@@ -40,7 +46,9 @@ object ClochetteVoice {
         }
         configure(config)
         if (ready) {
+            VoiceInteractionController.transition(appContext, VoiceInteractionState.SPEAKING, "tts_start")
             say(config, text)
+            scheduleSpeechIdle(appContext, text)
             ClochetteRuntimeStatus.recordVoiceAction(appContext, "spoken")
         } else {
             ClochetteRuntimeStatus.recordVoiceAction(appContext, "error_tts")
@@ -59,6 +67,12 @@ object ClochetteVoice {
         tts?.stop()
     }
 
+    fun stopForListening(context: Context) {
+        tts?.stop()
+        VoiceInteractionController.transition(context, VoiceInteractionState.LISTENING, "micro_start_stops_tts")
+        ClochetteRuntimeStatus.recordVoiceAction(context, "tts_stopped_for_micro")
+    }
+
     private fun configure(config: ClochetteVoiceConfig) {
         tts?.language = Locale.FRANCE
         tts?.setPitch(modePitch(config))
@@ -68,6 +82,16 @@ object ClochetteVoice {
     private fun say(config: ClochetteVoiceConfig, text: String) {
         playEffect(config.soundEffect)
         tts?.speak(clean(text), TextToSpeech.QUEUE_FLUSH, null, "clochette-${System.currentTimeMillis()}")
+    }
+
+    private fun scheduleSpeechIdle(context: Context, text: String) {
+        val words = text.split(Regex("\\s+")).count { it.isNotBlank() }.coerceAtLeast(4)
+        val delay = (words * 360L + 900L).coerceIn(1_800L, 9_000L)
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (VoiceInteractionController.state(context) == VoiceInteractionState.SPEAKING) {
+                VoiceInteractionController.transition(context, VoiceInteractionState.IDLE, "tts_estimated_done")
+            }
+        }, delay)
     }
 
     private fun modeRate(config: ClochetteVoiceConfig): Float {

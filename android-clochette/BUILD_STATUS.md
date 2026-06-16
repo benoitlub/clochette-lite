@@ -1,5 +1,33 @@
 # Android Clochette Build Status
 
+Voice state, permissions, and conversational context stabilization:
+- Date: 2026-06-16
+- Commit tested: working tree after `992a118`; final commit below contains the same source changes.
+- Summary:
+  - Added a central `VoiceInteractionController` with states `IDLE`, `SPEAKING`, `LISTENING`, `TRANSCRIBING`, `THINKING`, and `COOLDOWN`.
+  - TTS now stops before microphone listening, and proactive speech is skipped while the microphone is listening/transcribing.
+  - TTS returns to `IDLE` after an estimated speech duration instead of leaving Clochette stuck in `SPEAKING`.
+  - Overlay gestures are separated: portrait/bubble are for opening or requesting a line; the microphone badge is the explicit listen control.
+  - Overlay micro permission no longer opens Android app settings repeatedly after the first denial.
+  - Added `PermissionStateManager` to remember explicit permission prompts and avoid loops.
+  - Added `ConversationContextStore` so user transcription stores intent, mood, energy, tags, active character, last avatar line, and the last 10 interactions.
+  - User replies now affect Octopus phrase selection and character response style instead of using a generic random reply.
+  - Phrase-bank scoring now accounts for active character, conversation mood/intent/tags, recent repetition rejection, and personality sliders.
+  - Diagnostics now expose user intent, mood, energy, selected tags, score/reason, and rejected recent lines.
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found, 9 character asset manifests validated.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build environment note: Android SDK was provided via `ANDROID_HOME=C:\Users\benoi\Documents\Codex\2026-06-10\tu-travailles-sur-le-d-p-2\android-clochette\.android-sdk`.
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Phone checks still required:
+  1. Open each character and verify the avatar remains readable on bright/dark backgrounds.
+  2. Tap portrait/bubble for a line; tap microphone badge for listening.
+  3. Verify Clochette does not speak while listening and does not transcribe her own TTS.
+  4. Speak phrases such as "j'ai la flemme" or "je suis crevé" and confirm the next line changes with character style.
+  5. Confirm diagnostics show intent, mood, tags, reason, phrase bank, Guardian, provider, and voice state.
+  6. Confirm permission buttons do not reopen Android settings automatically in a loop.
+
 - Date: 2026-06-13
 - Commit tested: `d65b4c6`
 - Validation command: `python android-clochette/tools/validate_persona_assets.py`

@@ -237,6 +237,13 @@ class ClochetteOverlayService : Service() {
             setTextColor(Color.rgb(86, 48, 132))
             background = micBadgeBackground(recording = false)
             elevation = 18f
+            isClickable = true
+            contentDescription = "Micro Clochette"
+            setOnClickListener {
+                if (VoiceInteractionController.shouldAcceptTap(this@ClochetteOverlayService)) {
+                    showVoiceReplyOverlay(autoStart = true)
+                }
+            }
             visibility = View.GONE
         }
         micBadgeView = micBadge
@@ -373,13 +380,11 @@ class ClochetteOverlayService : Service() {
         var downAt = 0L
         var moved = false
         var longPressTriggered = false
-        var ignoreNextMicUpAfterLongPress = false
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         val longPressRunnable = Runnable {
-            if (!moved && !micOnlyMode && !isClosedCallDot()) {
+            if (!moved && !micOnlyMode) {
                 longPressTriggered = true
-                ignoreNextMicUpAfterLongPress = true
-                showVoiceReplyOverlay(autoStart = true)
+                Toast.makeText(this, "Glisse-moi pour déplacer. Micro sur l’icône.", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -391,9 +396,7 @@ class ClochetteOverlayService : Service() {
                     }
                     MotionEvent.ACTION_UP,
                     MotionEvent.ACTION_CANCEL -> {
-                        if (ignoreNextMicUpAfterLongPress) {
-                            ignoreNextMicUpAfterLongPress = false
-                        } else {
+                        if (VoiceInteractionController.shouldAcceptTap(this)) {
                             handleMicTap()
                         }
                         true
@@ -433,9 +436,13 @@ class ClochetteOverlayService : Service() {
                     if (longPressTriggered) {
                         true
                     } else if (!moved && touched == sprite && pressDuration >= LONG_PRESS_MIC_MS) {
-                        if (isClosedCallDot()) scheduleBubbleHide() else showVoiceReplyOverlay(autoStart = true)
+                        Toast.makeText(this, "Micro sur l’icône. Glisse-moi pour déplacer.", Toast.LENGTH_SHORT).show()
                     } else if (!moved && touched == sprite) {
-                        speakNextLine()
+                        if (isClosedCallDot() || bubbleView?.visibility != View.VISIBLE) {
+                            showBubbleTemporarily()
+                        } else {
+                            speakNextLine()
+                        }
                     } else if (!moved) {
                         speakNextLine()
                     } else {
@@ -486,7 +493,8 @@ class ClochetteOverlayService : Service() {
     private fun debugLine(): String {
         val ai = AiGatewaySettings.read(this)
         val runtime = ClochetteRuntimeStatus.read(this)
-        return "perso : ${currentCharacter().displayName} · source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"}"
+        val voiceState = VoiceInteractionController.state(this)
+        return "perso : ${currentCharacter().displayName} · source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · état : ${voiceState.name.lowercase()} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"}"
     }
 
     private fun currentCharacter(): CharacterProfile =
@@ -589,6 +597,7 @@ class ClochetteOverlayService : Service() {
         medallionBaseView?.visibility = View.GONE
         spriteView?.apply {
             visibility = View.VISIBLE
+            alpha = 0.96f
             setImageResource(currentCharacter().visualAssets.talking)
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             background = null
@@ -596,7 +605,11 @@ class ClochetteOverlayService : Service() {
             scaleType = ImageView.ScaleType.FIT_CENTER
             requestLayout()
         }
-        micBadgeView?.visibility = View.GONE
+        micBadgeView?.apply {
+            visibility = View.VISIBLE
+            background = micBadgeBackground(recording = false)
+            setTextColor(Color.rgb(86, 48, 132))
+        }
     }
 
     private fun collapseToEdgePeek() {
@@ -612,9 +625,9 @@ class ClochetteOverlayService : Service() {
                 gravity = Gravity.BOTTOM
             }
             background = roundedBackground(Color.TRANSPARENT, Color.TRANSPARENT, COLLAPSED_SPRITE_DP.dp())
-            clipChildren = true
-            clipToPadding = true
-            clipToOutline = true
+            clipChildren = false
+            clipToPadding = false
+            clipToOutline = false
             outlineProvider = roundedOutlineProvider(COLLAPSED_SPRITE_DP.dp())
             setPadding(0, 0, 0, 0)
             requestLayout()
@@ -626,6 +639,7 @@ class ClochetteOverlayService : Service() {
         }
         spriteView?.apply {
             applyCharacterVisual("closed_edge")
+            alpha = 0.90f
             layoutParams = FrameLayout.LayoutParams(COLLAPSED_PORTRAIT_DP.dp(), COLLAPSED_PORTRAIT_DP.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
                 topMargin = (-6).dp()
             }
@@ -634,7 +648,11 @@ class ClochetteOverlayService : Service() {
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             requestLayout()
         }
-        micBadgeView?.visibility = View.GONE
+        micBadgeView?.apply {
+            visibility = View.VISIBLE
+            background = micBadgeBackground(recording = false)
+            setTextColor(Color.rgb(86, 48, 132))
+        }
     }
 
     private fun collapseToCallDot() {
@@ -658,6 +676,7 @@ class ClochetteOverlayService : Service() {
         }
         medallionBaseView?.apply {
             visibility = View.VISIBLE
+            alpha = 0.96f
             background = roundedBackground(Color.rgb(126, 75, 180), Color.rgb(255, 249, 230), CALL_DOT_VISUAL_DP.dp())
             layoutParams = FrameLayout.LayoutParams(CALL_DOT_VISUAL_DP.dp(), CALL_DOT_VISUAL_DP.dp(), Gravity.CENTER)
             requestLayout()
@@ -666,7 +685,11 @@ class ClochetteOverlayService : Service() {
             visibility = View.GONE
             requestLayout()
         }
-        micBadgeView?.visibility = View.GONE
+        micBadgeView?.apply {
+            visibility = View.VISIBLE
+            background = micBadgeBackground(recording = false)
+            setTextColor(Color.rgb(86, 48, 132))
+        }
     }
 
     private fun roundedOutlineProvider(radius: Int): ViewOutlineProvider =
@@ -694,6 +717,7 @@ class ClochetteOverlayService : Service() {
         spriteView?.apply {
             visibility = View.VISIBLE
             applyCharacterVisual("listening")
+            alpha = 0.96f
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             background = null
             setPadding(0, 0, 0, 0)
@@ -775,15 +799,21 @@ class ClochetteOverlayService : Service() {
             showMiniTranscript("Micro non autoris\u00e9. Ouvre les r\u00e9glages de l’app.")
             setMicButtonRecording(false)
             Toast.makeText(this, "Autorise le micro pour r\u00e9pondre \u00e0 Clochette.", Toast.LENGTH_LONG).show()
-            openAppPermissionSettings()
+            VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "micro_permission_missing")
+            if (!PermissionStateManager.wasAsked(this, ClochettePermissionKey.MICROPHONE)) {
+                PermissionStateManager.markAsked(this, ClochettePermissionKey.MICROPHONE)
+                openAppPermissionSettings()
+            }
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             voiceState = VoiceCaptureState.ERROR
             showMiniTranscript("Reconnaissance vocale indisponible.")
             setMicButtonRecording(false)
+            VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "speech_recognizer_unavailable")
             return
         }
+        ClochetteVoice.stopForListening(this)
         if (!appendMode) {
             accumulatedTranscript = ""
         }
@@ -819,6 +849,7 @@ class ClochetteOverlayService : Service() {
         listening = false
         val sessionId = voiceSessionId
         voiceState = if (process) VoiceCaptureState.PROCESSING else VoiceCaptureState.IDLE
+        VoiceInteractionController.transition(this, if (process) VoiceInteractionState.TRANSCRIBING else VoiceInteractionState.IDLE, "voice_stop_process_$process")
         handler.removeCallbacks(stopListeningRunnable)
         handler.removeCallbacks(countdownRunnable)
         handler.removeCallbacks(forceProcessRunnable)
@@ -851,6 +882,7 @@ class ClochetteOverlayService : Service() {
         runCatching { recognizer?.destroy() }
         recognizer = null
         Log.d(TAG, "voice session $voiceSessionId reset append=$appendMode")
+        VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "voice_session_reset")
         return voiceSessionId
     }
 
@@ -864,6 +896,7 @@ class ClochetteOverlayService : Service() {
         mergeRecognizedText(latestPartialTranscript)
         setMicButtonRecording(false)
         ClochetteRuntimeStatus.recordAction(this, "micro ferm\u00e9 overlay")
+        VoiceInteractionController.transition(this, VoiceInteractionState.COOLDOWN, "voice_force_process")
         offerExtraListeningWindow()
     }
 
@@ -890,6 +923,7 @@ class ClochetteOverlayService : Service() {
 
     private fun offerExtraListeningWindow() {
         voiceState = VoiceCaptureState.IDLE
+        VoiceInteractionController.transition(this, VoiceInteractionState.COOLDOWN, "voice_offer_extra")
         if (accumulatedTranscript.isBlank()) {
             showMiniTranscript("Je n’ai rien entendu. Tape pour réessayer 15 s.")
             Log.d(TAG, "voice session $voiceSessionId no transcript; waiting for retry")
@@ -949,6 +983,7 @@ class ClochetteOverlayService : Service() {
             runCatching { recognizer?.destroy() }
             recognizer = null
             ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm\u00e9 overlay")
+            VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.IDLE, "recognizer_error_${recognizerErrorLabel(error)}")
             Log.d(TAG, "voice session $sessionId error=${recognizerErrorLabel(error)}")
             when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
@@ -978,6 +1013,7 @@ class ClochetteOverlayService : Service() {
             runCatching { recognizer?.destroy() }
             recognizer = null
             ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm\u00e9 overlay")
+            VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.COOLDOWN, "recognizer_results")
             Log.d(TAG, "voice session $sessionId final='${accumulatedTranscript.take(80)}'")
             offerExtraListeningWindow()
         }
@@ -1023,6 +1059,7 @@ class ClochetteOverlayService : Service() {
     private fun finishOverlayReply(userText: String) {
         ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
         Log.d(TAG, "voice session $voiceSessionId process transcript='${userText.take(80)}'")
+        VoiceInteractionController.transition(this, VoiceInteractionState.THINKING, "overlay_transcription_ready")
         val decision = OctopusCore.intervene(
             context = this,
             trigger = OctopusCore.TRIGGER_VOICE_TRANSCRIPTION,
@@ -1036,6 +1073,7 @@ class ClochetteOverlayService : Service() {
             accumulatedTranscript = ""
             latestPartialTranscript = ""
             exitMicOnlyMode()
+            VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "overlay_reply_finished")
         }, 700L)
     }
 

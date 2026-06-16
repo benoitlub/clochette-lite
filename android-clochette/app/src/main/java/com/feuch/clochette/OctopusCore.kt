@@ -49,6 +49,18 @@ object OctopusCore {
         val state = contextEngine.buildState(usage)
         val aiConfig = AiGatewaySettings.read(appContext)
         val relationshipMode = RelationshipModeSettings.selected(appContext)
+        val activeCharacter = CharacterRegistry.get(appContext, CharacterSettings.read(appContext).activeCharacterId)
+        val conversation = transcription
+            ?.takeIf { it.isNotBlank() }
+            ?.let {
+                VoiceInteractionController.transition(appContext, VoiceInteractionState.THINKING, "voice_transcription")
+                ConversationContextStore.analyzeAndStore(
+                    context = appContext,
+                    userText = it,
+                    characterId = activeCharacter.id,
+                    lastAvatarLine = ClochetteRemarkStore.latest(appContext),
+                )
+            }
 
         val aiResult = if (trigger == TRIGGER_GATEWAY_TEST && canUseGateway(aiConfig)) {
             runCatching { AiGatewayClient(appContext).generateRemark(buildRequest(appContext, state, recentMemory, transcription)) }.getOrNull()
@@ -74,12 +86,15 @@ object OctopusCore {
                 aiResult.listenSeconds,
             )
             transcription?.isNotBlank() == true -> Generated(
-                replyToTranscription(transcription),
+                replyToTranscription(activeCharacter, conversation ?: ConversationContext(userText = transcription.orEmpty())),
                 PhraseSource.LOCAL_NATURAL,
                 "local",
                 forceSpeak,
                 false,
                 15,
+                entryId = "conversation_${conversation?.intent ?: "unknown"}_${conversation?.mood ?: "neutral"}",
+                bankId = "user_answer_reactions",
+                tone = conversation?.tags?.joinToString(",").orEmpty(),
             )
             else -> localGenerated(appContext, trigger, state, relationshipMode, contextEngine, usage, recentMemory)
         }
@@ -105,6 +120,7 @@ object OctopusCore {
         val finalLine = (guardian.line ?: casting.phrase).withVisibleFrenchAccents()
         val source = if (guardian.reason == "approved") generated.source else PhraseSource.GUARDIAN_FALLBACK
         val shouldSpeak = ClochetteVoiceSettings.read(appContext).enabled &&
+            VoiceInteractionController.canSpeak(appContext) &&
             (guardian.shouldSpeak || forceSpeak || trigger == TRIGGER_SAFE_VOICE_TEST)
         val shouldOpenMic = openMic || generated.openMic && finalLine.contains("?")
 
@@ -144,10 +160,13 @@ object OctopusCore {
         }
 
         val bankDiagnostic = if (generated.bankId.isNotBlank()) {
-            " | bank=${generated.bankId} | entry=${generated.entryId} | tone=${generated.tone}"
+            " | bank=${generated.bankId} | entry=${generated.entryId} | tone=${generated.tone} | score=${"%.1f".format(generated.selectionScore)} | rejectedRecent=${generated.rejectedRecent}"
         } else {
             ""
         }
+        val conversationDiagnostic = conversation?.let {
+            " | userMood=${it.mood} | intent=${it.intent} | energy=${it.energy} | tags=${it.tags.joinToString("+")}"
+        }.orEmpty()
         val decision = OctopusDecision(
             originalLine = generated.line,
             finalLine = finalLine,
@@ -160,7 +179,7 @@ object OctopusCore {
             listenSeconds = generated.listenSeconds,
             overlayState = if (shouldOpenMic) "micro" else "expanded",
             voiceStatus = voiceStatus,
-            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | casting=${casting.reason}$bankDiagnostic",
+            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
             phraseBankId = generated.bankId,
             phraseEntryId = generated.entryId,
             phraseTone = generated.tone,
@@ -168,7 +187,7 @@ object OctopusCore {
             appearanceRole = if (shouldOpenMic) "listening" else casting.visualState,
             appearancePath = "character:${casting.character.id}",
         )
-        OctopusDiagnosticsStore.save(appContext, decision.toDiagnostics(trigger, transcription, aiConfig))
+        OctopusDiagnosticsStore.save(appContext, decision.toDiagnostics(trigger, transcription, aiConfig, conversation, generated))
         return decision
     }
 
@@ -205,6 +224,7 @@ object OctopusCore {
     ): Generated {
         val proactiveConfig = RelationshipModeSettings.effectiveConfig(context)
         val activeCharacter = CharacterRegistry.get(context, CharacterSettings.read(context).activeCharacterId)
+        val conversation = ConversationContextStore.latest(context)
         val preferQuestion = trigger == TRIGGER_PROACTIVE_TEST || proactiveConfig.spontaneousQuestions
         if (trigger != TRIGGER_GATEWAY_TEST) {
             PhraseBankSelector.select(
@@ -215,6 +235,8 @@ object OctopusCore {
                 recentMemory = recentMemory,
                 preferQuestion = preferQuestion,
                 preferredTone = preferredToneFor(activeCharacter),
+                character = activeCharacter,
+                conversation = conversation,
             )?.let { selection ->
                 return Generated(
                     line = selection.line,
@@ -226,6 +248,9 @@ object OctopusCore {
                     entryId = selection.id,
                     bankId = selection.bankId,
                     tone = selection.tone,
+                    selectionScore = selection.score,
+                    selectionReason = selection.reason,
+                    rejectedRecent = selection.rejectedRecent,
                 )
             }
         }
@@ -282,20 +307,15 @@ object OctopusCore {
         )
     }
 
-    private fun replyToTranscription(text: String): String {
-        val lower = text.lowercase()
-        return when {
-            "pause" in lower || "fatigu" in lower -> "Je remarque la fatigue. On baisse le volume, pas l’ambition."
-            "reprendre" in lower || "continuer" in lower -> "Très bien. Un geste simple, maintenant. Je surveille l’élan."
-            "bug" in lower || "bloqu" in lower -> "Je soupçonne un bug. On nomme l’endroit exact, puis on attaque proprement."
-            else -> "Je note. Je peux me tromper, mais ça ressemble à une piste exploitable."
-        }
-    }
+    private fun replyToTranscription(character: CharacterProfile, conversation: ConversationContext): String =
+        CharacterReplyStyle.reply(character.id, conversation)
 
     private fun OctopusDecision.toDiagnostics(
         trigger: String,
         transcription: String?,
         aiConfig: AiGatewayConfig,
+        conversation: ConversationContext?,
+        generated: Generated,
     ): OctopusDiagnostics =
         OctopusDiagnostics(
             lastTrigger = trigger,
@@ -315,6 +335,11 @@ object OctopusCore {
             lastGatewayStatus = aiConfig.lastStatus ?: if (aiConfig.enabled) "non testé" else "désactivée",
             lastAppearance = "$appearanceId/$appearanceRole/$appearancePath",
             lastError = aiConfig.lastError.orEmpty(),
+            lastUserIntent = conversation?.intent.orEmpty(),
+            lastUserMood = conversation?.mood.orEmpty(),
+            lastUserEnergy = conversation?.energy.orEmpty(),
+            lastSelectedTags = conversation?.tags?.joinToString("+").orEmpty(),
+            lastSelectionReason = generated.selectionReason.ifBlank { diagnosticText },
             updatedAt = System.currentTimeMillis(),
         )
 
@@ -328,5 +353,8 @@ object OctopusCore {
         val entryId: String = "",
         val bankId: String = "",
         val tone: String = "",
+        val selectionScore: Double = 0.0,
+        val selectionReason: String = "",
+        val rejectedRecent: Int = 0,
     )
 }

@@ -21,6 +21,11 @@ class ClochetteProactiveService : Service() {
             if (!running) return
             val personality = ClochettePersonalitySettings.read(this@ClochetteProactiveService)
             val chance = (10 + (personality.initiative * 0.85)).toInt().coerceIn(5, 95)
+            if (!VoiceInteractionController.canSpeak(this@ClochetteProactiveService)) {
+                ClochetteRuntimeStatus.recordAction(this@ClochetteProactiveService, "proactive_skipped_voice_state")
+                scheduleNextTick()
+                return
+            }
             if (Random.nextInt(100) < chance) {
                 OctopusCore.intervene(
                     context = this@ClochetteProactiveService,
@@ -29,11 +34,7 @@ class ClochetteProactiveService : Service() {
             } else {
                 ClochetteRuntimeStatus.recordAction(this@ClochetteProactiveService, "proactive_skipped_initiative")
             }
-            val config = RelationshipModeSettings.effectiveConfig(this@ClochetteProactiveService)
-            val mode = RelationshipModeSettings.selected(this@ClochetteProactiveService)
-            val delay = nextDelayMillis(config.frequency, mode.cooldownMultiplier)
-            ClochetteRuntimeStatus.recordNextAttempt(this@ClochetteProactiveService, delay)
-            handler.postDelayed(this, delay)
+            scheduleNextTick()
         }
     }
 
@@ -96,6 +97,14 @@ class ClochetteProactiveService : Service() {
         handler.removeCallbacksAndMessages(null)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun scheduleNextTick() {
+        val config = RelationshipModeSettings.effectiveConfig(this)
+        val mode = RelationshipModeSettings.selected(this)
+        val delay = nextDelayMillis(config.frequency, mode.cooldownMultiplier)
+        ClochetteRuntimeStatus.recordNextAttempt(this, delay)
+        handler.postDelayed(tick, delay)
     }
 
     private fun buildNotification(config: ProactiveConfig, relationshipMode: RelationshipMode): Notification {

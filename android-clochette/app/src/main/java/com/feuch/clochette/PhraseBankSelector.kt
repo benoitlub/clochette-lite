@@ -13,6 +13,9 @@ data class PhraseBankSelection(
     val source: PhraseSource,
     val canSpeak: Boolean,
     val canAskMic: Boolean,
+    val score: Double = 0.0,
+    val reason: String = "",
+    val rejectedRecent: Int = 0,
 )
 
 object PhraseBankSelector {
@@ -24,20 +27,27 @@ object PhraseBankSelector {
         recentMemory: List<ClochetteMemoryEntry>,
         preferQuestion: Boolean = false,
         preferredTone: String? = null,
+        character: CharacterProfile? = null,
+        conversation: ConversationContext? = null,
     ): PhraseBankSelection? {
-        val tags = contextTags(trigger, state, preferQuestion)
+        val tags = contextTags(trigger, state, preferQuestion, conversation)
         val modeId = relationshipMode.id
         val personality = ClochettePersonalitySettings.read(context)
         val tone = preferredTone ?: ClochettePersonalitySettings.preferredTone(personality)
         val recentLines = recentMemory.mapNotNull { it.clochetteLine }.map { it.normalizedLine() }.toSet()
+        var rejectedRecent = 0
         val candidates = loadEntries(context)
             .filter { it.status == "accepted" }
             .filter { it.line.isNotBlank() }
             .filter { it.triggers.isEmpty() || trigger in it.triggers }
             .filter { it.relationshipModes.isEmpty() || modeId in it.relationshipModes }
-            .filterNot { it.line.normalizedLine() in recentLines }
+            .filterNot {
+                val rejected = it.line.normalizedLine() in recentLines
+                if (rejected) rejectedRecent += 1
+                rejected
+            }
             .mapNotNull { entry ->
-                val score = score(entry, trigger, tags, modeId, preferQuestion, tone, personality)
+                val score = score(entry, trigger, tags, modeId, preferQuestion, tone, personality, character, conversation)
                 if (score <= 0.0) null else entry to score
             }
 
@@ -60,6 +70,9 @@ object PhraseBankSelector {
             source = picked.source,
             canSpeak = picked.canSpeak,
             canAskMic = picked.canAskMic,
+            score = bestScore,
+            reason = "matched tags=${tags.intersect(picked.contexts.toSet()).joinToString("+").ifBlank { "general" }} character=${character?.id ?: "none"} mood=${conversation?.mood ?: "-"} intent=${conversation?.intent ?: "-"}",
+            rejectedRecent = rejectedRecent,
         )
     }
 
@@ -71,6 +84,8 @@ object PhraseBankSelector {
         preferQuestion: Boolean,
         preferredTone: String?,
         personality: ClochettePersonalityConfig,
+        character: CharacterProfile?,
+        conversation: ConversationContext?,
     ): Double {
         val contextMatches = entry.contexts.count { it in tags }
         val hasContextMatch = entry.contexts.isEmpty() || contextMatches > 0
@@ -82,6 +97,18 @@ object PhraseBankSelector {
         if (preferQuestion && entry.canAskMic) score += 28.0
         if (!preferQuestion && entry.canAskMic) score -= 4.0
         if (preferredTone != null && entry.tone.equals(preferredTone, ignoreCase = true)) score += 22.0
+        character?.let {
+            val characterToneMatches = it.toneTags.count { tag -> tag in entry.contexts || tag.equals(entry.tone, ignoreCase = true) }
+            score += characterToneMatches * 14.0
+            if (entry.bankId in it.phraseBanks) score += 18.0
+        }
+        conversation?.let {
+            val conversationMatches = it.tags.count { tag -> tag in entry.contexts }
+            score += conversationMatches * 24.0
+            if (it.intent == "needs_motivation" && ("focus" in entry.contexts || entry.bankId == "focus")) score += 18.0
+            if (it.mood == "tired" && (entry.bankId == "fatigue" || "fatigue" in entry.contexts || "soft" in entry.contexts)) score += 22.0
+            if (it.mood == "playful" && (entry.bankId == "teasing" || "playful" in entry.contexts)) score += 12.0
+        }
         if (entry.line.contains("?") && preferQuestion) score += 12.0
         score += personalityToneScore(entry, personality)
         score += personalityLengthScore(entry, personality)
@@ -125,8 +152,14 @@ object PhraseBankSelector {
         }
     }
 
-    private fun contextTags(trigger: String, state: ContextState, preferQuestion: Boolean): Set<String> {
+    private fun contextTags(trigger: String, state: ContextState, preferQuestion: Boolean, conversation: ConversationContext?): Set<String> {
         val tags = mutableSetOf(trigger, "local", "focus")
+        conversation?.let {
+            tags += it.intent
+            tags += it.mood
+            tags += "energy_${it.energy}"
+            tags += it.tags
+        }
         if (preferQuestion) {
             tags += "micro"
             tags += "asking"

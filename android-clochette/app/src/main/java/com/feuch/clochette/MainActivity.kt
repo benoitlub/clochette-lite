@@ -302,6 +302,7 @@ private fun ClochetteApp(startSection: String?) {
                     primaryButtonLabel = "Autoriser les notifications",
                     primaryAction = {
                         if (Build.VERSION.SDK_INT >= 33) {
+                            PermissionStateManager.markAsked(context, ClochettePermissionKey.NOTIFICATIONS)
                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         } else {
                             Toast.makeText(context, "Notifications déjà disponibles sur cette version.", Toast.LENGTH_SHORT).show()
@@ -315,6 +316,7 @@ private fun ClochetteApp(startSection: String?) {
                     status = if (Settings.canDrawOverlays(context)) "autorisée" else "requise",
                     primaryButtonLabel = "Autoriser la superposition",
                     primaryAction = {
+                        PermissionStateManager.markAsked(context, ClochettePermissionKey.OVERLAY)
                         context.startActivity(
                             Intent(
                                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -329,7 +331,10 @@ private fun ClochetteApp(startSection: String?) {
                     explanation = "Permet de détecter l'application au premier plan sans lire son contenu.",
                     status = if (UsageObserver(context).hasPermission()) "autorisé" else "recommandé",
                     primaryButtonLabel = "Ouvrir Accès à l'utilisation",
-                    primaryAction = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                    primaryAction = {
+                        PermissionStateManager.markAsked(context, ClochettePermissionKey.USAGE_ACCESS)
+                        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                    },
                 )
                 PermissionStepCard(
                     step = 4,
@@ -349,7 +354,10 @@ private fun ClochetteApp(startSection: String?) {
                     explanation = "Sert uniquement à répondre vocalement à Clochette.",
                     status = if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) "autorisé" else "requis pour répondre",
                     primaryButtonLabel = "Autoriser le micro",
-                    primaryAction = { microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                    primaryAction = {
+                        PermissionStateManager.markAsked(context, ClochettePermissionKey.MICROPHONE)
+                        microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
                 )
                 PermissionStepCard(
                     step = 6,
@@ -357,7 +365,10 @@ private fun ClochetteApp(startSection: String?) {
                     explanation = "Recommandé pour Now Playing : app média, titre et artiste exposés par Android.",
                     status = if (NowPlayingObserver.hasPermission(context)) "autorisé" else "recommandé",
                     primaryButtonLabel = "Ouvrir accès notifications",
-                    primaryAction = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                    primaryAction = {
+                        PermissionStateManager.markAsked(context, ClochettePermissionKey.NOTIFICATION_LISTENER)
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    },
                 )
                 PermissionStepCard(
                     step = 7,
@@ -365,7 +376,10 @@ private fun ClochetteApp(startSection: String?) {
                     explanation = "Avancé et optionnel. Désactivé par défaut.",
                     status = if (isAccessibilityServiceEnabled(context)) "autorisé" else "optionnel",
                     primaryButtonLabel = "Ouvrir accessibilité",
-                    primaryAction = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                    primaryAction = {
+                        PermissionStateManager.markAsked(context, ClochettePermissionKey.ACCESSIBILITY)
+                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    },
                 )
                 PermissionStepCard(
                     step = 8,
@@ -413,7 +427,12 @@ private fun ClochetteApp(startSection: String?) {
                         if (Build.VERSION.SDK_INT >= 33 &&
                             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
                         ) {
-                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            if (!PermissionStateManager.wasAsked(context, ClochettePermissionKey.NOTIFICATIONS)) {
+                                PermissionStateManager.markAsked(context, ClochettePermissionKey.NOTIFICATIONS)
+                                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                Toast.makeText(context, "Notifications non autorisées : ouvre l'étape Notifications si besoin.", Toast.LENGTH_LONG).show()
+                            }
                         }
                         ContextCompat.startForegroundService(context, Intent(context, ClochettePresenceService::class.java))
                         ContextCompat.startForegroundService(
@@ -1032,6 +1051,11 @@ private fun OctopusDiagnosticPanel(
             Text("Micro : ${diagnostics.lastMicStatus}")
             Text("Overlay : ${diagnostics.lastOverlayState}")
             Text("Apparence : ${diagnostics.lastAppearance.ifBlank { "-" }}")
+            Text("Intention utilisateur : ${diagnostics.lastUserIntent.ifBlank { "-" }}")
+            Text("Humeur utilisateur : ${diagnostics.lastUserMood.ifBlank { "-" }}")
+            Text("Énergie utilisateur : ${diagnostics.lastUserEnergy.ifBlank { "-" }}")
+            Text("Tags sélectionnés : ${diagnostics.lastSelectedTags.ifBlank { "-" }}")
+            Text("Raison du choix : ${diagnostics.lastSelectionReason.ifBlank { "-" }}")
             Text("Gateway : ${diagnostics.lastGatewayStatus}")
             Text("Dernière transcription : ${diagnostics.lastTranscription.ifBlank { "-" }}")
             if (diagnostics.lastError.isNotBlank()) {

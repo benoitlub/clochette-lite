@@ -22,6 +22,11 @@ data class OctopusDiagnostics(
     val lastGatewayStatus: String = "non configuré",
     val lastAppearance: String = "",
     val lastError: String = "",
+    val lastUserIntent: String = "",
+    val lastUserMood: String = "",
+    val lastUserEnergy: String = "",
+    val lastSelectedTags: String = "",
+    val lastSelectionReason: String = "",
     val updatedAt: Long = 0L,
 ) {
     fun asText(): String = listOf(
@@ -38,6 +43,11 @@ data class OctopusDiagnostics(
         "micro=$lastMicStatus",
         "gateway=$lastGatewayStatus",
         "appearance=$lastAppearance",
+        "intent=$lastUserIntent",
+        "mood=$lastUserMood",
+        "energy=$lastUserEnergy",
+        "tags=$lastSelectedTags",
+        "reason=$lastSelectionReason",
         "transcription=$lastTranscription",
         "original=$lastOriginalLine",
         "final=$lastFinalLine",
@@ -65,6 +75,11 @@ object OctopusDiagnosticsStore {
     private const val KEY_GATEWAY = "gateway"
     private const val KEY_APPEARANCE = "appearance"
     private const val KEY_ERROR = "error"
+    private const val KEY_USER_INTENT = "user_intent"
+    private const val KEY_USER_MOOD = "user_mood"
+    private const val KEY_USER_ENERGY = "user_energy"
+    private const val KEY_SELECTED_TAGS = "selected_tags"
+    private const val KEY_SELECTION_REASON = "selection_reason"
     private const val KEY_UPDATED = "updated"
 
     fun read(context: Context): OctopusDiagnostics {
@@ -87,6 +102,11 @@ object OctopusDiagnosticsStore {
             lastGatewayStatus = prefs.getString(KEY_GATEWAY, "non configuré") ?: "non configuré",
             lastAppearance = prefs.getString(KEY_APPEARANCE, "").orEmpty(),
             lastError = prefs.getString(KEY_ERROR, "").orEmpty(),
+            lastUserIntent = prefs.getString(KEY_USER_INTENT, "").orEmpty(),
+            lastUserMood = prefs.getString(KEY_USER_MOOD, "").orEmpty(),
+            lastUserEnergy = prefs.getString(KEY_USER_ENERGY, "").orEmpty(),
+            lastSelectedTags = prefs.getString(KEY_SELECTED_TAGS, "").orEmpty(),
+            lastSelectionReason = prefs.getString(KEY_SELECTION_REASON, "").orEmpty(),
             updatedAt = prefs.getLong(KEY_UPDATED, 0L),
         )
     }
@@ -111,6 +131,11 @@ object OctopusDiagnosticsStore {
             .putString(KEY_GATEWAY, diagnostics.lastGatewayStatus)
             .putString(KEY_APPEARANCE, diagnostics.lastAppearance)
             .putString(KEY_ERROR, diagnostics.lastError)
+            .putString(KEY_USER_INTENT, diagnostics.lastUserIntent)
+            .putString(KEY_USER_MOOD, diagnostics.lastUserMood)
+            .putString(KEY_USER_ENERGY, diagnostics.lastUserEnergy)
+            .putString(KEY_SELECTED_TAGS, diagnostics.lastSelectedTags)
+            .putString(KEY_SELECTION_REASON, diagnostics.lastSelectionReason)
             .putLong(KEY_UPDATED, diagnostics.updatedAt)
             .apply()
     }
