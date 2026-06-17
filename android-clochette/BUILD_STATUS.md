@@ -1,5 +1,35 @@
 # Android Clochette Build Status
 
+Reduced overlay tap/micro separation fix:
+- Date: 2026-06-17
+- Commit tested: working tree after `966dbb5`; final commit contains the same source changes.
+- Summary:
+  - Reduced avatar/portrait/pastille tap no longer starts microphone capture.
+  - Reduced avatar tap records `AVATAR_REDUCED_TAP`, expands the overlay, and shows the bubble/last line.
+  - Bubble tap records `BUBBLE_TAP` and keeps the bubble visible instead of starting the microphone.
+  - Micro capture can start only from `MICRO_BUTTON`, `PROACTIVE_REPLY_REQUEST`, or `AUTO_PROMPT`.
+  - The microphone badge records `MICRO_BUTTON` and is the explicit manual path for listening.
+  - Avatar long press records `AVATAR_LONG_PRESS` and shows the helper text; it does not start the microphone.
+  - Avatar drag records `AVATAR_DRAG` and only moves the overlay.
+  - After no speech, Clochette exits mic-only mode, shows “Je n’ai rien entendu...” in the normal bubble, records `lastNoSpeechAt`, and returns voice state to `IDLE`.
+  - Overlay diagnostic now includes `lastTouchTarget`, `lastVoiceTriggerSource`, `overlayMode`, `voiceState`, `lastNoSpeechAt`, and `canExpand`.
+- Files modified:
+  - `ClochetteOverlayService.kt`
+  - `VoiceInteractionController.kt`
+- Validation command: `python android-clochette/tools/validate_persona_assets.py`
+- Validation result: success, 25 Clochette persona JSON assets valid, 28 accepted phrase-bank lines found, 9 character asset manifests validated.
+- Build command: `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+- Build result: success.
+- Debug APK path: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Manual tests to run on phone:
+  - A. Clochette réduite → tap avatar: expected overlay expands, bubble visible, no microphone.
+  - B. Clochette réduite → tap microphone badge: expected 15-second listening/transcription.
+  - C. Micro silence: expected “Je n’ai rien entendu...” in the bubble and voice state back to IDLE.
+  - D. After no speech → tap avatar: expected opens bubble only, no microphone restart.
+  - E. After no speech → tap microphone badge: expected clean new listening session.
+  - F. Drag reduced avatar: expected movement only, no microphone, no accidental open.
+  - G. Long press reduced avatar: expected helper/tooltip only, no microphone.
+
 Voice state, permissions, and conversational context stabilization:
 - Date: 2026-06-16
 - Commit tested: working tree after `992a118`; final commit below contains the same source changes.

@@ -10,6 +10,17 @@ enum class VoiceInteractionState {
     TRANSCRIBING,
     THINKING,
     COOLDOWN,
+    ERROR,
+}
+
+enum class VoiceTriggerSource {
+    MICRO_BUTTON,
+    PROACTIVE_REPLY_REQUEST,
+    AUTO_PROMPT,
+    AVATAR_TAP,
+    BUBBLE_TAP,
+    WIDGET,
+    UNKNOWN,
 }
 
 object VoiceInteractionController {
@@ -19,6 +30,11 @@ object VoiceInteractionController {
     private const val KEY_UPDATED = "updated"
     private const val KEY_LAST_TRANSITION = "last_transition"
     private const val KEY_LAST_TAP = "last_tap"
+    private const val KEY_LAST_TOUCH_TARGET = "last_touch_target"
+    private const val KEY_LAST_VOICE_TRIGGER = "last_voice_trigger"
+    private const val KEY_LAST_NO_SPEECH_AT = "last_no_speech_at"
+    private const val KEY_OVERLAY_MODE = "overlay_mode"
+    private const val KEY_CAN_EXPAND = "can_expand"
     private const val DEBOUNCE_MS = 450L
 
     fun state(context: Context): VoiceInteractionState {
@@ -40,7 +56,24 @@ object VoiceInteractionController {
     }
 
     fun canStartListening(context: Context): Boolean =
-        state(context) !in setOf(VoiceInteractionState.LISTENING, VoiceInteractionState.TRANSCRIBING)
+        canStartListening(context, VoiceTriggerSource.UNKNOWN)
+
+    fun canStartListening(context: Context, source: VoiceTriggerSource): Boolean {
+        val appContext = context.applicationContext
+        val currentState = state(appContext)
+        val sourceAllowed = source in setOf(
+            VoiceTriggerSource.MICRO_BUTTON,
+            VoiceTriggerSource.PROACTIVE_REPLY_REQUEST,
+            VoiceTriggerSource.AUTO_PROMPT,
+        )
+        val stateAllows = currentState !in setOf(VoiceInteractionState.LISTENING, VoiceInteractionState.TRANSCRIBING)
+        val canStart = sourceAllowed && stateAllows
+        prefs(appContext).edit()
+            .putString(KEY_LAST_VOICE_TRIGGER, source.name)
+            .apply()
+        Log.d(TAG, "canStartListening=$canStart source=$source state=$currentState")
+        return canStart
+    }
 
     fun canSpeak(context: Context): Boolean =
         state(context) !in setOf(VoiceInteractionState.LISTENING, VoiceInteractionState.TRANSCRIBING)
@@ -57,9 +90,27 @@ object VoiceInteractionController {
         return true
     }
 
+    fun recordTouch(context: Context, target: String, overlayMode: String, canExpand: Boolean) {
+        val appContext = context.applicationContext
+        prefs(appContext).edit()
+            .putString(KEY_LAST_TOUCH_TARGET, target)
+            .putString(KEY_OVERLAY_MODE, overlayMode)
+            .putBoolean(KEY_CAN_EXPAND, canExpand)
+            .apply()
+        Log.d(TAG, "touch target=$target overlayMode=$overlayMode canExpand=$canExpand")
+    }
+
+    fun recordNoSpeech(context: Context) {
+        prefs(context.applicationContext).edit()
+            .putLong(KEY_LAST_NO_SPEECH_AT, System.currentTimeMillis())
+            .apply()
+        Log.d(TAG, "no speech detected")
+    }
+
     fun diagnostic(context: Context): String {
         val prefs = prefs(context)
-        return "${state(context).name.lowercase()} · ${prefs.getString(KEY_LAST_TRANSITION, "-")}"
+        val noSpeechAt = prefs.getLong(KEY_LAST_NO_SPEECH_AT, 0L)
+        return "voiceState=${state(context).name.lowercase()} · lastTouchTarget=${prefs.getString(KEY_LAST_TOUCH_TARGET, "-")} · lastVoiceTriggerSource=${prefs.getString(KEY_LAST_VOICE_TRIGGER, "-")} · overlayMode=${prefs.getString(KEY_OVERLAY_MODE, "-")} · lastNoSpeechAt=$noSpeechAt · canExpand=${prefs.getBoolean(KEY_CAN_EXPAND, true)} · ${prefs.getString(KEY_LAST_TRANSITION, "-")}"
     }
 
     private fun prefs(context: Context) =

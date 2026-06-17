@@ -86,7 +86,7 @@ class ClochetteOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Toast.makeText(this, "Service créé", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Service crÃ©Ã©", Toast.LENGTH_SHORT).show()
         memory = ClochetteMemory(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         ContextCompat.registerReceiver(
@@ -108,7 +108,7 @@ class ClochetteOverlayService : Service() {
             ACTION_NEXT_LINE -> speakNextLine()
             ACTION_OPEN_MIC -> {
                 if (Settings.canDrawOverlays(this) && overlay == null) showOverlay()
-                showVoiceReplyOverlay(autoStart = true)
+                showVoiceReplyOverlay(autoStart = true, source = VoiceTriggerSource.PROACTIVE_REPLY_REQUEST)
             }
             else -> updateLine(ClochetteRemarkStore.latest(this))
         }
@@ -207,8 +207,8 @@ class ClochetteOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-        settingsRow.addView(actionButton("Répondre") { showVoiceReplyOverlay(autoStart = false) })
-        settingsRow.addView(actionButton("Réglages") { openMainActivity("settings") })
+        settingsRow.addView(actionButton("RÃ©pondre") { showVoiceReplyOverlay(autoStart = false, source = VoiceTriggerSource.MICRO_BUTTON) })
+        settingsRow.addView(actionButton("RÃ©glages") { openMainActivity("settings") })
         settingsRowView = settingsRow
 
         bubble.addView(lineView)
@@ -241,7 +241,12 @@ class ClochetteOverlayService : Service() {
             contentDescription = "Micro Clochette"
             setOnClickListener {
                 if (VoiceInteractionController.shouldAcceptTap(this@ClochetteOverlayService)) {
-                    showVoiceReplyOverlay(autoStart = true)
+                    VoiceInteractionController.recordTouch(this@ClochetteOverlayService, "MICRO_BUTTON", overlayMode(), canExpand = false)
+                    if (micOnlyMode || listening || voiceState != VoiceCaptureState.IDLE) {
+                        handleMicTap(VoiceTriggerSource.MICRO_BUTTON)
+                    } else {
+                        showVoiceReplyOverlay(autoStart = true, source = VoiceTriggerSource.MICRO_BUTTON)
+                    }
                 }
             }
             visibility = View.GONE
@@ -290,7 +295,7 @@ class ClochetteOverlayService : Service() {
         installDragBehavior(root, spriteContainer, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
-        Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Overlay affichÃ©", Toast.LENGTH_SHORT).show()
         overlay = root
         layoutParams = params
         expandSprite()
@@ -356,8 +361,9 @@ class ClochetteOverlayService : Service() {
                 MotionEvent.ACTION_UP -> {
                     val moved = abs(event.rawX - downX) > touchSlop || abs(event.rawY - downY) > touchSlop
                     val longPress = System.currentTimeMillis() - downAt >= LONG_PRESS_MIC_MS
+                    VoiceInteractionController.recordTouch(this@ClochetteOverlayService, "BUBBLE_TAP", overlayMode(), canExpand = true)
                     if (!moved && !longPress) {
-                        speakNextLine()
+                        showBubbleTemporarily()
                     } else {
                         scheduleBubbleHide()
                     }
@@ -384,7 +390,8 @@ class ClochetteOverlayService : Service() {
         val longPressRunnable = Runnable {
             if (!moved && !micOnlyMode) {
                 longPressTriggered = true
-                Toast.makeText(this, "Glisse-moi pour déplacer. Micro sur l’icône.", Toast.LENGTH_SHORT).show()
+                VoiceInteractionController.recordTouch(this, "AVATAR_LONG_PRESS", overlayMode(), canExpand = true)
+                Toast.makeText(this, "Glisse-moi pour dÃ©placer. Micro sur lâ€™icÃ´ne.", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -392,13 +399,12 @@ class ClochetteOverlayService : Service() {
             if (micOnlyMode && touched == sprite) {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
+                        VoiceInteractionController.recordTouch(this, "AVATAR_TAP_MIC_MODE", overlayMode(), canExpand = true)
                         true
                     }
                     MotionEvent.ACTION_UP,
                     MotionEvent.ACTION_CANCEL -> {
-                        if (VoiceInteractionController.shouldAcceptTap(this)) {
-                            handleMicTap()
-                        }
+                        if (VoiceInteractionController.shouldAcceptTap(this)) showBubbleTemporarily()
                         true
                     }
                     else -> true
@@ -413,9 +419,7 @@ class ClochetteOverlayService : Service() {
                     downAt = System.currentTimeMillis()
                     moved = false
                     longPressTriggered = false
-                    if (touched == sprite && !isClosedCallDot()) {
-                        handler.postDelayed(longPressRunnable, LONG_PRESS_MIC_MS)
-                    }
+                    if (touched == sprite) handler.postDelayed(longPressRunnable, LONG_PRESS_MIC_MS)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -424,6 +428,7 @@ class ClochetteOverlayService : Service() {
                     if (touched == sprite && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
                         moved = true
                         handler.removeCallbacks(longPressRunnable)
+                        VoiceInteractionController.recordTouch(this, "AVATAR_DRAG", overlayMode(), canExpand = true)
                         params.x = (startX - dx).coerceAtLeast(0)
                         params.y = (startY - dy).coerceAtLeast(0)
                         overlay?.let { windowManager.updateViewLayout(it, params) }
@@ -436,8 +441,11 @@ class ClochetteOverlayService : Service() {
                     if (longPressTriggered) {
                         true
                     } else if (!moved && touched == sprite && pressDuration >= LONG_PRESS_MIC_MS) {
-                        Toast.makeText(this, "Micro sur l’icône. Glisse-moi pour déplacer.", Toast.LENGTH_SHORT).show()
+                        VoiceInteractionController.recordTouch(this, "AVATAR_LONG_PRESS", overlayMode(), canExpand = true)
+                        Toast.makeText(this, "Micro sur lâ€™icÃ´ne. Glisse-moi pour dÃ©placer.", Toast.LENGTH_SHORT).show()
                     } else if (!moved && touched == sprite) {
+                        val wasReduced = bubbleView?.visibility != View.VISIBLE
+                        VoiceInteractionController.recordTouch(this, if (wasReduced) "AVATAR_REDUCED_TAP" else "AVATAR_EXPANDED_TAP", overlayMode(), canExpand = true)
                         if (isClosedCallDot() || bubbleView?.visibility != View.VISIBLE) {
                             showBubbleTemporarily()
                         } else {
@@ -494,8 +502,11 @@ class ClochetteOverlayService : Service() {
         val ai = AiGatewaySettings.read(this)
         val runtime = ClochetteRuntimeStatus.read(this)
         val voiceState = VoiceInteractionController.state(this)
-        return "perso : ${currentCharacter().displayName} · source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · état : ${voiceState.name.lowercase()} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"}"
+        return "perso : ${currentCharacter().displayName} Â· source : ${ClochetteRemarkStore.latestSource(this).id} Â· voix : ${runtime.lastVoiceAction} Â· Ã©tat : ${voiceState.name.lowercase()} Â· guardian : ${runtime.lastGuardianDecision} Â· provider : ${ai.lastProviderUsed ?: "aucun"} Â· ${VoiceInteractionController.diagnostic(this)}"
     }
+
+    private fun overlayMode(): String =
+        if (bubbleView?.visibility == View.VISIBLE) "EXPANDED" else "REDUCED"
 
     private fun currentCharacter(): CharacterProfile =
         CharacterRegistry.get(this, ClochetteRemarkStore.latestCharacterId(this))
@@ -754,7 +765,7 @@ class ClochetteOverlayService : Service() {
             ),
         )
         Toast.makeText(this, "Clochette se met en pause.", Toast.LENGTH_SHORT).show()
-        ClochetteRuntimeStatus.recordAction(this, "overlay fermé")
+        ClochetteRuntimeStatus.recordAction(this, "overlay fermÃ©")
         stopSelf()
     }
 
@@ -766,10 +777,15 @@ class ClochetteOverlayService : Service() {
         )
     }
 
-    private fun showVoiceReplyOverlay(autoStart: Boolean) {
+    private fun showVoiceReplyOverlay(autoStart: Boolean, source: VoiceTriggerSource) {
+        if (autoStart && !VoiceInteractionController.canStartListening(this, source)) {
+            VoiceInteractionController.recordTouch(this, "MIC_START_BLOCKED_${source.name}", overlayMode(), canExpand = true)
+            showBubbleTemporarily()
+            return
+        }
         enterMicOnlyMode()
         if (autoStart) {
-            startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false)
+            startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false, source = source)
         } else {
             voiceState = VoiceCaptureState.IDLE
             showMiniTranscript("Tape Clochette pour parler 15 s.")
@@ -777,26 +793,30 @@ class ClochetteOverlayService : Service() {
         }
     }
 
-    private fun handleMicTap() {
+    private fun handleMicTap(source: VoiceTriggerSource) {
         when (voiceState) {
             VoiceCaptureState.LISTENING_INITIAL,
             VoiceCaptureState.LISTENING_EXTRA -> stopVoiceCapture(process = true)
             VoiceCaptureState.PROCESSING -> Unit
-            VoiceCaptureState.ERROR -> startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false)
+            VoiceCaptureState.ERROR -> startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false, source = source)
             VoiceCaptureState.IDLE -> {
                 val append = accumulatedTranscript.isNotBlank()
-                startVoiceCapture(if (append) EXTRA_LISTEN_MS else INITIAL_LISTEN_MS, appendMode = append)
+                startVoiceCapture(if (append) EXTRA_LISTEN_MS else INITIAL_LISTEN_MS, appendMode = append, source = source)
             }
         }
     }
 
-    private fun startVoiceCapture(durationMs: Long, appendMode: Boolean = false) {
+    private fun startVoiceCapture(durationMs: Long, appendMode: Boolean = false, source: VoiceTriggerSource) {
         if (listening) return
+        if (!VoiceInteractionController.canStartListening(this, source)) {
+            showBubbleTemporarily()
+            return
+        }
         val sessionId = resetVoiceSessionForStart(appendMode)
         enterMicOnlyMode()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             voiceState = VoiceCaptureState.ERROR
-            showMiniTranscript("Micro non autoris\u00e9. Ouvre les r\u00e9glages de l’app.")
+            showMiniTranscript("Micro non autoris\u00e9. Ouvre les r\u00e9glages de lâ€™app.")
             setMicButtonRecording(false)
             Toast.makeText(this, "Autorise le micro pour r\u00e9pondre \u00e0 Clochette.", Toast.LENGTH_LONG).show()
             VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "micro_permission_missing")
@@ -906,7 +926,7 @@ class ClochetteOverlayService : Service() {
         val heard = currentTranscriptText()
         val prefix = if (voiceState == VoiceCaptureState.LISTENING_EXTRA) "+20 s" else "J’écoute"
         showMiniTranscript(
-            if (heard.isBlank()) "$prefix… ${remainingSeconds}s" else "$heard · ${remainingSeconds}s",
+            if (heard.isBlank()) "${prefix}… ${remainingSeconds}s" else "$heard · ${remainingSeconds}s",
         )
     }
 
@@ -914,9 +934,9 @@ class ClochetteOverlayService : Service() {
         val base = accumulatedTranscript.trim()
         val partial = latestPartialTranscript.trim()
         return when {
-            base.isNotBlank() && partial.isNotBlank() -> "J’entends : $base $partial"
-            partial.isNotBlank() -> "J’entends : $partial"
-            base.isNotBlank() -> "J’ai entendu : $base"
+            base.isNotBlank() && partial.isNotBlank() -> "Jâ€™entends : $base $partial"
+            partial.isNotBlank() -> "Jâ€™entends : $partial"
+            base.isNotBlank() -> "Jâ€™ai entendu : $base"
             else -> ""
         }
     }
@@ -925,8 +945,13 @@ class ClochetteOverlayService : Service() {
         voiceState = VoiceCaptureState.IDLE
         VoiceInteractionController.transition(this, VoiceInteractionState.COOLDOWN, "voice_offer_extra")
         if (accumulatedTranscript.isBlank()) {
-            showMiniTranscript("Je n’ai rien entendu. Tape pour réessayer 15 s.")
-            Log.d(TAG, "voice session $voiceSessionId no transcript; waiting for retry")
+            VoiceInteractionController.recordNoSpeech(this)
+            VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "no_speech_idle")
+            exitMicOnlyMode()
+            lineView?.text = "Je n’ai rien entendu. On réessaie avec l’icône micro ?"
+            sourceView?.text = debugLine()
+            showBubbleTemporarily()
+            Log.d(TAG, "voice session $voiceSessionId no transcript; idle with bubble visible")
         } else {
             showMiniTranscript("J’ai entendu : $accumulatedTranscript · tape pour +20 s")
             handler.postDelayed({
@@ -937,7 +962,6 @@ class ClochetteOverlayService : Service() {
         }
         setMicButtonRecording(false)
     }
-
     private fun openAppPermissionSettings() {
         startActivity(
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -1057,7 +1081,7 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun finishOverlayReply(userText: String) {
-        ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
+        ClochetteRuntimeStatus.recordAction(this, "micro fermÃ© overlay")
         Log.d(TAG, "voice session $voiceSessionId process transcript='${userText.take(80)}'")
         VoiceInteractionController.transition(this, VoiceInteractionState.THINKING, "overlay_transcription_ready")
         val decision = OctopusCore.intervene(
@@ -1066,7 +1090,7 @@ class ClochetteOverlayService : Service() {
             transcription = userText,
             forceSpeak = true,
         )
-        replyStatusView?.text = "Réponse prête"
+        replyStatusView?.text = "RÃ©ponse prÃªte"
         lineView?.text = decision.finalLine
         sourceView?.text = debugLine()
         handler.postDelayed({
@@ -1087,7 +1111,7 @@ class ClochetteOverlayService : Service() {
     private fun setMicButtonRecording(recording: Boolean, automatic: Boolean = false) {
         useMicSprite(recording)
         spriteContainerView?.contentDescription = if (recording) {
-            if (automatic) "Écoute automatique en cours" else "Enregistrement en cours"
+            if (automatic) "Ã‰coute automatique en cours" else "Enregistrement en cours"
         } else {
             "Toucher Clochette pour parler"
         }
