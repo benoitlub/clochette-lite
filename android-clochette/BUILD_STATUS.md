@@ -1,5 +1,50 @@
 # Android Clochette Build Status
 
+## Version 38 - Safe automatic microphone after TTS
+
+- Date: 2026-06-24
+- Commit tested: `677e6d3`
+- Version: `versionCode 38`, `versionName 0.1.38`
+- Supersedes version 37 behavior: `AUTO_AFTER_TTS` is enabled again, with strict TTS and recognizer guards.
+- Files modified:
+  - `app/build.gradle.kts`
+  - `ClochetteOverlayService.kt`
+  - `OctopusCore.kt`
+  - `VoiceInteractionController.kt`
+- Automatic reply flow:
+  1. Octopus marks a real question with `shouldOpenMic`.
+  2. TTS is queued and reports real `onStart` / `onDone`.
+  3. Overlay waits for the matching `onDone`.
+  4. Overlay waits another 650 ms.
+  5. A single `AUTO_AFTER_TTS` session is created for 15 seconds.
+  6. `À toi — j’écoute… 15 s` appears only after Android calls `onReadyForSpeech`.
+- Guards:
+  - `startListening()` is rejected while TTS is queued/speaking.
+  - `AUTO_AFTER_TTS` is correlated to one question and consumed once.
+  - No automatic restart after silence or recognizer error.
+  - Missing TTS completion callback falls back to the manual reply prompt; it never starts an unsafe microphone session.
+  - SpeechRecognizer is cancelled/destroyed and stale callbacks are invalidated between sessions.
+  - Avatar tap/drag remains independent from the microphone during listening and after no-speech.
+- Silence behavior:
+  - Returns to `IDLE`.
+  - Shows `Je n’ai rien entendu. Touche le micro pour réessayer.`
+  - Keeps bubble readable and avatar draggable.
+  - Only the explicit microphone button can retry that same interaction.
+- Validation:
+  - `python android-clochette/tools/validate_persona_assets.py`
+  - Result: success; 25 persona JSON assets valid, 28 accepted phrase-bank lines, 9 character manifests.
+- Build:
+  - `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+  - Result: `BUILD SUCCESSFUL`
+  - APK: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Test matrix:
+  - A. No microphone during TTS: state/source guards verified in code; phone audio test pending.
+  - B. Automatic microphone after real TTS `onDone` + 650 ms: code path verified; phone timing test pending.
+  - C. User transcription: recognizer readiness and partial/final callbacks verified in code; phone speech test pending.
+  - D. Silence message and IDLE recovery: verified in code; phone UI test pending.
+  - E. Readable/draggable overlay after silence without loop: verified in gesture/state code; phone drag test pending.
+  - F. Manual microphone retry: explicit `MICRO_BUTTON` path verified; phone retry test pending.
+
 ## Version 37 - TTS / microphone state machine
 
 - Date: 2026-06-24
