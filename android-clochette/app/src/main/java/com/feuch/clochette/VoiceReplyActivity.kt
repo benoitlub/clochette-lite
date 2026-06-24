@@ -112,6 +112,12 @@ class VoiceReplyActivity : ComponentActivity() {
     }
 
     private fun startListening() {
+        if (!VoiceInteractionController.canStartListening(this, VoiceTriggerSource.MICRO_BUTTON) ||
+            !ClochetteVoice.prepareForListening(this)
+        ) {
+            status = "Attends la fin de la voix, puis réessaie."
+            return
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             status = "Reconnaissance vocale indisponible"
             Toast.makeText(this, status, Toast.LENGTH_SHORT).show()

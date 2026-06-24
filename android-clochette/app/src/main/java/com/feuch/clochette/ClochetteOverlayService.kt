@@ -62,12 +62,30 @@ class ClochetteOverlayService : Service() {
     private var voiceCaptureStartedAt = 0L
     private var voiceCaptureDurationMs = INITIAL_LISTEN_MS
     private var voiceAppendMode = false
+    private var recognizerReady = false
     private var accumulatedTranscript = ""
     private var latestPartialTranscript = ""
     private var voiceSessionId = 0L
     private val hideBubbleRunnable = Runnable { collapseOverlayIfIdle() }
     private val stopListeningRunnable = Runnable { stopVoiceCapture(process = true) }
     private val forceProcessRunnable = Runnable { forceProcessCurrentCapture() }
+    private val recognizerReadyTimeoutRunnable = Runnable {
+        if (!recognizerReady && voiceState == VoiceCaptureState.PREPARING) {
+            resetRecognizer("ready_timeout")
+            showVoiceFailure("Le micro ne répond pas. Touche l’icône micro pour réessayer.", "ready_timeout")
+        }
+    }
+    private val showReplyPromptRunnable = object : Runnable {
+        override fun run() {
+            if (VoiceInteractionController.isTtsSpeakingNow(this@ClochetteOverlayService) ||
+                VoiceInteractionController.timeSinceTtsDoneMs(this@ClochetteOverlayService) < POST_TTS_PROMPT_DELAY_MS
+            ) {
+                handler.postDelayed(this, 150L)
+            } else {
+                showManualReplyPrompt()
+            }
+        }
+    }
     private val countdownRunnable = object : Runnable {
         override fun run() {
             if (!listening) return
@@ -108,7 +126,8 @@ class ClochetteOverlayService : Service() {
             ACTION_NEXT_LINE -> speakNextLine()
             ACTION_OPEN_MIC -> {
                 if (Settings.canDrawOverlays(this) && overlay == null) showOverlay()
-                showVoiceReplyOverlay(autoStart = true, source = VoiceTriggerSource.PROACTIVE_REPLY_REQUEST)
+                handler.removeCallbacks(showReplyPromptRunnable)
+                handler.post(showReplyPromptRunnable)
             }
             else -> updateLine(ClochetteRemarkStore.latest(this))
         }
@@ -196,10 +215,10 @@ class ClochetteOverlayService : Service() {
 
         sourceView = TextView(this).apply {
             text = debugLine()
-            textSize = 9f
+            textSize = 8f
             setTextColor(Color.rgb(105, 82, 122))
             maxWidth = bubbleMaxWidth
-            maxLines = 3
+            maxLines = 8
             setPadding(0, 0, 0, 4.dp())
         }
 
@@ -207,7 +226,7 @@ class ClochetteOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-        settingsRow.addView(actionButton("RÃ©pondre") { showVoiceReplyOverlay(autoStart = false, source = VoiceTriggerSource.MICRO_BUTTON) })
+        settingsRow.addView(actionButton("Répondre") { showManualReplyPrompt() })
         settingsRow.addView(actionButton("RÃ©glages") { openMainActivity("settings") })
         settingsRowView = settingsRow
 
@@ -245,7 +264,7 @@ class ClochetteOverlayService : Service() {
                     if (micOnlyMode || listening || voiceState != VoiceCaptureState.IDLE) {
                         handleMicTap(VoiceTriggerSource.MICRO_BUTTON)
                     } else {
-                        showVoiceReplyOverlay(autoStart = true, source = VoiceTriggerSource.MICRO_BUTTON)
+                        startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false, source = VoiceTriggerSource.MICRO_BUTTON)
                     }
                 }
             }
@@ -388,28 +407,15 @@ class ClochetteOverlayService : Service() {
         var longPressTriggered = false
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         val longPressRunnable = Runnable {
-            if (!moved && !micOnlyMode) {
+            if (!moved) {
                 longPressTriggered = true
-                VoiceInteractionController.recordTouch(this, "AVATAR_LONG_PRESS", overlayMode(), canExpand = true)
-                Toast.makeText(this, "Glisse-moi pour dÃ©placer. Micro sur lâ€™icÃ´ne.", Toast.LENGTH_SHORT).show()
+                VoiceInteractionController.recordTouch(this, "AVATAR_LONG_PRESS", overlayMode(), canExpand = true, canDrag = true)
+                Toast.makeText(this, "Glisse-moi pour déplacer. Le micro a son bouton.", Toast.LENGTH_SHORT).show()
             }
         }
 
-        val listener = View.OnTouchListener { touched, event ->
-            if (micOnlyMode && touched == sprite) {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        VoiceInteractionController.recordTouch(this, "AVATAR_TAP_MIC_MODE", overlayMode(), canExpand = true)
-                        true
-                    }
-                    MotionEvent.ACTION_UP,
-                    MotionEvent.ACTION_CANCEL -> {
-                        if (VoiceInteractionController.shouldAcceptTap(this)) showBubbleTemporarily()
-                        true
-                    }
-                    else -> true
-                }
-            } else when (event.action) {
+        val listener = View.OnTouchListener { _, event ->
+            when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     handler.removeCallbacks(hideBubbleRunnable)
                     startX = params.x
@@ -419,16 +425,16 @@ class ClochetteOverlayService : Service() {
                     downAt = System.currentTimeMillis()
                     moved = false
                     longPressTriggered = false
-                    if (touched == sprite) handler.postDelayed(longPressRunnable, LONG_PRESS_MIC_MS)
+                    handler.postDelayed(longPressRunnable, LONG_PRESS_MIC_MS)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - touchX).toInt()
                     val dy = (event.rawY - touchY).toInt()
-                    if (touched == sprite && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
+                    if (abs(dx) > touchSlop || abs(dy) > touchSlop) {
                         moved = true
                         handler.removeCallbacks(longPressRunnable)
-                        VoiceInteractionController.recordTouch(this, "AVATAR_DRAG", overlayMode(), canExpand = true)
+                        VoiceInteractionController.recordTouch(this, "AVATAR_DRAG", overlayMode(), canExpand = true, canDrag = true)
                         params.x = (startX - dx).coerceAtLeast(0)
                         params.y = (startY - dy).coerceAtLeast(0)
                         overlay?.let { windowManager.updateViewLayout(it, params) }
@@ -438,38 +444,34 @@ class ClochetteOverlayService : Service() {
                 MotionEvent.ACTION_UP -> {
                     handler.removeCallbacks(longPressRunnable)
                     val pressDuration = System.currentTimeMillis() - downAt
-                    if (longPressTriggered) {
-                        true
-                    } else if (!moved && touched == sprite && pressDuration >= LONG_PRESS_MIC_MS) {
-                        VoiceInteractionController.recordTouch(this, "AVATAR_LONG_PRESS", overlayMode(), canExpand = true)
-                        Toast.makeText(this, "Micro sur lâ€™icÃ´ne. Glisse-moi pour dÃ©placer.", Toast.LENGTH_SHORT).show()
-                    } else if (!moved && touched == sprite) {
-                        val wasReduced = bubbleView?.visibility != View.VISIBLE
-                        VoiceInteractionController.recordTouch(this, if (wasReduced) "AVATAR_REDUCED_TAP" else "AVATAR_EXPANDED_TAP", overlayMode(), canExpand = true)
-                        if (isClosedCallDot() || bubbleView?.visibility != View.VISIBLE) {
-                            showBubbleTemporarily()
-                        } else {
-                            speakNextLine()
-                        }
+                    if (longPressTriggered || (!moved && pressDuration >= LONG_PRESS_MIC_MS)) {
+                        VoiceInteractionController.recordTouch(this, "AVATAR_LONG_PRESS", overlayMode(), canExpand = true, canDrag = true)
                     } else if (!moved) {
-                        speakNextLine()
+                        val wasReduced = bubbleView?.visibility != View.VISIBLE
+                        VoiceInteractionController.recordTouch(
+                            this,
+                            if (wasReduced) "AVATAR_REDUCED_TAP" else "AVATAR_EXPANDED_TAP",
+                            overlayMode(),
+                            canExpand = true,
+                            canDrag = true,
+                        )
+                        if (wasReduced || listening || micOnlyMode) showBubbleTemporarily() else collapseOverlayIfIdle()
                     } else {
                         ClochetteAppearanceSettings.savePosition(this, params.x, params.y)
-                        scheduleBubbleHide()
                     }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     handler.removeCallbacks(longPressRunnable)
+                    if (moved) ClochetteAppearanceSettings.savePosition(this, params.x, params.y)
                     true
                 }
                 else -> false
             }
         }
-        root.setOnTouchListener(listener)
+        root.setOnTouchListener(null)
         sprite.setOnTouchListener(listener)
     }
-
     private fun speakNextLine() {
         val decision = OctopusCore.intervene(
             context = this,
@@ -777,24 +779,31 @@ class ClochetteOverlayService : Service() {
         )
     }
 
-    private fun showVoiceReplyOverlay(autoStart: Boolean, source: VoiceTriggerSource) {
-        if (autoStart && !VoiceInteractionController.canStartListening(this, source)) {
-            VoiceInteractionController.recordTouch(this, "MIC_START_BLOCKED_${source.name}", overlayMode(), canExpand = true)
-            showBubbleTemporarily()
-            return
+    private fun showManualReplyPrompt() {
+        micOnlyMode = false
+        bubbleView?.visibility = View.VISIBLE
+        lineView?.visibility = View.VISIBLE
+        sourceView?.visibility = View.VISIBLE
+        settingsRowView?.visibility = View.VISIBLE
+        replyPanel?.visibility = View.VISIBLE
+        replyStatusView?.apply {
+            text = "À toi — touche le micro pour répondre."
+            visibility = View.VISIBLE
         }
-        enterMicOnlyMode()
-        if (autoStart) {
-            startVoiceCapture(INITIAL_LISTEN_MS, appendMode = false, source = source)
-        } else {
-            voiceState = VoiceCaptureState.IDLE
-            showMiniTranscript("Tape Clochette pour parler 15 s.")
-            setMicButtonRecording(false)
-        }
+        replyTranscriptView?.visibility = View.GONE
+        expandSprite()
+        handler.removeCallbacks(hideBubbleRunnable)
+        handler.postDelayed(hideBubbleRunnable, DIAGNOSTIC_BUBBLE_HIDE_MS)
     }
 
     private fun handleMicTap(source: VoiceTriggerSource) {
         when (voiceState) {
+            VoiceCaptureState.PREPARING -> {
+                resetRecognizer("user_cancelled_preparing")
+                voiceState = VoiceCaptureState.IDLE
+                VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "mic_preparing_cancelled")
+                showManualReplyPrompt()
+            }
             VoiceCaptureState.LISTENING_INITIAL,
             VoiceCaptureState.LISTENING_EXTRA -> stopVoiceCapture(process = true)
             VoiceCaptureState.PROCESSING -> Unit
@@ -807,8 +816,18 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun startVoiceCapture(durationMs: Long, appendMode: Boolean = false, source: VoiceTriggerSource) {
-        if (listening) return
+        if (listening || voiceState == VoiceCaptureState.PREPARING) return
         if (!VoiceInteractionController.canStartListening(this, source)) {
+            lineView?.text = if (VoiceInteractionController.isTtsSpeakingNow(this)) {
+                "Je termine ma phrase. Le micro reste fermé."
+            } else {
+                "Un instant. Touche le micro quand il redevient disponible."
+            }
+            showBubbleTemporarily()
+            return
+        }
+        if (!ClochetteVoice.prepareForListening(this)) {
+            lineView?.text = "Je termine ma phrase. Le micro reste fermé."
             showBubbleTemporarily()
             return
         }
@@ -833,20 +852,19 @@ class ClochetteOverlayService : Service() {
             VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "speech_recognizer_unavailable")
             return
         }
-        ClochetteVoice.stopForListening(this)
         if (!appendMode) {
             accumulatedTranscript = ""
         }
         latestPartialTranscript = ""
+        recognizerReady = false
         voiceAppendMode = appendMode
         voiceCaptureDurationMs = durationMs
-        voiceCaptureStartedAt = System.currentTimeMillis()
-        voiceState = if (appendMode) VoiceCaptureState.LISTENING_EXTRA else VoiceCaptureState.LISTENING_INITIAL
-        listening = true
-        setMicButtonRecording(true, automatic = appendMode)
-        updateVoiceCountdown()
-        Log.d(TAG, "voice session $sessionId start durationMs=$durationMs append=$appendMode")
-        ClochetteRuntimeStatus.recordAction(this, "micro ouvert overlay")
+        voiceState = VoiceCaptureState.PREPARING
+        listening = false
+        VoiceInteractionController.markRecognizerState(this, "PREPARING")
+        showMiniTranscript("Préparation du micro…")
+        setMicButtonRecording(false)
+        Log.d(TAG, "voice session $sessionId preparing durationMs=$durationMs append=$appendMode source=$source")
 
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(newReplyListener(sessionId))
@@ -860,8 +878,8 @@ class ClochetteOverlayService : Service() {
         }
         handler.removeCallbacks(stopListeningRunnable)
         handler.removeCallbacks(countdownRunnable)
-        handler.postDelayed(stopListeningRunnable, durationMs)
-        handler.postDelayed(countdownRunnable, 1_000L)
+        handler.removeCallbacks(recognizerReadyTimeoutRunnable)
+        handler.postDelayed(recognizerReadyTimeoutRunnable, RECOGNIZER_READY_TIMEOUT_MS)
     }
 
     private fun stopVoiceCapture(process: Boolean = true) {
@@ -890,8 +908,10 @@ class ClochetteOverlayService : Service() {
         handler.removeCallbacks(stopListeningRunnable)
         handler.removeCallbacks(countdownRunnable)
         handler.removeCallbacks(forceProcessRunnable)
+        handler.removeCallbacks(recognizerReadyTimeoutRunnable)
         voiceSessionId += 1L
         listening = false
+        recognizerReady = false
         voiceState = VoiceCaptureState.IDLE
         latestPartialTranscript = ""
         if (!appendMode) {
@@ -901,19 +921,44 @@ class ClochetteOverlayService : Service() {
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
+        VoiceInteractionController.markRecognizerState(this, "IDLE")
         Log.d(TAG, "voice session $voiceSessionId reset append=$appendMode")
         VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "voice_session_reset")
         return voiceSessionId
     }
 
-    private fun forceProcessCurrentCapture() {
-        if (voiceState != VoiceCaptureState.PROCESSING) return
-        Log.d(TAG, "voice session $voiceSessionId force process after recognizer silence")
+    private fun resetRecognizer(reason: String) {
+        handler.removeCallbacks(stopListeningRunnable)
+        handler.removeCallbacks(countdownRunnable)
+        handler.removeCallbacks(forceProcessRunnable)
+        handler.removeCallbacks(recognizerReadyTimeoutRunnable)
+        runCatching { recognizer?.stopListening() }
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
+        voiceSessionId += 1L
         listening = false
-        mergeRecognizedText(latestPartialTranscript)
+        recognizerReady = false
+        latestPartialTranscript = ""
+        VoiceInteractionController.markRecognizerState(this, "IDLE:$reason")
+        Log.d(TAG, "voice session $voiceSessionId recognizer reset reason=$reason")
+    }
+
+    private fun showVoiceFailure(message: String, reason: String) {
+        voiceState = VoiceCaptureState.ERROR
+        VoiceInteractionController.transition(this, VoiceInteractionState.ERROR, reason)
+        exitMicOnlyMode()
+        lineView?.text = message
+        sourceView?.text = debugLine()
+        showBubbleTemporarily()
+    }
+
+    private fun forceProcessCurrentCapture() {
+        if (voiceState != VoiceCaptureState.PROCESSING) return
+        Log.d(TAG, "voice session $voiceSessionId force process after recognizer silence")
+        val partial = latestPartialTranscript
+        resetRecognizer("force_process")
+        mergeRecognizedText(partial)
         setMicButtonRecording(false)
         ClochetteRuntimeStatus.recordAction(this, "micro ferm\u00e9 overlay")
         VoiceInteractionController.transition(this, VoiceInteractionState.COOLDOWN, "voice_force_process")
@@ -921,39 +966,38 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun updateVoiceCountdown() {
+        if (!recognizerReady || !listening) return
         val elapsed = System.currentTimeMillis() - voiceCaptureStartedAt
         val remainingSeconds = ((voiceCaptureDurationMs - elapsed).coerceAtLeast(0L) / 1_000L).toInt() + 1
         val heard = currentTranscriptText()
         val prefix = if (voiceState == VoiceCaptureState.LISTENING_EXTRA) "+20 s" else "J’écoute"
-        showMiniTranscript(
-            if (heard.isBlank()) "${prefix}… ${remainingSeconds}s" else "$heard · ${remainingSeconds}s",
-        )
+        showMiniTranscript(if (heard.isBlank()) "$prefix… ${remainingSeconds}s" else "$heard · ${remainingSeconds}s")
     }
 
     private fun currentTranscriptText(): String {
         val base = accumulatedTranscript.trim()
         val partial = latestPartialTranscript.trim()
         return when {
-            base.isNotBlank() && partial.isNotBlank() -> "Jâ€™entends : $base $partial"
-            partial.isNotBlank() -> "Jâ€™entends : $partial"
-            base.isNotBlank() -> "Jâ€™ai entendu : $base"
+            base.isNotBlank() && partial.isNotBlank() -> "J’entends : $base $partial"
+            partial.isNotBlank() -> "J’entends : $partial"
+            base.isNotBlank() -> "J’ai entendu : $base"
             else -> ""
         }
     }
-
     private fun offerExtraListeningWindow() {
         voiceState = VoiceCaptureState.IDLE
-        VoiceInteractionController.transition(this, VoiceInteractionState.COOLDOWN, "voice_offer_extra")
         if (accumulatedTranscript.isBlank()) {
-            VoiceInteractionController.recordNoSpeech(this)
+            VoiceInteractionController.recordNoSpeech(this, "empty_transcript")
             VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "no_speech_idle")
+            resetRecognizer("no_speech")
             exitMicOnlyMode()
-            lineView?.text = "Je n’ai rien entendu. On réessaie avec l’icône micro ?"
+            lineView?.text = "Je n’ai rien entendu. Touche le micro pour réessayer."
             sourceView?.text = debugLine()
             showBubbleTemporarily()
-            Log.d(TAG, "voice session $voiceSessionId no transcript; idle with bubble visible")
+            Log.d(TAG, "voice session $voiceSessionId no transcript; readable idle")
         } else {
-            showMiniTranscript("J’ai entendu : $accumulatedTranscript · tape pour +20 s")
+            VoiceInteractionController.transition(this, VoiceInteractionState.COOLDOWN, "voice_offer_extra")
+            showMiniTranscript("J’ai entendu : $accumulatedTranscript · touche le micro pour +20 s")
             handler.postDelayed({
                 if (!listening && micOnlyMode && voiceState == VoiceCaptureState.IDLE) {
                     finishOverlayReply(accumulatedTranscript)
@@ -980,8 +1024,18 @@ class ClochetteOverlayService : Service() {
 
         override fun onReadyForSpeech(params: Bundle?) {
             if (!isActiveCallback()) return
+            handler.removeCallbacks(recognizerReadyTimeoutRunnable)
+            recognizerReady = true
+            listening = true
+            voiceCaptureStartedAt = System.currentTimeMillis()
+            voiceState = if (voiceAppendMode) VoiceCaptureState.LISTENING_EXTRA else VoiceCaptureState.LISTENING_INITIAL
+            VoiceInteractionController.markRecognizerState(this@ClochetteOverlayService, "READY_LISTENING")
+            VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.LISTENING, "recognizer_ready")
+            ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ouvert overlay")
             updateVoiceCountdown()
             setMicButtonRecording(true)
+            handler.postDelayed(stopListeningRunnable, voiceCaptureDurationMs)
+            handler.postDelayed(countdownRunnable, 1_000L)
         }
 
         override fun onBeginningOfSpeech() = Unit
@@ -991,7 +1045,10 @@ class ClochetteOverlayService : Service() {
         override fun onEndOfSpeech() {
             if (!isActiveCallback()) return
             if (listening) {
+                listening = false
                 voiceState = VoiceCaptureState.PROCESSING
+                VoiceInteractionController.markRecognizerState(this@ClochetteOverlayService, "PROCESSING")
+                VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.TRANSCRIBING, "recognizer_end_of_speech")
                 showMiniTranscript(currentTranscriptText().ifBlank { "Je transforme \u00e7a en mots..." })
                 setMicButtonRecording(false)
             }
@@ -1003,21 +1060,23 @@ class ClochetteOverlayService : Service() {
             handler.removeCallbacks(stopListeningRunnable)
             handler.removeCallbacks(countdownRunnable)
             handler.removeCallbacks(forceProcessRunnable)
+            handler.removeCallbacks(recognizerReadyTimeoutRunnable)
             setMicButtonRecording(false)
-            runCatching { recognizer?.destroy() }
-            recognizer = null
+            val partial = latestPartialTranscript
+            resetRecognizer("error_${recognizerErrorLabel(error)}")
             ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm\u00e9 overlay")
-            VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.IDLE, "recognizer_error_${recognizerErrorLabel(error)}")
             Log.d(TAG, "voice session $sessionId error=${recognizerErrorLabel(error)}")
             when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                    mergeRecognizedText(latestPartialTranscript)
+                    mergeRecognizedText(partial)
                     offerExtraListeningWindow()
                 }
                 else -> {
-                    voiceState = VoiceCaptureState.ERROR
-                    showMiniTranscript("Micro bloqu\u00e9 (${recognizerErrorLabel(error)}). Tape pour r\u00e9essayer.")
+                    showVoiceFailure(
+                        "Le micro s’est arrêté (${recognizerErrorLabel(error)}). Touche l’icône micro pour réessayer.",
+                        "recognizer_error_${recognizerErrorLabel(error)}",
+                    )
                 }
             }
         }
@@ -1028,14 +1087,14 @@ class ClochetteOverlayService : Service() {
             handler.removeCallbacks(stopListeningRunnable)
             handler.removeCallbacks(countdownRunnable)
             handler.removeCallbacks(forceProcessRunnable)
+            handler.removeCallbacks(recognizerReadyTimeoutRunnable)
             val text = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
             mergeRecognizedText(text)
             setMicButtonRecording(false)
-            runCatching { recognizer?.destroy() }
-            recognizer = null
+            resetRecognizer("results")
             ClochetteRuntimeStatus.recordAction(this@ClochetteOverlayService, "micro ferm\u00e9 overlay")
             VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.COOLDOWN, "recognizer_results")
             Log.d(TAG, "voice session $sessionId final='${accumulatedTranscript.take(80)}'")
@@ -1149,6 +1208,7 @@ class ClochetteOverlayService : Service() {
 
     private enum class VoiceCaptureState {
         IDLE,
+        PREPARING,
         LISTENING_INITIAL,
         LISTENING_EXTRA,
         PROCESSING,
@@ -1177,6 +1237,8 @@ class ClochetteOverlayService : Service() {
         private const val EXTRA_LISTEN_MS = 20_000L
         private const val EXTRA_OFFER_MS = 3_500L
         private const val RESULT_GRACE_MS = 2_500L
+        private const val RECOGNIZER_READY_TIMEOUT_MS = 5_000L
+        private const val POST_TTS_PROMPT_DELAY_MS = 650L
         private const val REPLY_IDLE_COLLAPSE_MS = 5_000L
         private const val LONG_PRESS_MIC_MS = 650L
     }

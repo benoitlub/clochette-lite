@@ -6,11 +6,14 @@ import android.media.ToneGenerator
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 object ClochetteVoice {
     private var tts: TextToSpeech? = null
     private var ready = false
+    private var listenerInstalled = false
+    private var appContext: Context? = null
 
     fun speak(context: Context, text: String, automatic: Boolean = false) {
         if (!VoiceInteractionController.canSpeak(context)) {
@@ -27,31 +30,33 @@ object ClochetteVoice {
             return
         }
 
-        val appContext = context.applicationContext
+        val applicationContext = context.applicationContext
+        appContext = applicationContext
+        VoiceInteractionController.markTtsQueued(applicationContext)
         val current = tts
         if (current == null) {
-            tts = TextToSpeech(appContext) { status ->
+            tts = TextToSpeech(applicationContext) { status ->
                 ready = status == TextToSpeech.SUCCESS
                 configure(config)
+                installProgressListener()
                 if (ready) {
-                    VoiceInteractionController.transition(appContext, VoiceInteractionState.SPEAKING, "tts_start")
                     say(config, text)
-                    scheduleSpeechIdle(appContext, text)
-                    ClochetteRuntimeStatus.recordVoiceAction(appContext, "spoken")
+                    ClochetteRuntimeStatus.recordVoiceAction(applicationContext, "spoken")
                 } else {
-                    ClochetteRuntimeStatus.recordVoiceAction(appContext, "error_tts")
+                    VoiceInteractionController.markTtsError(applicationContext, "init")
+                    ClochetteRuntimeStatus.recordVoiceAction(applicationContext, "error_tts")
                 }
             }
             return
         }
         configure(config)
+        installProgressListener()
         if (ready) {
-            VoiceInteractionController.transition(appContext, VoiceInteractionState.SPEAKING, "tts_start")
             say(config, text)
-            scheduleSpeechIdle(appContext, text)
-            ClochetteRuntimeStatus.recordVoiceAction(appContext, "spoken")
+            ClochetteRuntimeStatus.recordVoiceAction(applicationContext, "spoken")
         } else {
-            ClochetteRuntimeStatus.recordVoiceAction(appContext, "error_tts")
+            VoiceInteractionController.markTtsError(applicationContext, "not_ready")
+            ClochetteRuntimeStatus.recordVoiceAction(applicationContext, "error_tts")
         }
     }
 
@@ -65,12 +70,46 @@ object ClochetteVoice {
 
     fun stop() {
         tts?.stop()
+        appContext?.let { VoiceInteractionController.markTtsDone(it, "stopped") }
     }
 
-    fun stopForListening(context: Context) {
-        tts?.stop()
-        VoiceInteractionController.transition(context, VoiceInteractionState.LISTENING, "micro_start_stops_tts")
-        ClochetteRuntimeStatus.recordVoiceAction(context, "tts_stopped_for_micro")
+    fun prepareForListening(context: Context): Boolean {
+        if (VoiceInteractionController.isTtsSpeakingNow(context) || tts?.isSpeaking == true) {
+            ClochetteRuntimeStatus.recordVoiceAction(context, "mic_blocked_tts_speaking")
+            return false
+        }
+        return true
+    }
+
+    private fun installProgressListener() {
+        if (listenerInstalled) return
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                appContext?.let {
+                    VoiceInteractionController.markTtsStarted(it, utteranceId.orEmpty())
+                }
+            }
+
+            override fun onDone(utteranceId: String?) {
+                appContext?.let {
+                    VoiceInteractionController.markTtsDone(it, utteranceId.orEmpty())
+                }
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                appContext?.let {
+                    VoiceInteractionController.markTtsError(it, utteranceId.orEmpty())
+                }
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                appContext?.let {
+                    VoiceInteractionController.markTtsError(it, "${utteranceId.orEmpty()}:$errorCode")
+                }
+            }
+        })
+        listenerInstalled = true
     }
 
     private fun configure(config: ClochetteVoiceConfig) {
@@ -81,17 +120,8 @@ object ClochetteVoice {
 
     private fun say(config: ClochetteVoiceConfig, text: String) {
         playEffect(config.soundEffect)
-        tts?.speak(clean(text), TextToSpeech.QUEUE_FLUSH, null, "clochette-${System.currentTimeMillis()}")
-    }
-
-    private fun scheduleSpeechIdle(context: Context, text: String) {
-        val words = text.split(Regex("\\s+")).count { it.isNotBlank() }.coerceAtLeast(4)
-        val delay = (words * 360L + 900L).coerceIn(1_800L, 9_000L)
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (VoiceInteractionController.state(context) == VoiceInteractionState.SPEAKING) {
-                VoiceInteractionController.transition(context, VoiceInteractionState.IDLE, "tts_estimated_done")
-            }
-        }, delay)
+        val utteranceId = "clochette-${System.currentTimeMillis()}"
+        tts?.speak(clean(text), TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
     private fun modeRate(config: ClochetteVoiceConfig): Float {

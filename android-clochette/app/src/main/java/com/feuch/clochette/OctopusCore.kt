@@ -122,7 +122,8 @@ object OctopusCore {
         val shouldSpeak = ClochetteVoiceSettings.read(appContext).enabled &&
             VoiceInteractionController.canSpeak(appContext) &&
             (guardian.shouldSpeak || forceSpeak || trigger == TRIGGER_SAFE_VOICE_TEST)
-        val shouldOpenMic = openMic || generated.openMic && finalLine.contains("?")
+        val shouldOfferReply = openMic || generated.openMic && finalLine.contains("?")
+        val shouldOpenMic = false
 
         ClochetteWidget.updateAll(appContext, finalLine, source, casting.character.id)
         memory.add(
@@ -146,7 +147,7 @@ object OctopusCore {
         ClochetteRuntimeStatus.recordDecision(appContext, guardian.reason, shouldSpeak)
         ClochetteRuntimeStatus.recordVoiceAction(appContext, voiceStatus)
 
-        if (shouldOpenMic) {
+        if (shouldOfferReply) {
             appContext.startService(
                 Intent(appContext, ClochetteOverlayService::class.java)
                     .setAction(ClochetteOverlayService.ACTION_OPEN_MIC),
@@ -177,14 +178,14 @@ object OctopusCore {
             shouldSpeak = shouldSpeak,
             shouldOpenMic = shouldOpenMic,
             listenSeconds = generated.listenSeconds,
-            overlayState = if (shouldOpenMic) "micro" else "expanded",
+            overlayState = if (shouldOfferReply) "reply_prompt" else "expanded",
             voiceStatus = voiceStatus,
-            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
+            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | replyPrompt=$shouldOfferReply | autoMic=false | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
             phraseBankId = generated.bankId,
             phraseEntryId = generated.entryId,
             phraseTone = generated.tone,
             appearanceId = casting.character.id,
-            appearanceRole = if (shouldOpenMic) "listening" else casting.visualState,
+            appearanceRole = if (shouldOfferReply) "reply_prompt" else casting.visualState,
             appearancePath = "character:${casting.character.id}",
         )
         OctopusDiagnosticsStore.save(appContext, decision.toDiagnostics(trigger, transcription, aiConfig, conversation, generated))
