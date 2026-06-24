@@ -47,7 +47,7 @@ class DreamManager(context: Context) {
     fun moduleAvailable(): Boolean = loadContract().available
 
     private fun loadContract(): DreamerContract = runCatching {
-        val raw = appContext.assets.open(CONTRACT_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(CONTRACT_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         DreamerContract(
             available = json.optString("id") == "octopus_dreamer_contract",

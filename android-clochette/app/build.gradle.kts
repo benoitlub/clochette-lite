@@ -12,8 +12,8 @@ android {
         applicationId = "com.feuch.clochette"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.1.38"
+        versionCode = 39
+        versionName = "0.1.39"
     }
 
     buildFeatures {
@@ -28,6 +28,10 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
 }
 
 dependencies {

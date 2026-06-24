@@ -39,12 +39,12 @@ class DebugSourceTracer(context: Context) {
     )
 
     fun testPlanAvailable(): Boolean = runCatching {
-        val raw = appContext.assets.open(DEBUG_PLAN_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(DEBUG_PLAN_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         JSONObject(raw).optString("id") == "octopus_debug_test_plan"
     }.getOrDefault(false)
 
     private fun witnessMap(): Map<DebugSource, Witness> = runCatching {
-        val raw = appContext.assets.open(WITNESS_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(WITNESS_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         val witnesses = json.optJSONArray("witnesses")
         buildMap {

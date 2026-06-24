@@ -45,7 +45,9 @@ class ClochetteOverlayService : Service() {
     private var bubbleView: View? = null
     private var spriteView: ImageView? = null
     private var lineView: TextView? = null
-    private var sourceView: TextView? = null
+    private var debugPanelView: LinearLayout? = null
+    private var debugContentView: TextView? = null
+    private var settingsPanelView: LinearLayout? = null
     private var settingsRowView: View? = null
     private var replyPanel: LinearLayout? = null
     private var replyStatusView: TextView? = null
@@ -133,7 +135,7 @@ class ClochetteOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Toast.makeText(this, "Service crÃ©Ã©", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Service créé", Toast.LENGTH_SHORT).show()
         memory = ClochetteMemory(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         ContextCompat.registerReceiver(
@@ -182,7 +184,9 @@ class ClochetteOverlayService : Service() {
         bubbleView = null
         spriteView = null
         lineView = null
-        sourceView = null
+        debugPanelView = null
+        debugContentView = null
+        settingsPanelView = null
         settingsRowView = null
         replyPanel = null
         replyStatusView = null
@@ -250,26 +254,18 @@ class ClochetteOverlayService : Service() {
             setPadding(0, 0, 0, 6.dp())
         }
 
-        sourceView = TextView(this).apply {
-            text = debugLine()
-            textSize = 8f
-            setTextColor(Color.rgb(105, 82, 122))
-            maxWidth = bubbleMaxWidth
-            maxLines = 8
-            setPadding(0, 0, 0, 4.dp())
-        }
-
         val settingsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
         settingsRow.addView(actionButton("Répondre") { showManualReplyPrompt() })
-        settingsRow.addView(actionButton("RÃ©glages") { openMainActivity("settings") })
+        settingsRow.addView(actionButton("Réglages") { showOverlaySettingsPanel() })
         settingsRowView = settingsRow
 
         bubble.addView(lineView)
-        bubble.addView(sourceView)
         bubble.addView(buildReplyPanel())
+        bubble.addView(buildDebugPanel(bubbleMaxWidth))
+        bubble.addView(buildSettingsPanel(bubbleMaxWidth))
         bubble.addView(settingsRow)
 
         val sprite = ImageView(this).apply {
@@ -351,7 +347,7 @@ class ClochetteOverlayService : Service() {
         installDragBehavior(root, spriteContainer, params)
         Toast.makeText(this, "Ajout de la vue", Toast.LENGTH_SHORT).show()
         windowManager.addView(root, params)
-        Toast.makeText(this, "Overlay affichÃ©", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Overlay affiché", Toast.LENGTH_SHORT).show()
         overlay = root
         layoutParams = params
         expandSprite()
@@ -399,6 +395,141 @@ class ClochetteOverlayService : Service() {
             addView(replyStatusView)
             addView(replyTranscriptView)
         }
+
+    private fun buildDebugPanel(maxWidth: Int): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8.dp(), 6.dp(), 8.dp(), 6.dp())
+            background = roundedBackground(Color.rgb(244, 238, 250), Color.rgb(180, 153, 204), 12.dp())
+            visibility = View.GONE
+            debugPanelView = this
+
+            addView(actionButton("Diagnostic") {
+                val expanded = !OverlayDebugSettings.isExpanded(this@ClochetteOverlayService)
+                OverlayDebugSettings.setExpanded(this@ClochetteOverlayService, expanded)
+                refreshDebugPanel()
+            })
+            debugContentView = TextView(this@ClochetteOverlayService).apply {
+                textSize = 8f
+                setTextColor(Color.rgb(82, 61, 101))
+                this.maxWidth = maxWidth
+                maxLines = 12
+                isSingleLine = false
+                setPadding(2.dp(), 4.dp(), 2.dp(), 2.dp())
+            }
+            addView(debugContentView)
+            refreshDebugPanel()
+        }
+
+    private fun buildSettingsPanel(maxWidth: Int): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(10.dp(), 8.dp(), 10.dp(), 8.dp())
+            background = roundedBackground(Color.rgb(250, 245, 255), Color.rgb(146, 102, 184), 14.dp())
+            visibility = View.GONE
+            minimumWidth = 210.dp()
+            this.layoutParams = LinearLayout.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+            )
+            settingsPanelView = this
+            refreshOverlaySettingsPanel(maxWidth)
+        }
+
+    private fun showOverlaySettingsPanel() {
+        handler.removeCallbacks(hideBubbleRunnable)
+        lineView?.visibility = View.GONE
+        replyPanel?.visibility = View.GONE
+        debugPanelView?.visibility = View.GONE
+        settingsRowView?.visibility = View.GONE
+        settingsPanelView?.visibility = View.VISIBLE
+        refreshOverlaySettingsPanel()
+        bubbleView?.visibility = View.VISIBLE
+        expandSprite()
+    }
+
+    private fun closeOverlaySettingsPanel() {
+        settingsPanelView?.visibility = View.GONE
+        lineView?.visibility = View.VISIBLE
+        settingsRowView?.visibility = View.VISIBLE
+        refreshDebugPanel()
+        scheduleBubbleHide()
+    }
+
+    private fun refreshOverlaySettingsPanel(maxWidth: Int = 320.dp()) {
+        val panel = settingsPanelView ?: return
+        panel.removeAllViews()
+        val voice = ClochetteVoiceSettings.read(this)
+        val personality = ClochettePersonalitySettings.read(this)
+        val relationship = RelationshipModeSettings.selected(this)
+        val guardian = ClochetteRuntimeStatus.read(this).lastGuardianDecision
+        val debugEnabled = OverlayDebugSettings.isEnabled(this)
+
+        panel.addView(settingsText("Réglages", 15f, bold = true, maxWidth = maxWidth))
+        panel.addView(settingsText("Personnage : ${currentCharacter().displayName}", maxWidth = maxWidth))
+        panel.addView(actionButton("Voix : ${if (voice.enabled) "activée" else "désactivée"}") {
+            ClochetteVoiceSettings.save(this, voice.copy(enabled = !voice.enabled))
+            refreshOverlaySettingsPanel(maxWidth)
+        })
+        panel.addView(settingsText("Bavardise : ${personality.talkativeness}/100", maxWidth = maxWidth))
+        panel.addView(
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(actionButton("−") {
+                    ClochettePersonalitySettings.save(
+                        this@ClochetteOverlayService,
+                        personality.copy(talkativeness = personality.talkativeness - 10),
+                    )
+                    refreshOverlaySettingsPanel(maxWidth)
+                })
+                addView(actionButton("+") {
+                    ClochettePersonalitySettings.save(
+                        this@ClochetteOverlayService,
+                        personality.copy(talkativeness = personality.talkativeness + 10),
+                    )
+                    refreshOverlaySettingsPanel(maxWidth)
+                })
+            },
+        )
+        panel.addView(settingsText("Mode : ${relationship.name}", maxWidth = maxWidth))
+        panel.addView(settingsText("Guardian : $guardian", maxWidth = maxWidth))
+        panel.addView(actionButton("Debug : ${if (debugEnabled) "activé" else "désactivé"}") {
+            OverlayDebugSettings.setEnabled(this, !debugEnabled)
+            refreshOverlaySettingsPanel(maxWidth)
+        })
+        panel.addView(actionButton("Réglages complets") { openMainActivity("settings") })
+        panel.addView(actionButton("Fermer") { closeOverlaySettingsPanel() })
+    }
+
+    private fun settingsText(
+        value: String,
+        size: Float = 11f,
+        bold: Boolean = false,
+        maxWidth: Int,
+    ): TextView = TextView(this).apply {
+        text = value.withVisibleFrenchAccents()
+        textSize = size
+        setTextColor(Color.rgb(44, 24, 63))
+        this.maxWidth = maxWidth
+        maxLines = 3
+        isSingleLine = false
+        if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+        setPadding(2.dp(), 3.dp(), 2.dp(), 3.dp())
+    }
+
+    private fun refreshDebugPanel() {
+        val enabled = OverlayDebugSettings.isEnabled(this)
+        val expanded = enabled && OverlayDebugSettings.isExpanded(this)
+        debugPanelView?.visibility = if (enabled && !micOnlyMode && settingsPanelView?.visibility != View.VISIBLE) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        debugContentView?.apply {
+            text = debugLine().withVisibleFrenchAccents()
+            visibility = if (expanded) View.VISIBLE else View.GONE
+        }
+    }
 
     private fun installTapRefreshBehavior(bubble: View) {
         var downX = 0f
@@ -524,7 +655,7 @@ class ClochetteOverlayService : Service() {
             text = line.withVisibleFrenchAccents()
         }
         applyCharacterVisual("talking")
-        sourceView?.text = debugLine()
+        refreshDebugPanel()
         showBubbleTemporarily()
     }
 
@@ -541,7 +672,7 @@ class ClochetteOverlayService : Service() {
         val ai = AiGatewaySettings.read(this)
         val runtime = ClochetteRuntimeStatus.read(this)
         val voiceState = VoiceInteractionController.state(this)
-        return "perso : ${currentCharacter().displayName} Â· source : ${ClochetteRemarkStore.latestSource(this).id} Â· voix : ${runtime.lastVoiceAction} Â· Ã©tat : ${voiceState.name.lowercase()} Â· guardian : ${runtime.lastGuardianDecision} Â· provider : ${ai.lastProviderUsed ?: "aucun"} Â· ${VoiceInteractionController.diagnostic(this)}"
+        return "perso : ${currentCharacter().displayName} · source : ${ClochetteRemarkStore.latestSource(this).id} · voix : ${runtime.lastVoiceAction} · état : ${voiceState.name.lowercase()} · guardian : ${runtime.lastGuardianDecision} · provider : ${ai.lastProviderUsed ?: "aucun"} · ${VoiceInteractionController.diagnostic(this)}"
     }
 
     private fun overlayMode(): String =
@@ -581,7 +712,8 @@ class ClochetteOverlayService : Service() {
             setPadding(0, 0, 0, 0)
         }
         lineView?.visibility = View.GONE
-        sourceView?.visibility = View.GONE
+        debugPanelView?.visibility = View.GONE
+        settingsPanelView?.visibility = View.GONE
         settingsRowView?.visibility = View.GONE
         replyPanel?.visibility = View.VISIBLE
         replyStatusView?.visibility = View.GONE
@@ -605,13 +737,14 @@ class ClochetteOverlayService : Service() {
             setPadding(12.dp(), 10.dp(), 12.dp(), 10.dp())
         }
         lineView?.visibility = View.VISIBLE
-        sourceView?.visibility = View.VISIBLE
         settingsRowView?.visibility = View.VISIBLE
+        settingsPanelView?.visibility = View.GONE
         replyPanel?.visibility = View.GONE
         replyStatusView?.visibility = View.GONE
         replyTranscriptView?.visibility = View.GONE
         setMicButtonRecording(false)
         expandSprite()
+        refreshDebugPanel()
         scheduleBubbleHide()
     }
 
@@ -804,7 +937,7 @@ class ClochetteOverlayService : Service() {
             ),
         )
         Toast.makeText(this, "Clochette se met en pause.", Toast.LENGTH_SHORT).show()
-        ClochetteRuntimeStatus.recordAction(this, "overlay fermÃ©")
+        ClochetteRuntimeStatus.recordAction(this, "overlay fermé")
         stopSelf()
     }
 
@@ -820,8 +953,8 @@ class ClochetteOverlayService : Service() {
         micOnlyMode = false
         bubbleView?.visibility = View.VISIBLE
         lineView?.visibility = View.VISIBLE
-        sourceView?.visibility = View.VISIBLE
         settingsRowView?.visibility = View.VISIBLE
+        settingsPanelView?.visibility = View.GONE
         replyPanel?.visibility = View.VISIBLE
         replyStatusView?.apply {
             text = "À toi — touche le micro pour répondre."
@@ -829,6 +962,7 @@ class ClochetteOverlayService : Service() {
         }
         replyTranscriptView?.visibility = View.GONE
         expandSprite()
+        refreshDebugPanel()
         handler.removeCallbacks(hideBubbleRunnable)
         handler.postDelayed(hideBubbleRunnable, DIAGNOSTIC_BUBBLE_HIDE_MS)
     }
@@ -872,7 +1006,7 @@ class ClochetteOverlayService : Service() {
         enterMicOnlyMode()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             voiceState = VoiceCaptureState.ERROR
-            showMiniTranscript("Micro non autoris\u00e9. Ouvre les r\u00e9glages de lâ€™app.")
+            showMiniTranscript("Micro non autorisé. Ouvre les réglages de l’app.")
             setMicButtonRecording(false)
             Toast.makeText(this, "Autorise le micro pour r\u00e9pondre \u00e0 Clochette.", Toast.LENGTH_LONG).show()
             VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "micro_permission_missing")
@@ -988,8 +1122,8 @@ class ClochetteOverlayService : Service() {
         voiceState = VoiceCaptureState.ERROR
         VoiceInteractionController.transition(this, VoiceInteractionState.ERROR, reason)
         exitMicOnlyMode()
-        lineView?.text = message
-        sourceView?.text = debugLine()
+        lineView?.text = message.withVisibleFrenchAccents()
+        refreshDebugPanel()
         showBubbleTemporarily()
     }
 
@@ -1039,7 +1173,7 @@ class ClochetteOverlayService : Service() {
             resetRecognizer("no_speech")
             exitMicOnlyMode()
             lineView?.text = "Je n’ai rien entendu. Touche le micro pour réessayer."
-            sourceView?.text = debugLine()
+            refreshDebugPanel()
             showBubbleTemporarily()
             Log.d(TAG, "voice session $voiceSessionId no transcript; readable idle")
         } else {
@@ -1187,7 +1321,7 @@ class ClochetteOverlayService : Service() {
     }
 
     private fun finishOverlayReply(userText: String) {
-        ClochetteRuntimeStatus.recordAction(this, "micro fermÃ© overlay")
+        ClochetteRuntimeStatus.recordAction(this, "micro fermé overlay")
         Log.d(TAG, "voice session $voiceSessionId process transcript='${userText.take(80)}'")
         VoiceInteractionController.transition(this, VoiceInteractionState.THINKING, "overlay_transcription_ready")
         val decision = OctopusCore.intervene(
@@ -1196,9 +1330,9 @@ class ClochetteOverlayService : Service() {
             transcription = userText,
             forceSpeak = true,
         )
-        replyStatusView?.text = "RÃ©ponse prÃªte"
-        lineView?.text = decision.finalLine
-        sourceView?.text = debugLine()
+        replyStatusView?.text = "Réponse prête"
+        lineView?.text = decision.finalLine.withVisibleFrenchAccents()
+        refreshDebugPanel()
         handler.postDelayed({
             accumulatedTranscript = ""
             latestPartialTranscript = ""
@@ -1217,7 +1351,7 @@ class ClochetteOverlayService : Service() {
     private fun setMicButtonRecording(recording: Boolean, automatic: Boolean = false) {
         useMicSprite(recording)
         spriteContainerView?.contentDescription = if (recording) {
-            if (automatic) "Ã‰coute automatique en cours" else "Enregistrement en cours"
+            if (automatic) "Écoute automatique en cours" else "Enregistrement en cours"
         } else {
             "Toucher Clochette pour parler"
         }

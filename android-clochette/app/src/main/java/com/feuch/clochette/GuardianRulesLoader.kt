@@ -92,7 +92,7 @@ class GuardianRulesLoader(context: Context) {
         split(Regex("[^\\p{L}0-9']+")).filter { it.length > 3 }.toSet()
 
     private fun loadRules(): GuardianRules = runCatching {
-        val raw = appContext.assets.open(ASSET_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(ASSET_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         val checks = json.optJSONArray("checks")
         val fallbacks = (0 until (checks?.length() ?: 0)).mapNotNull { index ->

@@ -314,7 +314,7 @@ object CharacterAssetValidator {
             runCatching {
                 val manifestPath = "characters/${profile.id}/manifest.json"
                 val manifest = context.assets.open(manifestPath)
-                    .bufferedReader()
+                    .bufferedReader(Charsets.UTF_8)
                     .use { JSONObject(it.readText()) }
                 val manifestId = manifest.optString("id")
                 if (manifestId != profile.id) {

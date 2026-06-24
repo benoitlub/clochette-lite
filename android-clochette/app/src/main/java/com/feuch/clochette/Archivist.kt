@@ -57,7 +57,7 @@ class Archivist(private val context: Context? = null) {
 
     fun contractAvailable(): Boolean = runCatching {
         val appContext = context?.applicationContext ?: return false
-        val raw = appContext.assets.open(CONTRACT_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(CONTRACT_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         JSONObject(raw).optString("id") == "octopus_archivist_contract"
     }.getOrDefault(false)
 

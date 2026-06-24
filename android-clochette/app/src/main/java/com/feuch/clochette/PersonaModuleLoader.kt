@@ -14,7 +14,7 @@ class PersonaModuleLoader(context: Context) {
 
     fun loadStatuses(): List<PersonaModuleStatus> = MODULE_FILES.map { module ->
         runCatching {
-            val raw = assets.open(module.path).bufferedReader().use { it.readText() }
+            val raw = assets.open(module.path).bufferedReader(Charsets.UTF_8).use { it.readText() }
             PersonaModuleStatus(
                 fileName = module.label,
                 detected = true,

@@ -29,7 +29,7 @@ object RelationshipModeSettings {
     }
 
     fun modes(context: Context): List<RelationshipMode> = runCatching {
-        val raw = context.applicationContext.assets.open(ASSET_PATH).bufferedReader().use { it.readText() }
+        val raw = context.applicationContext.assets.open(ASSET_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         val array = json.optJSONArray("modes")
         (0 until (array?.length() ?: 0)).mapNotNull { index ->

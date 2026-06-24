@@ -16,9 +16,10 @@ object ClochetteRemarkStore {
     private const val KEY_CHARACTER_ID = "latest_character_id"
     private const val DEFAULT_LINE = "Clochette attend sur l'écran d'accueil. C'est suspectement raisonnable."
 
-    fun latest(context: Context): String = context.applicationContext
+    fun latest(context: Context): String = (context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(KEY_LINE, DEFAULT_LINE) ?: DEFAULT_LINE
+        .getString(KEY_LINE, DEFAULT_LINE) ?: DEFAULT_LINE)
+        .withVisibleFrenchAccents()
 
     fun latestSource(context: Context): PhraseSource {
         val raw = context.applicationContext
@@ -41,7 +42,7 @@ object ClochetteRemarkStore {
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putString(KEY_LINE, line)
+            .putString(KEY_LINE, line.withVisibleFrenchAccents())
             .putString(KEY_SOURCE, source.id)
             .putString(KEY_CHARACTER_ID, characterId)
             .apply()

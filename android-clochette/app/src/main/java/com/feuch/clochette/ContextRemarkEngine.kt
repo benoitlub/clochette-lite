@@ -148,7 +148,7 @@ class ContextRemarkEngine(context: Context) {
     }
 
     private fun parseModel(path: String): ContextLinesModel {
-        val raw = appContext.assets.open(path).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(path).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         val source = sourceForPath(path)
         val apps = json.optJSONArray("apps").toObjectList { item ->

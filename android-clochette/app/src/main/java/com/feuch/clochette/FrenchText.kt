@@ -1,6 +1,6 @@
 package com.feuch.clochette
 
-internal fun String.withVisibleFrenchAccents(): String = this
+internal fun String.withVisibleFrenchAccents(): String = repairVisibleMojibake()
     .replace("l'elan", "l’élan")
     .replace("L'elan", "L’élan")
     .replace(Regex("\\belan\\b"), "élan")
@@ -59,3 +59,27 @@ internal fun String.withVisibleFrenchAccents(): String = this
     .replace("Negocie", "Négocie")
     .replace("lisibilite", "lisibilité")
     .replace("Lisibilite", "Lisibilité")
+
+private fun String.repairVisibleMojibake(): String = this
+    .replace("\u00C3\u20AC", "À")
+    .replace("\u00C3\u2030", "É")
+    .replace("\u00C3\u2021", "Ç")
+    .replace("\u00C3\u00A9", "é")
+    .replace("\u00C3\u00A8", "è")
+    .replace("\u00C3\u00AA", "ê")
+    .replace("\u00C3\u00AB", "ë")
+    .replace("\u00C3\u00A0", "à")
+    .replace("\u00C3\u00A2", "â")
+    .replace("\u00C3\u00A7", "ç")
+    .replace("\u00C3\u00B4", "ô")
+    .replace("\u00C3\u00B9", "ù")
+    .replace("\u00C3\u00BB", "û")
+    .replace("\u00C3\u00AE", "î")
+    .replace("\u00E2\u20AC\u2122", "’")
+    .replace("\u00E2\u20AC\u0153", "“")
+    .replace("\u00E2\u20AC\u009D", "”")
+    .replace("\u00E2\u20AC\u201C", "–")
+    .replace("\u00E2\u20AC\u201D", "—")
+    .replace("\u00E2\u20AC\u00A6", "…")
+    .replace("\u00C2\u00B7", "·")
+    .replace("\u00C2 ", " ")

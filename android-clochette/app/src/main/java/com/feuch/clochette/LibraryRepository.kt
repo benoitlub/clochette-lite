@@ -7,7 +7,7 @@ class LibraryRepository(context: Context) {
     private val appContext = context.applicationContext
 
     fun sharedModel(): SharedLibraryModel = runCatching {
-        val raw = appContext.assets.open(SHARED_MODEL_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(SHARED_MODEL_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         SharedLibraryModel(
             id = json.optString("id", "shared_library_model"),
@@ -51,7 +51,7 @@ class LibraryRepository(context: Context) {
     )
 
     private fun loadContextLines(): List<AcceptedLine> = runCatching {
-        val raw = appContext.assets.open(CONTEXT_LINES_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(CONTEXT_LINES_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         val apps = json.optJSONArray("apps")
         buildList {
@@ -82,7 +82,7 @@ class LibraryRepository(context: Context) {
     }.getOrDefault(emptyList())
 
     private fun contractAvailable(path: String): Boolean = runCatching {
-        val raw = appContext.assets.open(path).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(path).bufferedReader(Charsets.UTF_8).use { it.readText() }
         JSONObject(raw).optString("id").isNotBlank()
     }.getOrDefault(false)
 

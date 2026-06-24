@@ -33,7 +33,7 @@ class AiGateway(context: Context? = null) {
 
     fun contractAvailable(): Boolean = runCatching {
         val context = appContext ?: return false
-        val raw = context.assets.open(CONTRACT_PATH).bufferedReader().use { it.readText() }
+        val raw = context.assets.open(CONTRACT_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         JSONObject(raw).optString("id") == "octopus_diplomat_contract"
     }.getOrDefault(false)
 

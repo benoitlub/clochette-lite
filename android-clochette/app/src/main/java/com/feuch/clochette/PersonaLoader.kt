@@ -38,16 +38,16 @@ class PersonaLoader(private val context: Context) {
     }
 
     fun cachePersona(profile: PersonaProfile) {
-        cacheFile.writeText(profile.toJson().toString())
+        cacheFile.writeText(profile.toJson().toString(), Charsets.UTF_8)
     }
 
     private fun readCache(): PersonaProfile? = runCatching {
         if (!cacheFile.exists()) return@runCatching null
-        PersonaProfile.fromJson(cacheFile.readText())
+        PersonaProfile.fromJson(cacheFile.readText(Charsets.UTF_8))
     }.getOrNull()
 
     private fun readAsset(): PersonaProfile? = runCatching {
-        appContext.assets.open(ASSET_PATH).bufferedReader().use { PersonaProfile.fromJson(it.readText()) }
+        appContext.assets.open(ASSET_PATH).bufferedReader(Charsets.UTF_8).use { PersonaProfile.fromJson(it.readText()) }
     }.getOrNull()
 
     private companion object {

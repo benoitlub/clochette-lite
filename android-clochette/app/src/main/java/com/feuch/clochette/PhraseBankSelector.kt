@@ -181,7 +181,7 @@ object PhraseBankSelector {
         val assets = context.applicationContext.assets
         return BANKS.flatMap { bank ->
             runCatching {
-                val raw = assets.open(bank.path).bufferedReader().use { it.readText() }
+                val raw = assets.open(bank.path).bufferedReader(Charsets.UTF_8).use { it.readText() }
                 val json = JSONObject(raw)
                 val tone = json.optString("tone", bank.id).ifBlank { bank.id }
                 json.optJSONArray("entries").toObjectList { item ->

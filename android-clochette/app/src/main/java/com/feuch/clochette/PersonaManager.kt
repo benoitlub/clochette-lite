@@ -7,7 +7,7 @@ class PersonaManager(context: Context) {
     private val appContext = context.applicationContext
 
     fun registry(): PersonaRegistry = runCatching {
-        val raw = appContext.assets.open(CHAMELEON_CONTRACT_PATH).bufferedReader().use { it.readText() }
+        val raw = appContext.assets.open(CHAMELEON_CONTRACT_PATH).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val json = JSONObject(raw)
         val items = json.optJSONArray("registry")
         val personas = (0 until (items?.length() ?: 0)).mapNotNull { index ->
@@ -34,7 +34,7 @@ class PersonaManager(context: Context) {
         if (personaId != DEFAULT_PERSONA_ID) return fallbackTraits(descriptor ?: fallbackDescriptor(personaId))
         return runCatching {
             val raw = appContext.assets.open(descriptor?.traitsPath ?: "personas/clochette/persona_traits.json")
-                .bufferedReader()
+                .bufferedReader(Charsets.UTF_8)
                 .use { it.readText() }
             val json = JSONObject(raw)
             val limits = json.optJSONObject("limits")
