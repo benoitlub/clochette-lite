@@ -1,5 +1,44 @@
 # Android Clochette Build Status
 
+## Version 37 - TTS / microphone state machine
+
+- Date: 2026-06-24
+- Commit tested: `b185d6b`
+- Version: `versionCode 37`, `versionName 0.1.37`
+- Files modified:
+  - `app/build.gradle.kts`
+  - `ClochetteOverlayService.kt`
+  - `ClochetteVoice.kt`
+  - `OctopusCore.kt`
+  - `VoiceInteractionController.kt`
+  - `VoiceReplyActivity.kt`
+- Main corrections:
+  - TTS state now uses the real `UtteranceProgressListener` callbacks (`onStart`, `onDone`, `onError`).
+  - Microphone start is rejected while TTS is queued/speaking and for 650 ms after the real TTS `onDone`.
+  - `AUTO_AFTER_TTS disabled by default`.
+  - Octopus questions create `reply_prompt`; `shouldOpenMic` remains `false`.
+  - After a question, overlay displays: `À toi — touche le micro pour répondre.`
+  - Manual listening can start only from `MICRO_BUTTON`; non-manual sources are rejected unless explicit debug mode is enabled.
+  - `J’écoute…` appears only after Android calls `onReadyForSpeech`.
+  - SpeechRecognizer is cancelled, destroyed, callbacks cleared, and recreated between sessions.
+  - Silence exits mic-only mode, returns to `IDLE`, restores readable/draggable overlay, and displays: `Je n’ai rien entendu. Touche le micro pour réessayer.`
+  - Avatar touch is independent from microphone control: tap toggles/readability, drag always moves, long press only reports movement help.
+  - Debug overlay reports voice/TTS/recognizer states, trigger source, touch target, drag/expand flags, no-speech reason, TTS completion delay, and current TTS activity.
+- Validation:
+  - `python android-clochette/tools/validate_persona_assets.py`
+  - Result: success; 25 persona JSON assets valid, 28 accepted phrase-bank lines, 9 character manifests.
+- Build:
+  - `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+  - Result: `BUILD SUCCESSFUL`
+  - APK: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Test matrix:
+  - A. Question/TTS/no auto-micro: code path verified; physical phone confirmation pending.
+  - B. Explicit micro button/readiness/transcription: code path verified; physical phone confirmation pending.
+  - C. Silence/readable IDLE/drag enabled: code path verified; physical phone confirmation pending.
+  - D. Drag and avatar tap while listening: gesture separation verified in code; physical phone confirmation pending.
+  - E. Recovery after microphone error: recognizer reset and readable error state verified in code; physical phone confirmation pending.
+  - F. Anti-auto-transcription: TTS guard and manual-only source verified in code; loudspeaker phone test pending.
+
 Reduced overlay tap/micro separation fix:
 - Date: 2026-06-17
 - Commit tested: working tree after `966dbb5`; final commit contains the same source changes.
