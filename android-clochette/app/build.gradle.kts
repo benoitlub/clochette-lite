@@ -12,8 +12,8 @@ android {
         applicationId = "com.feuch.clochette"
         minSdk = 26
         targetSdk = 35
-        versionCode = 37
-        versionName = "0.1.37"
+        versionCode = 38
+        versionName = "0.1.38"
     }
 
     buildFeatures {

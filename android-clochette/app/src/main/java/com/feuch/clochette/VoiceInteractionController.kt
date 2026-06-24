@@ -109,11 +109,18 @@ object VoiceInteractionController {
         return if (doneAt == 0L) Long.MAX_VALUE else (System.currentTimeMillis() - doneAt).coerceAtLeast(0L)
     }
 
+    fun lastTtsDoneAt(context: Context): Long =
+        prefs(context).getLong(KEY_TTS_DONE_AT, 0L)
+
+    fun ttsState(context: Context): String =
+        prefs(context).getString(KEY_TTS_STATE, "IDLE").orEmpty()
+
     fun canStartListening(context: Context, source: VoiceTriggerSource): Boolean {
         val appContext = context.applicationContext
         val currentState = state(appContext)
         val debugEnabled = prefs(appContext).getBoolean(KEY_DEBUG_NON_MANUAL_MIC, false)
         val sourceAllowed = source == VoiceTriggerSource.MICRO_BUTTON ||
+            source == VoiceTriggerSource.AUTO_AFTER_TTS ||
             (source == VoiceTriggerSource.DEBUG && debugEnabled)
         val ttsQuiet = !isTtsSpeakingNow(appContext)
         val safetyElapsed = timeSinceTtsDoneMs(appContext) >= POST_TTS_SAFETY_MS

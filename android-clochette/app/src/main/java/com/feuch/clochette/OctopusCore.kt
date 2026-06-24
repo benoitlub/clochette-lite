@@ -123,7 +123,7 @@ object OctopusCore {
             VoiceInteractionController.canSpeak(appContext) &&
             (guardian.shouldSpeak || forceSpeak || trigger == TRIGGER_SAFE_VOICE_TEST)
         val shouldOfferReply = openMic || generated.openMic && finalLine.contains("?")
-        val shouldOpenMic = false
+        val shouldOpenMic = shouldOfferReply
 
         ClochetteWidget.updateAll(appContext, finalLine, source, casting.character.id)
         memory.add(
@@ -150,7 +150,8 @@ object OctopusCore {
         if (shouldOfferReply) {
             appContext.startService(
                 Intent(appContext, ClochetteOverlayService::class.java)
-                    .setAction(ClochetteOverlayService.ACTION_OPEN_MIC),
+                    .setAction(ClochetteOverlayService.ACTION_OPEN_MIC)
+                    .putExtra(ClochetteOverlayService.EXTRA_AUTO_AFTER_TTS, shouldSpeak),
             )
         } else {
             appContext.startService(
@@ -178,14 +179,14 @@ object OctopusCore {
             shouldSpeak = shouldSpeak,
             shouldOpenMic = shouldOpenMic,
             listenSeconds = generated.listenSeconds,
-            overlayState = if (shouldOfferReply) "reply_prompt" else "expanded",
+            overlayState = if (shouldOfferReply) "auto_after_tts_pending" else "expanded",
             voiceStatus = voiceStatus,
-            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | replyPrompt=$shouldOfferReply | autoMic=false | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
+            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | replyPrompt=$shouldOfferReply | autoMic=after_tts_done | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
             phraseBankId = generated.bankId,
             phraseEntryId = generated.entryId,
             phraseTone = generated.tone,
             appearanceId = casting.character.id,
-            appearanceRole = if (shouldOfferReply) "reply_prompt" else casting.visualState,
+            appearanceRole = if (shouldOfferReply) "auto_after_tts_pending" else casting.visualState,
             appearancePath = "character:${casting.character.id}",
         )
         OctopusDiagnosticsStore.save(appContext, decision.toDiagnostics(trigger, transcription, aiConfig, conversation, generated))
@@ -331,7 +332,7 @@ object OctopusCore {
             lastShouldSpeak = shouldSpeak,
             lastVoiceStatus = voiceStatus,
             lastOverlayState = overlayState,
-            lastMicStatus = if (shouldOpenMic) "ouvert" else "fermé",
+            lastMicStatus = if (shouldOpenMic) "auto_after_tts_pending" else "fermé",
             lastTranscription = transcription.orEmpty(),
             lastGatewayStatus = aiConfig.lastStatus ?: if (aiConfig.enabled) "non testé" else "désactivée",
             lastAppearance = "$appearanceId/$appearanceRole/$appearancePath",

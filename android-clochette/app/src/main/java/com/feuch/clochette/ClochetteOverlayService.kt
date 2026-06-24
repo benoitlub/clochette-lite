@@ -62,7 +62,10 @@ class ClochetteOverlayService : Service() {
     private var voiceCaptureStartedAt = 0L
     private var voiceCaptureDurationMs = INITIAL_LISTEN_MS
     private var voiceAppendMode = false
+    private var voiceTriggerSource = VoiceTriggerSource.MICRO_BUTTON
     private var recognizerReady = false
+    private var pendingAutoMicRequestedAt = 0L
+    private var autoMicAttemptedForRequest = false
     private var accumulatedTranscript = ""
     private var latestPartialTranscript = ""
     private var voiceSessionId = 0L
@@ -77,12 +80,38 @@ class ClochetteOverlayService : Service() {
     }
     private val showReplyPromptRunnable = object : Runnable {
         override fun run() {
-            if (VoiceInteractionController.isTtsSpeakingNow(this@ClochetteOverlayService) ||
-                VoiceInteractionController.timeSinceTtsDoneMs(this@ClochetteOverlayService) < POST_TTS_PROMPT_DELAY_MS
-            ) {
-                handler.postDelayed(this, 150L)
-            } else {
+            val requestedAt = pendingAutoMicRequestedAt
+            if (requestedAt == 0L || autoMicAttemptedForRequest) return
+            val elapsed = System.currentTimeMillis() - requestedAt
+            val ttsSpeaking = VoiceInteractionController.isTtsSpeakingNow(this@ClochetteOverlayService)
+            val ttsDoneAt = VoiceInteractionController.lastTtsDoneAt(this@ClochetteOverlayService)
+            val completedThisRequest = ttsDoneAt >= requestedAt ||
+                ttsDoneAt > 0L && requestedAt - ttsDoneAt in 0L..RECENT_TTS_DONE_TOLERANCE_MS
+            val safetyElapsed = VoiceInteractionController.timeSinceTtsDoneMs(this@ClochetteOverlayService) >= POST_TTS_PROMPT_DELAY_MS
+
+            if (elapsed >= AUTO_MIC_TTS_HARD_TIMEOUT_MS) {
+                pendingAutoMicRequestedAt = 0L
+                autoMicAttemptedForRequest = true
+                VoiceInteractionController.markTtsError(this@ClochetteOverlayService, "auto_mic_wait_timeout")
                 showManualReplyPrompt()
+                Log.d(TAG, "auto mic cancelled: TTS completion timeout")
+            } else if (ttsSpeaking || completedThisRequest && !safetyElapsed) {
+                handler.postDelayed(this, 150L)
+            } else if (completedThisRequest && safetyElapsed) {
+                autoMicAttemptedForRequest = true
+                pendingAutoMicRequestedAt = 0L
+                startVoiceCapture(
+                    durationMs = INITIAL_LISTEN_MS,
+                    appendMode = false,
+                    source = VoiceTriggerSource.AUTO_AFTER_TTS,
+                )
+            } else if (elapsed >= AUTO_MIC_NO_TTS_TIMEOUT_MS) {
+                pendingAutoMicRequestedAt = 0L
+                autoMicAttemptedForRequest = true
+                showManualReplyPrompt()
+                Log.d(TAG, "auto mic cancelled: no TTS completion callback state=${VoiceInteractionController.ttsState(this@ClochetteOverlayService)}")
+            } else {
+                handler.postDelayed(this, 150L)
             }
         }
     }
@@ -127,7 +156,15 @@ class ClochetteOverlayService : Service() {
             ACTION_OPEN_MIC -> {
                 if (Settings.canDrawOverlays(this) && overlay == null) showOverlay()
                 handler.removeCallbacks(showReplyPromptRunnable)
-                handler.post(showReplyPromptRunnable)
+                if (intent.getBooleanExtra(EXTRA_AUTO_AFTER_TTS, false)) {
+                    pendingAutoMicRequestedAt = System.currentTimeMillis()
+                    autoMicAttemptedForRequest = false
+                    handler.post(showReplyPromptRunnable)
+                } else {
+                    pendingAutoMicRequestedAt = 0L
+                    autoMicAttemptedForRequest = true
+                    showManualReplyPrompt()
+                }
             }
             else -> updateLine(ClochetteRemarkStore.latest(this))
         }
@@ -858,11 +895,14 @@ class ClochetteOverlayService : Service() {
         latestPartialTranscript = ""
         recognizerReady = false
         voiceAppendMode = appendMode
+        voiceTriggerSource = source
         voiceCaptureDurationMs = durationMs
         voiceState = VoiceCaptureState.PREPARING
         listening = false
         VoiceInteractionController.markRecognizerState(this, "PREPARING")
-        showMiniTranscript("Préparation du micro…")
+        showMiniTranscript(
+            if (source == VoiceTriggerSource.AUTO_AFTER_TTS) "À toi — préparation du micro…" else "Préparation du micro…",
+        )
         setMicButtonRecording(false)
         Log.d(TAG, "voice session $sessionId preparing durationMs=$durationMs append=$appendMode source=$source")
 
@@ -968,9 +1008,14 @@ class ClochetteOverlayService : Service() {
     private fun updateVoiceCountdown() {
         if (!recognizerReady || !listening) return
         val elapsed = System.currentTimeMillis() - voiceCaptureStartedAt
-        val remainingSeconds = ((voiceCaptureDurationMs - elapsed).coerceAtLeast(0L) / 1_000L).toInt() + 1
+        val remainingMs = (voiceCaptureDurationMs - elapsed).coerceAtLeast(0L)
+        val remainingSeconds = ((remainingMs + 999L) / 1_000L).toInt()
         val heard = currentTranscriptText()
-        val prefix = if (voiceState == VoiceCaptureState.LISTENING_EXTRA) "+20 s" else "J’écoute"
+        val prefix = when {
+            voiceState == VoiceCaptureState.LISTENING_EXTRA -> "+20 s"
+            voiceTriggerSource == VoiceTriggerSource.AUTO_AFTER_TTS -> "À toi — j’écoute"
+            else -> "J’écoute"
+        }
         showMiniTranscript(if (heard.isBlank()) "$prefix… ${remainingSeconds}s" else "$heard · ${remainingSeconds}s")
     }
 
@@ -987,6 +1032,8 @@ class ClochetteOverlayService : Service() {
     private fun offerExtraListeningWindow() {
         voiceState = VoiceCaptureState.IDLE
         if (accumulatedTranscript.isBlank()) {
+            pendingAutoMicRequestedAt = 0L
+            autoMicAttemptedForRequest = true
             VoiceInteractionController.recordNoSpeech(this, "empty_transcript")
             VoiceInteractionController.transition(this, VoiceInteractionState.IDLE, "no_speech_idle")
             resetRecognizer("no_speech")
@@ -1221,6 +1268,7 @@ class ClochetteOverlayService : Service() {
         const val ACTION_HIDE = "com.feuch.clochette.overlay.HIDE"
         const val ACTION_NEXT_LINE = "com.feuch.clochette.overlay.NEXT_LINE"
         const val ACTION_OPEN_MIC = "com.feuch.clochette.overlay.OPEN_MIC"
+        const val EXTRA_AUTO_AFTER_TTS = "auto_after_tts"
         private const val COLLAPSED_SPRITE_DP = 68
         private const val COLLAPSED_OVERFLOW_DP = 14
         private const val COLLAPSED_PORTRAIT_DP = 78
@@ -1239,6 +1287,9 @@ class ClochetteOverlayService : Service() {
         private const val RESULT_GRACE_MS = 2_500L
         private const val RECOGNIZER_READY_TIMEOUT_MS = 5_000L
         private const val POST_TTS_PROMPT_DELAY_MS = 650L
+        private const val AUTO_MIC_NO_TTS_TIMEOUT_MS = 1_500L
+        private const val AUTO_MIC_TTS_HARD_TIMEOUT_MS = 30_000L
+        private const val RECENT_TTS_DONE_TOLERANCE_MS = 2_000L
         private const val REPLY_IDLE_COLLAPSE_MS = 5_000L
         private const val LONG_PRESS_MIC_MS = 650L
     }
