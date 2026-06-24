@@ -1,5 +1,33 @@
 # Android Clochette Build Status
 
+## Version 39 - UTF-8 overlay and hidden diagnostics
+
+- Date: 2026-06-24
+- Commit tested: `cf333f4`
+- Version: `versionCode 39`, `versionName 0.1.39`
+- Main corrections:
+  - corrected the remaining double-encoded overlay labels;
+  - added display-time repair for older mojibake lines already stored in preferences;
+  - forced UTF-8 when reading persona, phrase-bank, contract, and character JSON assets;
+  - forced UTF-8 for the persona cache and Java compilation;
+  - removed source/provider/Guardian/voice-state dumps from the normal speech bubble;
+  - added a separate, collapsible `Diagnostic` panel;
+  - added `debugOverlayEnabled`, disabled by default;
+  - changed the overlay `Réglages` action to a compact panel with character, voice, talkativeness, relationship/Guardian state, debug toggle, and close action.
+- Validation:
+  - `python android-clochette/tools/validate_persona_assets.py`
+  - Result: success; 25 persona JSON assets valid, 28 accepted phrase-bank lines, 9 character manifests.
+  - Mojibake signature search: no matches outside build artifacts.
+- Build:
+  - `cd android-clochette && .\gradlew.bat assembleDebug --stacktrace --no-daemon`
+  - Result: `BUILD SUCCESSFUL`
+  - APK: `android-clochette/app/build/outputs/apk/debug/app-debug.apk`
+- Expected phone checks:
+  - normal mode shows only Clochette's phrase and the `Répondre` / `Réglages` actions;
+  - debug is hidden by default;
+  - enabling debug from overlay settings reveals a separate collapsible diagnostic block;
+  - accented labels remain correct after a stored phrase from an older APK is loaded.
+
 ## Version 38 - Safe automatic microphone after TTS
 
 - Date: 2026-06-24
