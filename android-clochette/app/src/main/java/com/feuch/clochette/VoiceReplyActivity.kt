@@ -210,6 +210,17 @@ class VoiceReplyActivity : ComponentActivity() {
                 result = "answered",
             ),
         )
+        ClochetteMemory(this).add(
+            ClochetteMemoryEntry(
+                context = "voice_reply",
+                observedSignal = "user_replied_to_clochette",
+                project = null,
+                energy = null,
+                clochetteLine = reply,
+                userReaction = userReply,
+                result = "engaged",
+            ),
+        )
     }
 
     companion object {
