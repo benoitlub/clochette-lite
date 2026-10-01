@@ -20,6 +20,13 @@ class ClochetteProactiveService : Service() {
         override fun run() {
             if (!running) return
             val snapshot = PresenceContextHub.capture(this@ClochetteProactiveService)
+            val consolidated = MemoryConsolidator.consolidate(this@ClochetteProactiveService, snapshot)
+            consolidated?.let {
+                ClochetteRuntimeStatus.recordAction(
+                    this@ClochetteProactiveService,
+                    "memory_consolidated_${it.userIntent ?: "signal"}",
+                )
+            }
             val presence = PresenceEngine.decide(snapshot)
             ClochetteRuntimeStatus.recordAction(
                 this@ClochetteProactiveService,
