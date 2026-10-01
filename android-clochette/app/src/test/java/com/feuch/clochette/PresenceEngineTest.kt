@@ -41,6 +41,31 @@ class PresenceEngineTest {
     }
 
     @Test
+    fun recentRefusalOverridesPositiveLearnedMemory() {
+        val recent = listOf(
+            ClochetteMemoryEntry(
+                timestamp = 999_999L,
+                context = "voice_reply",
+                observedSignal = "user_replied_to_clochette",
+                project = null,
+                energy = null,
+                clochetteLine = "On fait un point ?",
+                userReaction = "pause",
+                result = "paused",
+            ),
+        )
+        val learned = listOf(
+            learned("resume_possible", "kept", MemorySignal.HIGH),
+            learned("reply_noted", "kept", MemorySignal.HIGH),
+        )
+        val decision = PresenceEngine.decide(
+            snapshot(durationMinutes = 50, learned = learned, recent = recent),
+        )
+        assertEquals(PresenceIntent.GUARD, decision.intent)
+        assertEquals("recent_feedback_cooldown", decision.reason)
+    }
+
+    @Test
     fun longSessionIntervenesWithoutNegativeLearning() {
         val decision = PresenceEngine.decide(snapshot(durationMinutes = 50))
         assertEquals(PresenceIntent.INTERVENE, decision.intent)
@@ -52,13 +77,14 @@ class PresenceEngineTest {
         durationMinutes: Long = 0,
         switches: Int = 0,
         learned: List<MemoryEntry> = emptyList(),
+        recent: List<ClochetteMemoryEntry> = emptyList(),
     ) = PresenceContextSnapshot(
         activity = ActivitySnapshot(
             recentSwitchCount = switches,
             approximateDurationMs = durationMinutes * 60_000L,
         ),
         sensors = SensorSnapshot(screenActive = screenActive),
-        recentMemory = emptyList(),
+        recentMemory = recent,
         learnedMemory = learned,
         capturedAt = 1_000_000L,
     )
