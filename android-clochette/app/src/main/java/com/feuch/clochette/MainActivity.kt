@@ -1105,7 +1105,7 @@ private fun ClochetteControlPanel(
             Text("Dernier statut IA : ${aiConfig.lastStatus ?: if (aiConfig.enabled) "non testé" else "désactivée"}")
             Text("Dernière action : ${runtimeStatus.lastAction}")
             if (aiConfig.enabled && aiConfig.gatewayUrl.isBlank()) {
-                Text("IA distante non configurée · fallback local actif", color = Color(0xFF8A4B25))
+                Text("Octopus non configuré · fallback local actif", color = Color(0xFF8A4B25))
             }
             Button(
                 modifier = Modifier.fillMaxWidth(),
@@ -1269,16 +1269,16 @@ private fun AiGatewayPanel(
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Relais API Clochette", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Octopus Adapter", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text(
-                "Les clés Mistral/Gemini ne sont pas stockées dans l’application. Elles doivent rester côté serveur, dans la gateway.",
+                "Clochette envoie une mission copy.generate à Octopus. Le choix de Mistral ou d’un autre adaptateur reste côté Octopus.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("IA distante activée")
+                Text("Connexion Octopus activée")
                 Switch(
                     checked = config.enabled,
                     onCheckedChange = { onConfig(config.copy(enabled = it)) },
@@ -1289,18 +1289,7 @@ private fun AiGatewayPanel(
                 value = config.gatewayUrl,
                 onValueChange = { onConfig(config.copy(gatewayUrl = it)) },
                 singleLine = true,
-                label = { Text("Gateway URL") },
-            )
-            VoiceChoice(
-                title = "Provider préféré",
-                value = config.preferredProvider,
-                options = listOf(
-                    AiGatewaySettings.PROVIDER_AUTO,
-                    AiGatewaySettings.PROVIDER_MISTRAL,
-                    AiGatewaySettings.PROVIDER_GEMINI,
-                    AiGatewaySettings.PROVIDER_LOCAL,
-                ),
-                onValue = { onConfig(config.copy(preferredProvider = it)) },
+                label = { Text("URL Octopus Engine") },
             )
             VoiceChoice(
                 title = "Style",
@@ -1312,7 +1301,7 @@ private fun AiGatewayPanel(
                 ),
                 onValue = { onConfig(config.copy(styleLevel = it)) },
             )
-            Text("Dernier provider : ${config.lastProviderUsed ?: "aucun"}")
+            Text("Dernier exécuteur : ${config.lastProviderUsed ?: "aucun"}")
             Text("Dernier statut : ${config.lastStatus ?: "non testé"}")
             Text("Dernière latence : ${config.lastLatencyMs?.let { "$it ms" } ?: "-"}")
             Text("Dernière source : $latestSource")
@@ -1325,10 +1314,10 @@ private fun AiGatewayPanel(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onRelayTest) {
-                    Text("Tester le relais")
+                    Text("Tester Octopus")
                 }
                 OutlinedButton(onClick = onTest) {
-                    Text("Tester génération")
+                    Text("Tester mission")
                 }
             }
             testLine?.let {
