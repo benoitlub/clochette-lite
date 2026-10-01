@@ -35,6 +35,7 @@ class ClochetteProactiveService : Service() {
                 PresenceIntent.CURIOUS -> OctopusCore.intervene(
                     context = this@ClochetteProactiveService,
                     trigger = OctopusCore.TRIGGER_PROACTIVE_TICK,
+                    presenceSnapshot = snapshot,
                 )
                 PresenceIntent.SILENT,
                 PresenceIntent.OBSERVING,
