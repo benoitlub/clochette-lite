@@ -41,3 +41,45 @@ jobs:
         with:
           name: clochette-debug-apk
           path: android-clochette/app/build/outputs/apk/debug/*.apk
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore stable signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.CLOCHETTE_KEYSTORE_B64 }}
+        run: |
+          test -n "$KEYSTORE_B64" || (echo "Missing CLOCHETTE_KEYSTORE_B64 secret" && exit 1)
+          echo "$KEYSTORE_B64" | base64 --decode > android-clochette/clochette-release.jks
+
+      - name: Build signed release APK
+        working-directory: android-clochette
+        env:
+          CLOCHETTE_KEYSTORE_PATH: clochette-release.jks
+          CLOCHETTE_KEYSTORE_PASSWORD: ${{ secrets.CLOCHETTE_KEYSTORE_PASSWORD }}
+          CLOCHETTE_KEY_ALIAS: ${{ secrets.CLOCHETTE_KEY_ALIAS }}
+          CLOCHETTE_KEY_PASSWORD: ${{ secrets.CLOCHETTE_KEY_PASSWORD }}
+          CLOCHETTE_VERSION_CODE: ${{ github.run_number }}
+          CLOCHETTE_VERSION_NAME: 0.1.${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "Clochette-v0.1.${{ github.run_number }}.apk"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="clochette-v0.1.${{ github.run_number }}"
+          gh release create "$TAG"             "android-clochette/Clochette-v0.1.${{ github.run_number }}.apk"             --target "${{ github.sha }}"             --title "Clochette v0.1.${{ github.run_number }}"             --notes "APK Android signé de Clochette. Les versions suivantes signées avec la même clé pourront être installées par-dessus celle-ci sans effacer les données."
