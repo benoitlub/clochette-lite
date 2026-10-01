@@ -1232,6 +1232,11 @@ class ClochetteOverlayService : Service() {
                 VoiceInteractionController.transition(this@ClochetteOverlayService, VoiceInteractionState.TRANSCRIBING, "recognizer_end_of_speech")
                 showMiniTranscript(currentTranscriptText().ifBlank { "Je transforme \u00e7a en mots..." })
                 setMicButtonRecording(false)
+                // Android can occasionally deliver onEndOfSpeech without a terminal
+                // onResults/onError callback. Never leave the global voice state stuck
+                // in TRANSCRIBING: reuse the same bounded fallback as a manual stop.
+                handler.removeCallbacks(forceProcessRunnable)
+                handler.postDelayed(forceProcessRunnable, RESULT_GRACE_MS)
             }
         }
 
