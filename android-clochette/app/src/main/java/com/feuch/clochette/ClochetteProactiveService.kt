@@ -19,20 +19,26 @@ class ClochetteProactiveService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
-            val personality = ClochettePersonalitySettings.read(this@ClochetteProactiveService)
-            val chance = (10 + (personality.initiative * 0.85)).toInt().coerceIn(5, 95)
+            val snapshot = PresenceContextHub.capture(this@ClochetteProactiveService)
+            val presence = PresenceEngine.decide(snapshot)
+            ClochetteRuntimeStatus.recordAction(
+                this@ClochetteProactiveService,
+                "presence_${presence.intent.name.lowercase()}_${presence.reason}",
+            )
             if (!VoiceInteractionController.canSpeak(this@ClochetteProactiveService)) {
                 ClochetteRuntimeStatus.recordAction(this@ClochetteProactiveService, "proactive_skipped_voice_state")
                 scheduleNextTick()
                 return
             }
-            if (Random.nextInt(100) < chance) {
-                OctopusCore.intervene(
+            when (presence.intent) {
+                PresenceIntent.INTERVENE,
+                PresenceIntent.CURIOUS -> OctopusCore.intervene(
                     context = this@ClochetteProactiveService,
                     trigger = OctopusCore.TRIGGER_PROACTIVE_TICK,
                 )
-            } else {
-                ClochetteRuntimeStatus.recordAction(this@ClochetteProactiveService, "proactive_skipped_initiative")
+                PresenceIntent.SILENT,
+                PresenceIntent.OBSERVING,
+                PresenceIntent.GUARD -> Unit
             }
             scheduleNextTick()
         }
@@ -166,7 +172,7 @@ class ClochetteProactiveService : Service() {
         const val ACTION_FORCE_SAFE_SPOKEN = "com.feuch.clochette.proactive.FORCE_SAFE_SPOKEN"
         const val ACTION_OBSERVE = "com.feuch.clochette.proactive.OBSERVE"
         const val ACTION_PAUSE = "com.feuch.clochette.proactive.PAUSE"
-        const val DEBUG_FAST_PROACTIVE = true
+        const val DEBUG_FAST_PROACTIVE = false
         private const val FIRST_ATTEMPT_MS = 10_000L
         private const val CHANNEL_ID = "clochette_proactive"
         private const val NOTIFICATION_ID = 41
