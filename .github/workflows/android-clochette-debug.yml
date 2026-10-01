@@ -2,7 +2,7 @@ name: Android Clochette Debug
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v40-presence-engine ]
   workflow_dispatch:
 
 jobs:
@@ -27,6 +27,10 @@ jobs:
       - name: Make gradlew executable
         working-directory: android-clochette
         run: chmod +x gradlew
+
+      - name: Run unit tests
+        working-directory: android-clochette
+        run: ./gradlew testDebugUnitTest
 
       - name: Build debug APK
         working-directory: android-clochette
