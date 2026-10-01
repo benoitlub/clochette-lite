@@ -7,13 +7,22 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 
 class ClochettePresenceService : Service() {
     private lateinit var usageObserver: UsageObserver
     private lateinit var sensorObserver: SensorObserver
     private lateinit var memory: ClochetteMemory
+    private val handler = Handler(Looper.getMainLooper())
+    private val publishTick = object : Runnable {
+        override fun run() {
+            PresenceContextHub.publishSensors(this@ClochettePresenceService, sensorObserver.snapshot())
+            handler.postDelayed(this, SENSOR_PUBLISH_MS)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -32,6 +41,7 @@ class ClochettePresenceService : Service() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         sensorObserver.stop()
         setState(ClochetteState.ASLEEP)
         super.onDestroy()
@@ -42,6 +52,9 @@ class ClochettePresenceService : Service() {
     private fun startObserving() {
         setState(ClochetteState.OBSERVING)
         sensorObserver.start()
+        handler.removeCallbacksAndMessages(null)
+        PresenceContextHub.publishSensors(this, sensorObserver.snapshot())
+        handler.postDelayed(publishTick, SENSOR_PUBLISH_MS)
         startForeground(NOTIFICATION_ID, buildNotification("observe"))
 
         val activity = usageObserver.snapshot()
@@ -64,6 +77,7 @@ class ClochettePresenceService : Service() {
     }
 
     private fun pauseClochette() {
+        handler.removeCallbacksAndMessages(null)
         sensorObserver.stop()
         setState(ClochetteState.PAUSED)
         memory.add(
@@ -127,5 +141,6 @@ class ClochettePresenceService : Service() {
         const val ACTION_PAUSE = "com.feuch.clochette.PAUSE"
         private const val CHANNEL_ID = "clochette_presence"
         private const val NOTIFICATION_ID = 31
+        private const val SENSOR_PUBLISH_MS = 5_000L
     }
 }
