@@ -12,8 +12,27 @@ android {
         applicationId = "com.feuch.clochette"
         minSdk = 26
         targetSdk = 35
-        versionCode = 39
-        versionName = "0.1.39"
+        versionCode = providers.environmentVariable("CLOCHETTE_VERSION_CODE").orNull?.toIntOrNull() ?: 40
+        versionName = providers.environmentVariable("CLOCHETTE_VERSION_NAME").orNull ?: "0.1.40"
+    }
+
+    signingConfigs {
+        create("clochetteRelease") {
+            val storePath = providers.environmentVariable("CLOCHETTE_KEYSTORE_PATH").orNull
+            if (!storePath.isNullOrBlank()) {
+                storeFile = file(storePath)
+                storePassword = providers.environmentVariable("CLOCHETTE_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.environmentVariable("CLOCHETTE_KEY_ALIAS").orNull
+                keyPassword = providers.environmentVariable("CLOCHETTE_KEY_PASSWORD").orNull
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("clochetteRelease")
+            isMinifyEnabled = false
+        }
     }
 
     buildFeatures {
