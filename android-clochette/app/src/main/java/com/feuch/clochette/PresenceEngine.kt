@@ -17,19 +17,14 @@ object PresenceEngine {
     fun decide(snapshot: PresenceContextSnapshot): PresenceDecision {
         val activity = snapshot.activity
         val recent = snapshot.recentMemory
+        val feedback = PresenceFeedbackEngine.from(recent, snapshot.capturedAt)
 
         if (!snapshot.sensors.screenActive) {
             return PresenceDecision(PresenceIntent.SILENT, "screen_off")
         }
 
-        val recentRefusal = recent.takeLast(5).any { entry ->
-            entry.userReaction?.contains("pause", ignoreCase = true) == true ||
-                entry.userReaction?.contains("refus", ignoreCase = true) == true ||
-                entry.result?.contains("closed", ignoreCase = true) == true ||
-                entry.result?.contains("refused", ignoreCase = true) == true
-        }
-        if (recentRefusal) {
-            return PresenceDecision(PresenceIntent.GUARD, "recent_refusal")
+        if (feedback.cooldown) {
+            return PresenceDecision(PresenceIntent.GUARD, "learned_cooldown")
         }
 
         val durationMinutes = activity.approximateDurationMs / 60_000L
@@ -38,7 +33,11 @@ object PresenceEngine {
         }
 
         if (activity.recentSwitchCount >= 5) {
-            return PresenceDecision(PresenceIntent.CURIOUS, "frequent_switching")
+            return if (feedback.engagementCount > feedback.refusalCount) {
+                PresenceDecision(PresenceIntent.CURIOUS, "frequent_switching_engaged")
+            } else {
+                PresenceDecision(PresenceIntent.OBSERVING, "frequent_switching_no_engagement")
+            }
         }
 
         if (durationMinutes >= 45 || snapshot.sensors.walkingPossible) {
