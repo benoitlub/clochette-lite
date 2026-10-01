@@ -24,7 +24,7 @@ class AiGatewayClient(context: Context) {
         var result = GatewayHealthResult(false, "Erreur", "Réponse absente")
         val latency = measureTimeMillis {
             result = runCatching {
-                getHealth("$baseUrl/api/health")
+                getHealth("$baseUrl/health")
             }.getOrElse {
                 GatewayHealthResult(false, "Erreur", it.message ?: it.javaClass.simpleName)
             }
@@ -60,7 +60,7 @@ class AiGatewayClient(context: Context) {
         var result: AiRemarkResult? = null
         val latency = measureTimeMillis {
             result = runCatching {
-                postJson("$baseUrl/api/generate-remark", payload(request, config))
+                postJson("$baseUrl/mission", missionPayload(request, config))
             }.getOrElse {
                 AiGatewaySettings.record(appContext, "fallback", "erreur", error = it.message ?: it.javaClass.simpleName)
                 null
@@ -94,7 +94,7 @@ class AiGatewayClient(context: Context) {
             val json = runCatching { JSONObject(raw) }.getOrNull()
             GatewayHealthResult(
                 ok = connection.responseCode in 200..299 && json?.optBoolean("ok", false) == true,
-                service = json?.optString("service", "clochette-gateway").orEmpty(),
+                service = json?.optString("mode", "octopus-engine").orEmpty(),
                 error = json?.optString("error").orEmpty().ifBlank { null },
                 rawResponse = raw.take(240),
             )
@@ -127,36 +127,59 @@ class AiGatewayClient(context: Context) {
     }
 
     private fun parseResult(json: JSONObject): AiRemarkResult? {
-        val line = json.optString("line").takeIf { it.isNotBlank() } ?: return null
-        val provider = json.optString("providerUsed", "gateway").ifBlank { "gateway" }
+        if (json.optString("status") != "completed") return null
+        val output = json.optJSONObject("output") ?: return null
+        val line = output.optString("text").takeIf { it.isNotBlank() } ?: return null
         return AiRemarkResult(
             line = line.withVisibleFrenchAccents(),
-            shouldSpeak = json.optBoolean("shouldSpeak", true),
-            shouldOpenMic = json.optBoolean("shouldOpenMic", false),
-            listenSeconds = json.optInt("listenSeconds", 15).coerceIn(1, 15),
-            providerUsed = provider,
-            source = sourceForProvider(provider, json.optString("source")),
+            shouldSpeak = true,
+            shouldOpenMic = line.contains("?"),
+            listenSeconds = 15,
+            providerUsed = json.optString("executorId", "octopus").ifBlank { "octopus" },
+            source = PhraseSource.AI_GATEWAY,
         )
     }
 
-    private fun payload(request: AiRemarkRequest, config: AiGatewayConfig): JSONObject = JSONObject()
-        .put("systemPrompt", SYSTEM_PROMPT)
-        .put("personaId", "clochette")
-        .put("relationshipMode", request.relationshipMode)
-        .put("preferredProvider", config.preferredProvider)
-        .put("styleLevel", config.styleLevel)
-        .put("foregroundApp", request.foregroundApp)
-        .put("durationMinutes", request.durationMinutes)
-        .put("appSwitchCount", request.appSwitchCount)
-        .put("sensorSummary", request.sensorSummary)
-        .put("energy", request.energy)
-        .put("recentMemorySummary", request.recentMemorySummary)
-        .put("nowPlaying", JSONObject()
-            .put("appName", request.nowPlayingAppName)
-            .put("title", request.nowPlayingTitle)
-            .put("artist", request.nowPlayingArtist))
-        .put("userLastReply", request.userLastReply)
-        .put("language", "fr-FR")
+    private fun missionPayload(request: AiRemarkRequest, config: AiGatewayConfig): JSONObject {
+        val operationId = "clochette_" + System.currentTimeMillis()
+        val context = JSONObject()
+            .put("id", "clochette-android")
+            .put("label", "Clochette Android")
+            .put("objective", "Generate one short contextual Clochette response.")
+            .put("metadata", JSONObject()
+                .put("personaId", "clochette")
+                .put("relationshipMode", request.relationshipMode)
+                .put("styleLevel", config.styleLevel)
+                .put("foregroundApp", request.foregroundApp)
+                .put("durationMinutes", request.durationMinutes)
+                .put("appSwitchCount", request.appSwitchCount)
+                .put("sensorSummary", request.sensorSummary)
+                .put("energy", request.energy)
+                .put("recentMemorySummary", request.recentMemorySummary)
+                .put("userLastReply", request.userLastReply)
+                .put("language", "fr-FR"))
+
+        val prompt = buildString {
+            append(SYSTEM_PROMPT)
+            append("\nStyle: ").append(config.styleLevel)
+            append("\nRelationship: ").append(request.relationshipMode)
+            request.foregroundApp?.let { append("\nForeground app: ").append(it) }
+            append("\nDuration minutes: ").append(request.durationMinutes)
+            append("\nApp switches: ").append(request.appSwitchCount)
+            request.sensorSummary?.let { append("\nSensors: ").append(it) }
+            request.recentMemorySummary?.let { append("\nRecent memory: ").append(it) }
+            request.userLastReply?.let { append("\nUser reply: ").append(it) }
+            append("\nReturn only Clochette's line, no JSON and no explanation.")
+        }
+
+        return JSONObject()
+            .put("operationId", operationId)
+            .put("title", "Clochette contextual reply")
+            .put("objective", "Generate one concise contextual line in Clochette's persona.")
+            .put("context", context)
+            .put("requiredCapabilities", org.json.JSONArray().put("copy.generate"))
+            .put("prompt", prompt)
+    }
 
     private fun localNaturalRemark(request: AiRemarkRequest): AiRemarkResult {
         val app = request.foregroundApp?.takeIf { it.isNotBlank() } ?: "cette app"
