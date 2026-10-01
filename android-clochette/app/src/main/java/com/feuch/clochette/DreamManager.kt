@@ -28,6 +28,32 @@ class DreamManager(context: Context) {
         }
     }
 
+    fun prepareFromConsolidatedMemory(limit: Int = 3): DreamCycle {
+        val memories = ConsolidatedMemoryStore(appContext)
+            .active(24)
+            .filter { it.confidence != MemorySignal.LOW && it.usefulness != MemorySignal.LOW }
+            .takeLast(limit.coerceIn(1, 5))
+
+        val candidates = memories.mapIndexed { index, memory ->
+            DreamCandidate(
+                line = memory.lightweightSummary,
+                reason = "consolidated_${memory.userIntent ?: "signal"}_$index",
+                source = "consolidated_memory",
+                accepted = false,
+            )
+        }
+        return DreamCycle(
+            state = if (candidates.isEmpty()) DreamState.SLEEPING else DreamState.REVIEWING_CANDIDATES,
+            note = if (candidates.isEmpty()) {
+                "Rien d'assez solide à rêvasser pour le moment."
+            } else {
+                "Je relis uniquement les souvenirs déjà consolidés."
+            },
+            candidates = candidates,
+            automatic = false,
+        )
+    }
+
     fun returnFromPrivateMoment(rejectedCount: Int = 0, adoptedCount: Int = 0): DreamReturn {
         val contract = loadContract()
         val line = contract.returnLines.pick(rejectedCount + adoptedCount)
