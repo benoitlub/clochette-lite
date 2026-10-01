@@ -6,6 +6,7 @@ data class PresenceContextSnapshot(
     val activity: ActivitySnapshot,
     val sensors: SensorSnapshot = SensorSnapshot(),
     val recentMemory: List<ClochetteMemoryEntry> = emptyList(),
+    val learnedMemory: List<MemoryEntry> = emptyList(),
     val capturedAt: Long = System.currentTimeMillis(),
 )
 
@@ -37,6 +38,7 @@ object PresenceContextHub {
                 screenActive = prefs.getBoolean("screen_active", true),
             ),
             recentMemory = ClochetteMemory(appContext).recent(24),
+            learnedMemory = ConsolidatedMemoryStore(appContext).active(24),
         )
     }
 }
