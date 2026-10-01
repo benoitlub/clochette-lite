@@ -40,13 +40,15 @@ object OctopusCore {
         transcription: String? = null,
         forceSpeak: Boolean = false,
         openMic: Boolean = false,
+        presenceSnapshot: PresenceContextSnapshot? = null,
     ): OctopusDecision {
         val appContext = context.applicationContext
-        val usage = UsageObserver(appContext).snapshot()
+        val snapshot = presenceSnapshot ?: PresenceContextHub.capture(appContext)
+        val usage = snapshot.activity
         val memory = ClochetteMemory(appContext)
-        val recentMemory = memory.recent(24)
+        val recentMemory = if (presenceSnapshot != null) snapshot.recentMemory else memory.recent(24)
         val contextEngine = ContextRemarkEngine(appContext)
-        val state = contextEngine.buildState(usage)
+        val state = contextEngine.buildState(usage, snapshot.sensors)
         val aiConfig = AiGatewaySettings.read(appContext)
         val relationshipMode = RelationshipModeSettings.selected(appContext)
         val activeCharacter = CharacterRegistry.get(appContext, CharacterSettings.read(appContext).activeCharacterId)
@@ -96,7 +98,7 @@ object OctopusCore {
                 bankId = "user_answer_reactions",
                 tone = conversation?.tags?.joinToString(",").orEmpty(),
             )
-            else -> localGenerated(appContext, trigger, state, relationshipMode, contextEngine, usage, recentMemory)
+            else -> localGenerated(appContext, trigger, state, relationshipMode, contextEngine, usage, snapshot.sensors, recentMemory)
         }
 
         val casting = CharacterDirector.choose(
@@ -181,7 +183,7 @@ object OctopusCore {
             listenSeconds = generated.listenSeconds,
             overlayState = if (shouldOfferReply) "auto_after_tts_pending" else "expanded",
             voiceStatus = voiceStatus,
-            diagnosticText = "trigger=$trigger | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | replyPrompt=$shouldOfferReply | autoMic=after_tts_done | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
+            diagnosticText = "trigger=$trigger | screen=${snapshot.sensors.screenActive} | movement=${state.movementState.name.lowercase()} | lowLight=${snapshot.sensors.lowLight} | character=${casting.character.id} | source=${source.id} | provider=${generated.provider} | guardian=${guardian.reason} | voix=$voiceStatus | replyPrompt=$shouldOfferReply | autoMic=after_tts_done | casting=${casting.reason}$bankDiagnostic$conversationDiagnostic",
             phraseBankId = generated.bankId,
             phraseEntryId = generated.entryId,
             phraseTone = generated.tone,
@@ -222,6 +224,7 @@ object OctopusCore {
         relationshipMode: RelationshipMode,
         contextEngine: ContextRemarkEngine,
         usage: ActivitySnapshot,
+        sensors: SensorSnapshot,
         recentMemory: List<ClochetteMemoryEntry>,
     ): Generated {
         val proactiveConfig = RelationshipModeSettings.effectiveConfig(context)
@@ -257,7 +260,7 @@ object OctopusCore {
             }
         }
 
-        val contextLine = contextEngine.remark(usage, recentMemory)
+        val contextLine = contextEngine.remark(usage, recentMemory, sensors)
         if (contextLine != null && trigger != TRIGGER_PROACTIVE_TEST) {
             return Generated(contextLine, contextEngine.lastSource(), "local", false, false, 15)
         }
