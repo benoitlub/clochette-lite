@@ -1,53 +1,77 @@
 # Clochette Lite
 
-Présence cognitive légère du Feuch Institut.
+Présence cognitive légère du Feuch Institut : une petite présence piquante et
+maternelle qui aide Benoît à protéger son élan.
 
-Clochette n'est pas un assistant, pas un coach, pas un tableau de bord gris. C'est une petite présence piquante et maternelle qui aide Benoît à protéger son élan.
+## Deux applications distinctes
 
-## Version actuelle
+| Version | Sources | Installation |
+|---|---|---|
+| Web / PWA | `index.html`, scripts et styles à la racine | Navigateur, puis ajout à l'écran d'accueil |
+| Android native | `android-clochette/` | APK de développement ou Android Studio |
 
-- Widget flottant Clochette
-- Boussole du moment : objectif, projet, énergie
-- Timer adaptatif : 8, 12 ou 18 minutes
-- Interventions locales courtes
-- Carnet privé du Feuch Institut
-- Mémoire locale dans le navigateur
-- PWA installable sur mobile
-- Adaptateur prévu pour Gemma via une passerelle locale future
+Ajouter le site à l'écran d'accueil installe la PWA, pas l'application native.
+Les deux versions n'ont pas les mêmes possibilités ni les mêmes permissions.
 
-## Déploiement GitHub Pages
+## Version web
 
-Dans GitHub :
+Le site contient une boussole du moment, un timer adaptatif, des interventions
+courtes et un carnet enregistré localement dans le navigateur.
 
-1. Aller dans Settings
-2. Ouvrir Pages
-3. Source : Deploy from a branch
-4. Branch : main
-5. Folder : root
-6. Save
+Adresse attendue :
+https://benoitlub.github.io/clochette-lite/.
 
-L'application sera ensuite disponible à l'adresse GitHub Pages du dépôt.
+Dans Chrome Android, ouvrir le site puis utiliser « Ajouter à l'écran d'accueil »
+ou l'option d'installation proposée par le navigateur.
+Pour l'hébergement Pages historique : branche `main`, dossier racine.
 
-## Installation sur Android
+Les phrases locales permettent un fonctionnement sans modèle distant.
+La passerelle facultative est documentée dans
+[clochette-gateway/README.md](clochette-gateway/README.md).
+Sa présence dans le dépôt ne prouve pas qu'un serveur distant est configuré.
 
-Depuis Chrome sur le téléphone :
+## Version Android native
 
-1. Ouvrir l'adresse GitHub Pages
-2. Ouvrir le menu du navigateur
-3. Choisir Ajouter à l'écran d'accueil
-4. Lancer Clochette comme une mini-app
+Le dossier [android-clochette](android-clochette/README.md) contient l'application
+Kotlin : présence en notification, surimpression déplaçable, personnages, mémoire
+locale et interactions vocales. Les observations dépendent des permissions
+accordées et des capteurs disponibles.
 
-## Mode Gemma
+### Obtenir l'APK de développement
 
-Sans Gemma, Clochette utilise sa banque de phrases locales.
-Avec Gemma, une passerelle locale pourra recevoir les événements du widget et générer des remarques plus variées.
+1. Ouvrir [Actions — Android Clochette Debug](https://github.com/benoitlub/clochette-lite/actions/workflows/android-clochette-debug.yml).
+2. Choisir un run réussi du commit voulu.
+3. Télécharger l'artefact `clochette-debug-apk` et extraire l'APK.
+4. Installer sur un appareil de test ; Android peut demander l'autorisation
+   d'installer une application depuis cette source.
 
-## Principe éthique
+Il s'agit d'un APK debug, pas d'une version publiée sur une boutique.
+Un build réussi n'atteste pas les gestes, le microphone ou l'autonomie sur chaque
+téléphone.
 
-Clochette ne prétend jamais voir ce qu'elle ne voit pas.
-Elle n'observe que ce que Benoît choisit de lui donner.
-Elle distingue ce qu'elle sait, ce qu'elle suppose et ce qu'elle imagine.
+### Construire depuis les sources
 
-## Devise
+Ouvrir `android-clochette/` dans Android Studio, ou, avec Java et le SDK Android
+configurés :
+
+```bash
+python3 android-clochette/tools/validate_persona_assets.py
+cd android-clochette
+./gradlew assembleDebug
+```
+
+Sur Windows : `gradlew.bat assembleDebug`.
+Sortie : `android-clochette/app/build/outputs/apk/debug/app-debug.apk`.
+
+Les détails d'intégration IA sont dans
+[AI_GATEWAY.md](android-clochette/AI_GATEWAY.md) et les vérifications historiques
+dans [BUILD_STATUS.md](android-clochette/BUILD_STATUS.md). Ce dernier document
+ne vaut pas validation d'une version ultérieure.
+
+## Principe
+
+Clochette distingue ce qu'elle sait, ce qu'elle suppose et ce qu'elle imagine.
+Les accès aux usages, notifications, capteurs, surimpression et microphone doivent
+être compréhensibles et contrôlables depuis l'application et Android.
 
 Une remarque mémorable vaut mieux qu'un conseil banal.
